@@ -8,6 +8,8 @@ Inputs (read-only):
                  2026-10-30" and "CityMETER Dataset Registry".
   --osm FILE     optional Overpass API JSON (OpenStreetMap, ODbL) for the station
                  buildings, the elevation of each alignment and line colours.
+  --osm-derived FILE  instead of --osm: the results of scripts/osm-browser-extract.js
+                 run where the raw file is (sources/osm/*.json, same rules).
 
 Outputs (written to --out, default ./data):
   transit.json             systems, lines, stations, interchanges, complexes, meta
@@ -31,7 +33,7 @@ Rules carried from the research master and the CityMETER project instructions:
   * no Google Drive / Docs links, local file paths or credentials are published —
     the build fails if one reaches an output.
 
-Run:  python3 -I scripts/build-data.py --export <dir> [--osm <overpass.json>] [--out data]
+Run:  python3 -I scripts/build-data.py --export <dir> [--osm <overpass.json> | --osm-derived <derived.json>] [--out data]
 """
 import argparse
 import collections
@@ -911,6 +913,8 @@ def encode_polyline(coords, precision=5):
 
 
 BUS_CLASSES = [(1, 1), (2, 3), (4, 7), (8, 15), (16, 10 ** 6)]
+BUS_FRAME = [99.9, 13.2, 101.2, 14.4]    # west, south, east, north — Bangkok Metropolitan Region frame of the bus layer
+BOAT_FRAME = [100.2, 13.4, 100.9, 14.2]  # frame of the boat layer
 
 
 def bus_class(n):
@@ -955,7 +959,7 @@ def build_bus(ex, shapes):
         g = max(gids, key=lambda x: path_length_m(shapes.coords(x)))
         coords = shapes.coords(g)
         b = (min(c[0] for c in coords), min(c[1] for c in coords), max(c[0] for c in coords), max(c[1] for c in coords))
-        if b[0] < 99.9 or b[2] > 101.2 or b[1] < 13.2 or b[3] > 14.4:  # Bangkok Metropolitan Region frame of this layer
+        if b[0] < BUS_FRAME[0] or b[2] > BUS_FRAME[2] or b[1] < BUS_FRAME[1] or b[3] > BUS_FRAME[3]:  # Bangkok Metropolitan Region frame of this layer
             continue
         picks.append(coords)
     picks.sort(key=path_length_m, reverse=True)
@@ -974,7 +978,7 @@ def build_bus(ex, shapes):
     for e in ex.tab('09_ENTITIES'):
         if e['mode_id'] in ('bus', 'bus_rapid_transit') and e['entity_grain'] == 'provider_stop_reference' and e['current_operating_status'].startswith('calendar_listed'):
             lat, lng = to_float(e['latitude']), to_float(e['longitude'])
-            if lat is None or not (13.2 <= lat <= 14.4 and 99.9 <= lng <= 101.2):
+            if lat is None or not (BUS_FRAME[1] <= lat <= BUS_FRAME[3] and BUS_FRAME[0] <= lng <= BUS_FRAME[2]):
                 continue
             if e['mode_id'] == 'bus_rapid_transit':
                 brt_stations.append({'name': e['name_th'], 'lng': rnd(lng), 'lat': rnd(lat)})
@@ -990,7 +994,7 @@ def build_bus(ex, shapes):
                 brt.append({'name': r['route_name'], 'p': encode_polyline(shapes.coords(g))})
     return {
         'meta': {'source': 'GTFS ของ สนข. (OTP Namtang) รุ่น 20261029 · CC BY 4.0', 'calendarDate': '2026-10-30', 'routesUsed': len(picks), 'stops': len(stops),
-                 'frame': 'กรุงเทพฯ และปริมณฑล (กรอบสี่เหลี่ยม 99.9–101.2°E, 13.2–14.4°N)',
+                 'frame': 'กรุงเทพฯ และปริมณฑล (กรอบสี่เหลี่ยม 99.9–101.2°E, 13.2–14.4°N)', 'frameBox': BUS_FRAME,
                  'reading': 'เส้นคือช่วงถนนที่มีแนวเส้นทางรถเมล์ตาม GTFS ผ่าน ตัวเลขคือจำนวนระเบียนเส้นทางที่ผ่านช่วงนั้น ไม่ใช่ความถี่หรือจำนวนรถจริง',
                  'classes': [list(c) for c in BUS_CLASSES], 'encoding': 'polyline5 (lat,lng)'},
         'routes': lines,
@@ -1009,7 +1013,7 @@ def build_boat(ex, shapes):
             continue
         g = max(gids, key=lambda x: path_length_m(shapes.coords(x)))
         coords = shapes.coords(g)
-        if not all(13.4 <= c[1] <= 14.2 and 100.2 <= c[0] <= 100.9 for c in coords):
+        if not all(BOAT_FRAME[1] <= c[1] <= BOAT_FRAME[3] and BOAT_FRAME[0] <= c[0] <= BOAT_FRAME[2] for c in coords):
             continue
         feats.append({'type': 'Feature', 'properties': {'mode': r['mode_id'], 'name': r['route_name'], 'status': r['current_operating_status']},
                       'geometry': {'type': 'LineString', 'coordinates': line_coords([to_ll(*q) for q in simplify_xy([to_xy(*c) for c in coords], 4.0)])}})
@@ -1017,15 +1021,116 @@ def build_boat(ex, shapes):
     for e in ex.tab('09_ENTITIES'):
         if e['mode_id'] in ('river_boat', 'canal_boat', 'cross_river_ferry') and (e['current_operating_status'].startswith('calendar_listed') or e['entity_grain'] == 'operator_listed_pier'):
             lat, lng = to_float(e['latitude']), to_float(e['longitude'])
-            if lat is None or not (13.4 <= lat <= 14.2 and 100.2 <= lng <= 100.9):
+            if lat is None or not (BOAT_FRAME[1] <= lat <= BOAT_FRAME[3] and BOAT_FRAME[0] <= lng <= BOAT_FRAME[2]):
                 continue
             stops.append({'type': 'Feature', 'properties': {'name': e['name_th'], 'mode': e['mode_id']}, 'geometry': {'type': 'Point', 'coordinates': [rnd(lng), rnd(lat)]}})
     return {
         'meta': {'source': 'GTFS ของ สนข. (OTP Namtang) รุ่น 20261029 · CC BY 4.0 และรายชื่อท่าเรือของผู้ให้บริการ', 'calendarDate': '2026-10-30',
-                 'reading': 'แนวเรือตาม GTFS เป็นแนวเส้นของแหล่ง ไม่ใช่ร่องน้ำที่สำรวจ ท่าเรือคือท่าที่อยู่ในตาราง GTFS หรือรายชื่อผู้ให้บริการ ไม่ยืนยันการเดินเรือสด'},
+                 'reading': 'แนวเรือตาม GTFS เป็นแนวเส้นของแหล่ง ไม่ใช่ร่องน้ำที่สำรวจ ท่าเรือคือท่าที่อยู่ในตาราง GTFS หรือรายชื่อผู้ให้บริการ ไม่ยืนยันการเดินเรือสด',
+                 'frameBox': BOAT_FRAME},
         'routes': {'type': 'FeatureCollection', 'features': feats},
         'stops': {'type': 'FeatureCollection', 'features': stops},
     }
+
+
+# --------------------------------------------------------------- context layers
+# Owner 2026-10-31: "สายรถเมล วินมอไซค์ บขส หายไป … mode อื่นๆหายไป" — every mode of the
+# research master that has coordinates is available as an optional layer; rail stays the subject.
+AIR_STATUS = {
+    'civil_scheduled_passenger_movements_reported': 'มีรายงานเที่ยวบินโดยสารแบบประจำ',
+    'civil_non_scheduled_passenger_movements_reported': 'มีรายงานเที่ยวบินโดยสารแบบไม่ประจำ',
+    'operator_lists_civil_passenger_airport': 'อยู่ในรายชื่อท่าอากาศยานของผู้ดำเนินการ',
+    'operator_lists_public_passenger_airport': 'อยู่ในรายชื่อท่าอากาศยานของผู้ดำเนินการ',
+    'operator_publishes_passenger_flight_schedule': 'ผู้ดำเนินการเผยแพร่ตารางบินโดยสาร',
+}
+TH_FRAME = [97.3, 5.6, 105.7, 20.5]   # west, south, east, north — Thailand, for "nationwide" layers
+
+
+def source_brief(ex, sid):
+    r = next((x for x in ex.tab('07_SOURCES') if x['source_id'] == sid), {})
+    return {'id': sid, 'title': r.get('title', ''), 'provider': r.get('provider', ''), 'url': public_url(r.get('source_url', '')),
+            'period': r.get('source_period', ''), 'licence': r.get('license', ''), 'checkedOn': iso_date(r.get('checked_on', ''))}
+
+
+def entity_points(ex, mode, grains):
+    """Entities of one mode and grain with a coordinate (09_ENTITIES), as (row, lng, lat)."""
+    for e in ex.tab('09_ENTITIES'):
+        if e['mode_id'] == mode and e['entity_grain'] in grains:
+            lat, lng = to_float(e['latitude']), to_float(e['longitude'])
+            if lat is not None and lng is not None:
+                yield e, lng, lat
+
+
+def clean_name(v, prefixes=()):
+    v = re.sub(r'\s+', ' ', (v or '').strip())
+    for pre in prefixes:
+        if v.startswith(pre):
+            v = v[len(pre):].strip()
+    return v
+
+
+def context_layer(layer, label, unit, kinds, rows, sources, boundary, frame, grain, reading, fields=('lng', 'lat', 'name', 'area', 'kind')):
+    rows.sort(key=lambda r: (round(r[1], 2), r[0]))
+    return {
+        'meta': {'layer': layer, 'label': label, 'unit': unit, 'count': len(rows), 'kinds': kinds,
+                 'kindCounts': [sum(1 for r in rows if r[4] == i) for i in range(len(kinds))],
+                 'sources': sources, 'boundary': boundary, 'frame': frame, 'grain': grain, 'reading': reading,
+                 'checkedOn': max((s['checkedOn'] for s in sources if s.get('checkedOn')), default='')},
+        'fields': list(fields), 'rows': rows,
+    }
+
+
+def build_context_layers(ex, used):
+    out = {}
+    # วินมอเตอร์ไซค์รับจ้าง — BMA open data, one row per stand of the research master (WIN_ID duplicates resolved there)
+    rows = []
+    for e, lng, lat in entity_points(ex, 'motorcycle_taxi', {'motorcycle_taxi_stand'}):
+        rows.append([rnd(lng), rnd(lat), clean_name(e['name_th']), e['reference_district'], 0])
+    used['SRC_BMA_MOTORCYCLE'] += len(rows)
+    out['moto'] = context_layer(
+        'moto', 'วินมอเตอร์ไซค์รับจ้าง', 'จุด', ['จุดวินมอเตอร์ไซค์ (ทะเบียน กทม.)'], rows, [source_brief(ex, 'SRC_BMA_MOTORCYCLE')],
+        'กรุงเทพมหานคร (ข้อมูลของ กทม.)', [100.32, 13.49, 100.94, 13.96],
+        'หนึ่งจุด = จุดวินตามทะเบียนของ กทม. ไม่ได้ตรวจว่ายังให้บริการ',
+        'ตำแหน่งตามข้อมูลเปิดของ กทม. (แก้ไขล่าสุด ก.ย.–ธ.ค. 2566) ไม่ใช่การสำรวจปัจจุบัน ไม่รวมจุดจากเอกสารปี 2562 และแผนที่ กทม. ที่ไม่ระบุวันที่')
+    # รถโดยสารระหว่างเมือง — MOT bus terminals + the Transport Co. (บขส.) boarding points; cross-source duplicates are not removed
+    rows = []
+    for e, lng, lat in entity_points(ex, 'intercity_bus', {'bus_terminal', 'bus_stop_ticket_outlet'}):
+        src = e['coordinate_observation_id'].split(':')[0]
+        kind = 0 if src == 'SRC_MOT_BUS_TERMINALS' else 1 if e['entity_grain'] == 'bus_terminal' else 2
+        rows.append([rnd(lng), rnd(lat), clean_name(e['name_th'], ('- ', '-')), e['reference_province'], kind])
+        used[src] += 1
+    out['intercity'] = context_layer(
+        'intercity', 'รถโดยสารระหว่างเมือง (บขส. · สถานีขนส่ง)', 'จุด',
+        ['สถานีขนส่งผู้โดยสาร (กระทรวงคมนาคม)', 'สถานีเดินรถ บขส.', 'จุดจอดและจำหน่ายตั๋ว บขส.'], rows,
+        [source_brief(ex, 'SRC_MOT_BUS_TERMINALS'), source_brief(ex, 'SRC_TCL_LOCATIONS')],
+        'ทั่วประเทศ', TH_FRAME,
+        'หนึ่งจุด = สถานีขนส่งหรือจุดจอดตามแหล่ง ไม่ได้ตัดรายการซ้ำข้ามสองแหล่ง และไม่ได้ตรวจการให้บริการปัจจุบัน',
+        'ไม่รวมที่ทำการ ด่านตรวจ จุดรับพัสดุ และจุดขายตั๋วอย่างเดียวของ บขส.')
+    # ท่าอากาศยาน — CAAT eAIP aerodrome reference points of civil passenger airports
+    rows = []
+    for e, lng, lat in entity_points(ex, 'air', {'civil_passenger_airport'}):
+        code = e['coordinate_observation_id'].split(':')[-1] if e['coordinate_observation_id'].startswith('SRC-AIR-CAAT') else ''
+        rows.append([rnd(lng), rnd(lat), clean_name(e['name_th']), e['reference_province'], 0, code, AIR_STATUS.get(e['current_operating_status'], '')])
+        used[e['coordinate_observation_id'].split(':')[0]] += 1
+    out['air'] = context_layer(
+        'air', 'ท่าอากาศยาน', 'แห่ง', ['ท่าอากาศยานพลเรือนที่รับผู้โดยสาร'], rows, [source_brief(ex, 'SRC-AIR-CAAT-AIP-20261029')],
+        'ทั่วประเทศ', TH_FRAME,
+        'หนึ่งจุด = จุดอ้างอิงท่าอากาศยาน (ARP) ตาม eAIP ไม่ใช่ตำแหน่งอาคารผู้โดยสารหรือทางเข้า',
+        'สถานะเป็นหลักฐานจากรายงานหรือรายชื่อ ไม่ใช่การยืนยันเที่ยวบินสด',
+        fields=('lng', 'lat', 'name', 'area', 'kind', 'code', 'status'))
+    # รถไฟทางไกล (รฟท.) — stops with scheduled trips in the GTFS calendar of the target date
+    rows = []
+    for e, lng, lat in entity_points(ex, 'conventional_rail', {'provider_stop_reference'}):
+        if not e['current_operating_status'].startswith('calendar_listed'):
+            continue
+        rows.append([rnd(lng), rnd(lat), clean_name(e['name_th'], ('SRT ',)), e['reference_province'], 0])
+    used['SRC_OTP_NAMTANG_GTFS'] += len(rows)
+    out['srt'] = context_layer(
+        'srt', 'รถไฟทางไกล (รฟท.)', 'จุดจอด', ['ที่หยุดรถไฟที่มีเที่ยวตามตาราง GTFS'], rows, [source_brief(ex, 'SRC_OTP_NAMTANG_GTFS')],
+        'ทั่วประเทศ', TH_FRAME,
+        'หนึ่งจุด = ที่หยุดรถใน GTFS ที่มีเที่ยวตามตารางวันที่ 30 ต.ค. 2569 ไม่ใช่ทะเบียนสถานีทั้งหมดของ รฟท.',
+        'แนวรางดูจากแผนที่ฐาน แนวเส้นใน GTFS ของรถไฟทางไกลหยาบเกินกว่าจะวาด (บางเส้นมีจุดไม่กี่สิบจุดตลอดสาย)')
+    return out
 
 
 # ---------------------------------------------------------------------- sources
@@ -1081,10 +1186,30 @@ def write_json(path, obj, pretty=False):
     return {'path': os.path.relpath(path, REPO), 'bytes': len(data), 'sha256': hashlib.sha256(data).hexdigest()}
 
 
+def context_summary(bus, boat, context):
+    """Counts, source and frame of every optional layer, so the layer menu can say what it holds before loading it."""
+    out = {
+        'bus': {'label': 'รถเมล์ · BRT', 'short': 'รถเมล์', 'count': bus['meta']['stops'], 'unit': 'ป้าย', 'routes': bus['meta']['routesUsed'],
+                'boundary': 'กรุงเทพฯ และปริมณฑล', 'frame': BUS_FRAME, 'source': 'GTFS ของ สนข.', 'period': 'ตาราง 30 ต.ค. 2569'},
+        'boat': {'label': 'เรือโดยสาร', 'short': 'เรือโดยสาร', 'count': len(boat['stops']['features']), 'unit': 'ท่า', 'routes': len(boat['routes']['features']),
+                 'boundary': 'กรุงเทพฯ และปริมณฑล', 'frame': BOAT_FRAME, 'source': 'GTFS ของ สนข. และรายชื่อท่าของผู้ให้บริการ', 'period': 'ตาราง 30 ต.ค. 2569'},
+    }
+    period = {'moto': 'แก้ไขล่าสุด ก.ย.–ธ.ค. 2566', 'intercity': 'คค. พ.ค. 2569 · บขส. ปรับปรุง มิ.ย. 2564', 'air': 'eAIP มีผล 29 ต.ค. 2569', 'srt': 'ตาราง 30 ต.ค. 2569'}
+    short = {'moto': 'ข้อมูลเปิด กทม.', 'intercity': 'กระทรวงคมนาคม และ บขส.', 'air': 'กพท. (eAIP)', 'srt': 'GTFS ของ สนข.'}
+    legend = {'moto': 'วินมอเตอร์ไซค์', 'intercity': 'สถานีขนส่ง · บขส.', 'air': 'ท่าอากาศยาน', 'srt': 'รถไฟทางไกล'}
+    for k, v in context.items():
+        m = v['meta']
+        out[k] = {'label': m['label'], 'short': legend[k], 'count': m['count'], 'unit': m['unit'], 'boundary': m['boundary'], 'frame': m['frame'],
+                  'source': short[k], 'period': period[k], 'kinds': m['kinds'], 'kindCounts': m['kindCounts']}
+    out['moto']['provinces'] = ['BKK']   # a Bangkok register: a station in another province is outside its boundary, not "0 stands"
+    return out
+
+
 def main():
     ap = argparse.ArgumentParser(description=__doc__.split('\n')[0])
     ap.add_argument('--export', required=True)
     ap.add_argument('--osm', default='')
+    ap.add_argument('--osm-derived', default='', help='results of scripts/osm-browser-extract.js (sources/osm/*.json) when the raw file is not here')
     ap.add_argument('--out', default=os.path.join(REPO, 'data'))
     args = ap.parse_args()
     ex = Export(args.export)
@@ -1096,15 +1221,20 @@ def main():
     shapes = Shapes(ex)
     buildings = {'type': 'FeatureCollection', 'features': [], 'metadata': {'status': 'not_built', 'reason': 'ยังไม่มีไฟล์ OpenStreetMap ในรอบนี้'}}
     osm_meta = None
-    if args.osm:
+    if args.osm or args.osm_derived:
         import importlib.util
         spec = importlib.util.spec_from_file_location('osm_enrich', os.path.join(HERE, 'osm_enrich.py'))
         mod = importlib.util.module_from_spec(spec)
         spec.loader.exec_module(mod)
-        buildings, osm_meta = mod.enrich(args.osm, lines, stations, line_features, report)
+        if args.osm:
+            buildings, osm_meta = mod.enrich(args.osm, lines, stations, line_features, report)
+        else:
+            buildings, osm_meta = mod.apply_derived(args.osm_derived, lines, stations, line_features, report)
     # resolve every line's display colour key for the page
     for l in lines:
         l.pop('geometryIds', None)
+    bus, boat = build_bus(ex, shapes), build_boat(ex, shapes)
+    context = build_context_layers(ex, used)
     meta = {
         'product': 'CityMETER · Transit', 'release': RELEASE, 'asOf': AS_OF, 'generatedBy': 'scripts/build-data.py',
         'sourceExport': {'exportedAt': ex.manifest.get('exportedAt'), 'files': len(ex.manifest.get('files', [])),
@@ -1115,6 +1245,7 @@ def main():
         'statusRule': 'เปิดให้บริการ = อยู่ในรายชื่อสถานีปัจจุบันของผู้ให้บริการ (ไม่ใช่สถานะสด) · กำลังก่อสร้าง = สมาชิกโครงการ ยังไม่เปิด · ยังยืนยันไม่ได้ = สถานีเดิม/ชุมทางอ้างอิงของโครงการ',
         'complexRule': 'จุดเปลี่ยนสาย = กลุ่มระเบียนที่เชื่อมกันด้วยความสัมพันธ์การเชื่อมต่อปัจจุบันใน 31_INTERCHANGES (ตามผังเครือข่ายผู้ให้บริการ) ไม่ใช่การรวมอาคารหรือตัวตน',
         'osm': osm_meta,
+        'contextLayers': context_summary(bus, boat, context),
         'sources': build_sources(ex, used),
         'limitations': [
             'ไม่มีหลักฐานการเดินรถแบบสด (live_verified = false ทุกรายการ)',
@@ -1128,10 +1259,12 @@ def main():
     os.makedirs(args.out, exist_ok=True)
     files = [
         write_json(os.path.join(args.out, 'transit.json'), data),
-        write_json(os.path.join(args.out, 'rail-lines.geojson'), {'type': 'FeatureCollection', 'metadata': {'release': RELEASE, 'source': 'GTFS ของ สนข. (OTP Namtang) รุ่น 20261029 · CC BY 4.0 และแนวโครงการอ้างอิงตาม 26_ROUTE_GEOMETRY', 'osm': bool(osm_meta)}, 'features': line_features}),
+        write_json(os.path.join(args.out, 'rail-lines.geojson'), {'type': 'FeatureCollection', 'metadata': {'release': RELEASE, 'source': 'GTFS ของ สนข. (OTP Namtang) รุ่น 20261029 · CC BY 4.0 และแนวโครงการอ้างอิงตาม 26_ROUTE_GEOMETRY', 'osm': bool(osm_meta),
+                   **({'osmLicence': 'ระดับทาง (elevation) และแนวก่อสร้างที่มี osm_ref มาจาก OpenStreetMap · ODbL 1.0 · © OpenStreetMap contributors'} if osm_meta else {})}, 'features': line_features}),
         write_json(os.path.join(args.out, 'station-buildings.geojson'), buildings),
-        write_json(os.path.join(args.out, 'bus.json'), build_bus(ex, shapes)),
-        write_json(os.path.join(args.out, 'boat.json'), build_boat(ex, shapes)),
+        write_json(os.path.join(args.out, 'bus.json'), bus),
+        write_json(os.path.join(args.out, 'boat.json'), boat),
+        *[write_json(os.path.join(args.out, f'layer-{k}.json'), v) for k, v in context.items()],
     ]
     counts = collections.Counter(s['status'] for s in stations)
     rep = {

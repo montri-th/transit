@@ -7,12 +7,15 @@
  *    exactly one readable form of every line. Colour = the line's identity colour
  *    (the colour in its own name, with source); construction is dashed and
  *    lighter; lines outside the focus go quiet grey.
- *  - Bus routes and stops (optional, lazy-loaded, default off) and boat routes
- *    (optional, default off): quiet context lines in scene/map-role tokens, never
- *    a categorical palette, so rail stays the subject.
+ *  - Optional context layers of the other modes (bus, boat, conventional rail
+ *    stops, intercity bus terminals, motorcycle-taxi stands, airports): lazy,
+ *    default off, quiet map-role tokens and a distinct shape per mode, never a
+ *    categorical palette, so rail stays the subject.
  *  - Area labels (province chips) — generic HTML label host carried over from
  *    Luxury Brands, collision-managed against the map chrome.
  */
+import {contrastRatio} from './scene.js';
+
 export const RIBBON_MIN_ZOOM = 10;
 const RAIL_SOURCE = 'rail-lines';
 export const RAIL_LAYERS = Object.freeze({casing: 'rail-casing', line: 'rail-line', construction: 'rail-construction', selected: 'rail-selected', hit: 'rail-hit'});
@@ -45,6 +48,9 @@ export function installRailLines(map, geojson, {beforeId, onSelect, onHover} = {
   map.addSource(RAIL_SOURCE, {type: 'geojson', data: {type: 'FeatureCollection', features: []}, promoteId: 'fid'});
   const quiet = () => cssVar('--scene-line-quiet', '#B4BDB7');
   const halo = () => cssVar('--map-marker-halo', '#FFFFFF');
+  // Casing: the halo, or a neutral backing for an identity colour too close to the ground (navy on the dark
+  // theme, yellow on the light one) — legibility by outline, never by changing the colour (LDS).
+  const casing = () => ['case', ['==', ['get', 'backed'], 1], cssVar('--border-emphasis', '#7D877F'), halo()];
   // In 3D the ribbons take over from RIBBON_MIN_ZOOM; `mode3d` is a layout-level switch applied by setMode().
   const fade = mode3d => mode3d ? ['interpolate', ['linear'], ['zoom'], RIBBON_MIN_ZOOM - 0.6, 1, RIBBON_MIN_ZOOM + 0.4, 0] : 1;
   // Zoom must be the top-level input of a paint expression, so every derived width is its own interpolate.
@@ -53,7 +59,7 @@ export function installRailLines(map, geojson, {beforeId, onSelect, onHover} = {
   const colour = () => ['case', ['==', ['get', 'quiet'], 1], quiet(), ['coalesce', ['get', 'color'], quiet()]];
   map.addLayer({id: RAIL_LAYERS.casing, type: 'line', source: RAIL_SOURCE, filter: ['==', ['get', 'status'], 'operating'],
     layout: {'line-cap': 'round', 'line-join': 'round'},
-    paint: {'line-color': halo(), 'line-width': widthAt(1, 2.4), 'line-opacity': fade(true)}}, beforeId);
+    paint: {'line-color': casing(), 'line-width': widthAt(1, 2.4), 'line-opacity': fade(true)}}, beforeId);
   map.addLayer({id: RAIL_LAYERS.line, type: 'line', source: RAIL_SOURCE, filter: ['==', ['get', 'status'], 'operating'],
     layout: {'line-cap': 'round', 'line-join': 'round'},
     paint: {'line-color': colour(), 'line-width': width, 'line-opacity': fade(true)}}, beforeId);
@@ -72,9 +78,11 @@ export function installRailLines(map, geojson, {beforeId, onSelect, onHover} = {
   map.on('mouseleave', RAIL_LAYERS.hit, () => { map.getCanvas().style.cursor = ''; onHover?.(''); });
 
   function update({focusLineIds = null, selectedLineId = '', visibleLineIds = null} = {}) {
+    const ground = cssVar('--basemap-ground', '#EEF1EE');
     const features = (geojson?.features || []).filter(f => !visibleLineIds || visibleLineIds.has(f.properties.lineId)).map((f, i) => ({
       type: 'Feature', geometry: f.geometry,
-      properties: {...f.properties, fid: i + 1, quiet: focusLineIds && !focusLineIds.has(f.properties.lineId) ? 1 : 0, selected: f.properties.lineId === selectedLineId ? 1 : 0},
+      properties: {...f.properties, fid: i + 1, quiet: focusLineIds && !focusLineIds.has(f.properties.lineId) ? 1 : 0, selected: f.properties.lineId === selectedLineId ? 1 : 0,
+        backed: contrastRatio(f.properties.color, ground) < 3 ? 1 : 0},
     }));
     map.getSource(RAIL_SOURCE)?.setData({type: 'FeatureCollection', features});
   }
@@ -83,7 +91,7 @@ export function installRailLines(map, geojson, {beforeId, onSelect, onHover} = {
     for (const id of [RAIL_LAYERS.casing, RAIL_LAYERS.line, RAIL_LAYERS.construction, RAIL_LAYERS.selected]) if (map.getLayer(id)) map.setPaintProperty(id, 'line-opacity', fade(mode3d));
   }
   function retheme() {
-    if (map.getLayer(RAIL_LAYERS.casing)) map.setPaintProperty(RAIL_LAYERS.casing, 'line-color', halo());
+    if (map.getLayer(RAIL_LAYERS.casing)) map.setPaintProperty(RAIL_LAYERS.casing, 'line-color', casing());
     for (const id of [RAIL_LAYERS.line, RAIL_LAYERS.construction]) if (map.getLayer(id)) map.setPaintProperty(id, 'line-color', colour());
     if (map.getLayer(RAIL_LAYERS.selected)) map.setPaintProperty(RAIL_LAYERS.selected, 'line-color', cssVar('--map-selected-stroke', '#176B82'));
   }
@@ -95,52 +103,151 @@ export function installRailLines(map, geojson, {beforeId, onSelect, onHover} = {
 }
 
 /**
- * Optional context layers: bus routes + stops and boat routes + piers. Data is
- * loaded only when the reader switches a layer on (the caller passes it in).
+ * Optional context layers (owner 2026-10-31: every mode of the research master
+ * with coordinates, off by default, lazy-loaded; rail stays the subject):
+ *   bus   — GTFS route corridors (width = route-count class) + stops + BRT
+ *   boat  — GTFS boat routes (dashed) + piers (rings)
+ *   srt   — conventional rail stops with scheduled trips (filled square)
+ *   intercity — bus terminals and บขส. boarding points (diamond; hollow = บขส. stop)
+ *   moto  — motorcycle-taxi stands of Bangkok (small triangle)
+ *   air   — airport reference points (plane)
+ * Shape, not colour, tells the modes apart; colours are the quiet map-role
+ * tokens (ink, halo, bus, water) so no mode competes with the line colours.
+ * Route lines sit above the road casing and below the rail lines — they were
+ * drawn under the roads in 0.1 and never showed.
  */
-export function installOptionalLayers(map, {beforeId} = {}) {
+const CONTEXT_POINT_LAYERS = ['srt', 'intercity', 'moto', 'air'];
+export const CONTEXT_LAYER_IDS = Object.freeze(Object.fromEntries(CONTEXT_POINT_LAYERS.map(k => [k, `ctx-${k}`])));
+
+/** Context data rows → GeoJSON points (fields from the layer file). */
+export function contextFeatures(data) {
+  const fields = data?.fields || [];
+  return {type: 'FeatureCollection', features: (data?.rows || []).map((r, i) => {
+    const props = {};
+    fields.forEach((f, k) => { if (f !== 'lng' && f !== 'lat') props[f] = r[k]; });
+    const kinds = data.meta?.kinds || [];
+    props.kindLabel = kinds[props.kind] || '';
+    return {type: 'Feature', id: i, properties: props, geometry: {type: 'Point', coordinates: [r[fields.indexOf('lng')], r[fields.indexOf('lat')]]}};
+  })};
+}
+
+/** Small symbol images drawn per theme (pixel ratio 2), so each mode keeps its shape in any colour scheme. */
+function drawSymbol(shape, {ink, halo, tint}) {
+  const size = shape === 'air' ? 36 : shape === 'moto' ? 22 : 28, c = typeof document !== 'undefined' ? document.createElement('canvas') : null;
+  if (!c) return null;
+  c.width = c.height = size;
+  const g = c.getContext('2d'), m = size / 2;
+  g.lineJoin = 'round';
+  const path = () => {
+    g.beginPath();
+    if (shape === 'square') { g.rect(m - 7, m - 7, 14, 14); }
+    else if (shape === 'diamond' || shape === 'diamond-open') { g.moveTo(m, m - 10); g.lineTo(m + 10, m); g.lineTo(m, m + 10); g.lineTo(m - 10, m); g.closePath(); }
+    else if (shape === 'moto') { g.moveTo(m, m - 7); g.lineTo(m + 7, m + 6); g.lineTo(m - 7, m + 6); g.closePath(); }
+    else if (shape === 'air') { // plane seen from above, nose up
+      g.moveTo(m, m - 14); g.lineTo(m + 2.6, m - 9); g.lineTo(m + 2.6, m - 3); g.lineTo(m + 13, m + 3); g.lineTo(m + 13, m + 6); g.lineTo(m + 2.6, m + 3);
+      g.lineTo(m + 2.4, m + 9); g.lineTo(m + 6, m + 12); g.lineTo(m + 6, m + 14); g.lineTo(m, m + 12.5); g.lineTo(m - 6, m + 14); g.lineTo(m - 6, m + 12);
+      g.lineTo(m - 2.4, m + 9); g.lineTo(m - 2.6, m + 3); g.lineTo(m - 13, m + 6); g.lineTo(m - 13, m + 3); g.lineTo(m - 2.6, m - 3); g.lineTo(m - 2.6, m - 9); g.closePath();
+    }
+  };
+  path();
+  g.lineWidth = 5; g.strokeStyle = halo; g.stroke();          // halo
+  g.fillStyle = shape === 'diamond-open' ? halo : (shape === 'moto' ? tint : ink); g.fill();
+  g.lineWidth = shape === 'diamond-open' ? 2.6 : 1.2; g.strokeStyle = shape === 'moto' ? tint : ink; g.stroke();
+  return g.getImageData(0, 0, size, size);
+}
+
+export function installOptionalLayers(map, {beforeId, lineBeforeId = 'rail-casing', onPick = null} = {}) {
   const bus = () => cssVar('--scene-bus', '#7B877D');
   const boat = () => cssVar('--map-active-layer', '#347DA8');
   const halo = () => cssVar('--map-marker-halo', '#FFFFFF');
-  const state = {bus: false, boat: false, busLoaded: false, boatLoaded: false};
+  const ink = () => cssVar('--map-marker-stroke', '#182327');
+  const state = {bus: false, boat: false, srt: false, intercity: false, moto: false, air: false, loaded: new Set()};
+  // Route lines above the roads (0.1 put them under the road casing, where nothing showed) and under the rail lines.
+  const linesBefore = () => (map.getLayer(lineBeforeId) ? lineBeforeId : beforeId);
+  function images() {
+    const colours = {ink: ink(), halo: halo(), tint: bus()};
+    for (const shape of ['square', 'diamond', 'diamond-open', 'moto', 'air']) {
+      const id = `ctx-sym-${shape}`;
+      if (map.hasImage?.(id)) continue;
+      const img = drawSymbol(shape, colours);
+      if (img) map.addImage(id, img, {pixelRatio: 2});
+    }
+  }
+  const pickable = [];
   function ensure(kind, data) {
-    if (kind === 'bus' && !state.busLoaded && data) {
+    if (state.loaded.has(kind) || !data) return;
+    if (kind === 'bus') {
       map.addSource(BUS_SOURCE, {type: 'geojson', data: data.routes, tolerance: 0.6});
       map.addSource(BUS_STOPS, {type: 'geojson', data: data.stops});
       // Width (not colour) carries the count class: how many GTFS route records pass a stretch (data/bus.json meta.classes).
       const classWidth = k => ['case', ['==', ['get', 'brt'], 1], 2.2 * k, ['match', ['get', 'class'], 0, 0.45 * k, 1, 0.75 * k, 2, 1.1 * k, 3, 1.6 * k, 2.2 * k]];
       map.addLayer({id: OPTIONAL_LAYERS.bus, type: 'line', source: BUS_SOURCE, minzoom: 9,
         layout: {'line-cap': 'round', 'line-join': 'round', visibility: 'none'},
-        paint: {'line-color': bus(), 'line-opacity': ['interpolate', ['linear'], ['zoom'], 9, 0.3, 13, 0.5, 16, 0.65], 'line-width': ['interpolate', ['linear'], ['zoom'], 9, classWidth(0.6), 13, classWidth(1.2), 16, classWidth(2)]}}, beforeId);
+        paint: {'line-color': bus(), 'line-opacity': ['interpolate', ['linear'], ['zoom'], 9, 0.45, 13, 0.6, 16, 0.7], 'line-width': ['interpolate', ['linear'], ['zoom'], 9, classWidth(0.7), 13, classWidth(1.3), 16, classWidth(2.1)]}}, linesBefore());
       map.addLayer({id: OPTIONAL_LAYERS.busStops, type: 'circle', source: BUS_STOPS, minzoom: 14,
         layout: {visibility: 'none'},
         paint: {'circle-radius': ['interpolate', ['linear'], ['zoom'], 14, ['case', ['==', ['get', 'brt'], 1], 3, 1.6], 17, ['case', ['==', ['get', 'brt'], 1], 5, 3.2]], 'circle-color': bus(), 'circle-stroke-color': halo(), 'circle-stroke-width': 1}});
-      state.busLoaded = true;
-    }
-    if (kind === 'boat' && !state.boatLoaded && data) {
+    } else if (kind === 'boat') {
       map.addSource(BOAT_SOURCE, {type: 'geojson', data: data.routes});
       map.addSource(`${BOAT_SOURCE}-stops`, {type: 'geojson', data: data.stops});
       map.addLayer({id: OPTIONAL_LAYERS.boat, type: 'line', source: BOAT_SOURCE,
         layout: {'line-cap': 'round', 'line-join': 'round', visibility: 'none'},
-        paint: {'line-color': boat(), 'line-opacity': 0.7, 'line-width': ['interpolate', ['linear'], ['zoom'], 9, 1, 14, 2.2, 17, 3.4], 'line-dasharray': [3, 2]}}, beforeId);
-      map.addLayer({id: OPTIONAL_LAYERS.boatStops, type: 'circle', source: `${BOAT_SOURCE}-stops`, minzoom: 12,
+        paint: {'line-color': boat(), 'line-opacity': 0.8, 'line-width': ['interpolate', ['linear'], ['zoom'], 9, 1.2, 14, 2.4, 17, 3.6], 'line-dasharray': [3, 2]}}, linesBefore());
+      map.addLayer({id: OPTIONAL_LAYERS.boatStops, type: 'circle', source: `${BOAT_SOURCE}-stops`, minzoom: 11,
         layout: {visibility: 'none'},
-        paint: {'circle-radius': ['interpolate', ['linear'], ['zoom'], 12, 2, 17, 4.5], 'circle-color': halo(), 'circle-stroke-color': boat(), 'circle-stroke-width': 1.6}});
-      state.boatLoaded = true;
+        paint: {'circle-radius': ['interpolate', ['linear'], ['zoom'], 11, 2, 17, 4.5], 'circle-color': halo(), 'circle-stroke-color': boat(), 'circle-stroke-width': 1.6}});
+      pickable.push(OPTIONAL_LAYERS.boatStops);
+    } else if (CONTEXT_POINT_LAYERS.includes(kind)) {
+      images();
+      const id = CONTEXT_LAYER_IDS[kind];
+      map.addSource(id, {type: 'geojson', data: contextFeatures(data)});
+      const icon = kind === 'srt' ? 'ctx-sym-square' : kind === 'moto' ? 'ctx-sym-moto' : kind === 'air' ? 'ctx-sym-air'
+        : ['case', ['==', ['get', 'kind'], 2], 'ctx-sym-diamond-open', 'ctx-sym-diamond'];
+      const minzoom = kind === 'moto' ? 12 : kind === 'srt' ? 7 : 4;
+      const labelZoom = kind === 'air' ? 8 : kind === 'srt' ? 11 : kind === 'intercity' ? 11 : 16;
+      map.addLayer({id, type: 'symbol', source: id, minzoom,
+        layout: {
+          visibility: 'none', 'icon-image': icon, 'icon-allow-overlap': kind !== 'moto', 'icon-ignore-placement': kind !== 'moto',
+          'icon-size': kind === 'moto' ? ['interpolate', ['linear'], ['zoom'], 12, 0.8, 16, 1.1] : ['interpolate', ['linear'], ['zoom'], 5, 0.75, 12, 1, 16, 1.2],
+          'text-field': ['step', ['zoom'], '', labelZoom, ['get', 'name']], 'text-font': ['Noto Sans Regular'], 'text-size': 11,
+          'text-offset': [0, 1.1], 'text-anchor': 'top', 'text-max-width': 9, 'text-optional': true,
+        },
+        paint: {'text-color': ink(), 'text-halo-color': halo(), 'text-halo-width': 1.4}});
+      pickable.push(id);
     }
+    state.loaded.add(kind);
+  }
+  function idsOf(kind) {
+    if (kind === 'bus') return [OPTIONAL_LAYERS.bus, OPTIONAL_LAYERS.busStops];
+    if (kind === 'boat') return [OPTIONAL_LAYERS.boat, OPTIONAL_LAYERS.boatStops];
+    return [CONTEXT_LAYER_IDS[kind]];
   }
   function setVisible(kind, on, data) {
     ensure(kind, data);
     state[kind] = Boolean(on);
-    const ids = kind === 'bus' ? [OPTIONAL_LAYERS.bus, OPTIONAL_LAYERS.busStops] : [OPTIONAL_LAYERS.boat, OPTIONAL_LAYERS.boatStops];
-    for (const id of ids) if (map.getLayer(id)) map.setLayoutProperty(id, 'visibility', on ? 'visible' : 'none');
+    for (const id of idsOf(kind)) if (map.getLayer(id)) map.setLayoutProperty(id, 'visibility', on ? 'visible' : 'none');
     return state;
   }
+  // A click on a context point reports it (name, kind, area); the caller shows it.
+  const onClick = e => {
+    const ids = pickable.filter(id => map.getLayer(id) && map.getLayoutProperty(id, 'visibility') === 'visible');
+    if (!ids.length || typeof onPick !== 'function') return;
+    const hit = map.queryRenderedFeatures(e.point, {layers: ids})[0];
+    if (hit) onPick({layer: hit.layer.id, properties: hit.properties, lngLat: hit.geometry?.coordinates || e.lngLat.toArray()});
+  };
+  const onMove = e => {
+    const ids = pickable.filter(id => map.getLayer(id) && map.getLayoutProperty(id, 'visibility') === 'visible');
+    map.getCanvas().style.cursor = ids.length && map.queryRenderedFeatures(e.point, {layers: ids}).length ? 'pointer' : '';
+  };
+  map.on('click', onClick);
+  map.on('mousemove', onMove);
   function dispose() {
-    for (const id of Object.values(OPTIONAL_LAYERS)) if (map.getLayer(id)) map.removeLayer(id);
-    for (const id of [BUS_SOURCE, BUS_STOPS, BOAT_SOURCE, `${BOAT_SOURCE}-stops`]) if (map.getSource(id)) map.removeSource(id);
+    map.off('click', onClick);
+    map.off('mousemove', onMove);
+    for (const id of [...Object.values(OPTIONAL_LAYERS), ...Object.values(CONTEXT_LAYER_IDS)]) if (map.getLayer(id)) map.removeLayer(id);
+    for (const id of [BUS_SOURCE, BUS_STOPS, BOAT_SOURCE, `${BOAT_SOURCE}-stops`, ...Object.values(CONTEXT_LAYER_IDS)]) if (map.getSource(id)) map.removeSource(id);
   }
-  return {setVisible, dispose, get state() { return {...state}; }};
+  return {setVisible, dispose, get state() { return {...state, loaded: [...state.loaded]}; }};
 }
 
 /**

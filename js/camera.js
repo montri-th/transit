@@ -83,12 +83,40 @@ export function projectPoint(map, point) {
   return {x: (cx + 1) / 2 * t.width, y: (1 - cy) / 2 * t.height};
 }
 
+function screenOf(map, c) {
+  return c.length > 2 && c[2] ? projectPoint(map, c) : map.project([c[0], c[1]]);
+}
+
 function cornersInside(map, corners, padding) {
   const w = map.getContainer().clientWidth, h = map.getContainer().clientHeight;
   return corners.every(c => {
-    const p = c.length > 2 && c[2] ? projectPoint(map, c) : map.project([c[0], c[1]]);
+    const p = screenOf(map, c);
     return p.x >= padding.left && p.x <= w - padding.right && p.y >= padding.top && p.y <= h - padding.bottom;
   });
+}
+
+/** Screen box of the points, or null when one is behind the camera. */
+export function projectedBox(map, corners) {
+  let x0 = Infinity, y0 = Infinity, x1 = -Infinity, y1 = -Infinity;
+  for (const c of corners) {
+    const p = screenOf(map, c);
+    if (!Number.isFinite(p.x) || !Number.isFinite(p.y)) return null;
+    x0 = Math.min(x0, p.x); y0 = Math.min(y0, p.y); x1 = Math.max(x1, p.x); y1 = Math.max(y1, p.y);
+  }
+  return {x0, y0, x1, y1};
+}
+
+/** Zoom out until every point is inside the padded viewport, then in while they all still fit (0.1 steps). */
+function searchZoom(map, corners, padding, zoom, minZoom, maxZoom) {
+  let guard = 0;
+  map.jumpTo({zoom});
+  while (!cornersInside(map, corners, padding) && zoom > minZoom && guard++ < 80) { zoom -= 0.1; map.jumpTo({zoom}); }
+  while (zoom + 0.1 <= maxZoom && guard++ < 160) {
+    map.jumpTo({zoom: zoom + 0.1});
+    if (!cornersInside(map, corners, padding)) { map.jumpTo({zoom}); break; }
+    zoom += 0.1;
+  }
+  return zoom;
 }
 
 /**
@@ -96,34 +124,46 @@ function cornersInside(map, corners, padding) {
  * jumps (no frame is rendered in between), restores the start camera and then
  * animates to the result. Returns the camera used. `points` may carry a third
  * value (altitude in metres) so a building's roof is framed, not only its
- * footprint. `apply: false` only computes the target and restores the start.
+ * footprint. `recenter` also centres the projected points inside the padded
+ * viewport (a pitched view is not symmetric: the near edge looks larger than the
+ * far edge and roofs rise above the far edge), so the content fills the visible
+ * area. `apply: false` only computes the target and restores the start.
  */
-export function fitPitched(map, bounds, {preset = 'city', padding = {top: 24, bottom: 24, left: 24, right: 24}, maxZoom = 16, animate = true, duration = 650, minZoom = 10, points = null, shift = null, apply = true} = {}) {
+export function fitPitched(map, bounds, {preset = 'city', padding = {top: 24, bottom: 24, left: 24, right: 24}, maxZoom = 16, animate = true, duration = 650, minZoom = 10, points = null, shift = null, apply = true, recenter = false} = {}) {
   const p = CAMERA[preset] || CAMERA.plan;
   const start = {center: map.getCenter(), zoom: map.getZoom(), pitch: map.getPitch(), bearing: map.getBearing(), padding: map.getPadding()};
   setFov(map, p.fov);
   // A pitched camera sees much more ground above the centre than below it, so the
   // box is centred lower on the screen (view padding at the top) before fitting.
-  const view = shiftPadding(map, shift ?? (p.shift || p.fitShift || 0));
+  // With `recenter` the principal point is the centre of the padded area itself, so
+  // zooming grows the content around the visible area (a mobile sheet can cover most
+  // of the screen) and the re-centring below only fine-tunes.
+  const view = recenter ? {top: padding.top, bottom: padding.bottom, left: padding.left, right: padding.right} : shiftPadding(map, shift ?? (p.shift || p.fitShift || 0));
   map.jumpTo({pitch: p.pitch, bearing: p.bearing, padding: view});
-  const flat = map.cameraForBounds(bounds, {padding, bearing: p.bearing, maxZoom});
+  const flat = map.cameraForBounds(bounds, {padding: recenter ? 0 : padding, bearing: p.bearing, maxZoom});
   if (!flat) { map.jumpTo(start); return null; }
   let zoom = Math.min(maxZoom, flat.zoom);
   // Containment is tested on the actual outline vertices when given (a diagonal band
   // of areas leaves its bounding-box corners empty), otherwise on the box corners.
   const corners = points && points.length ? points : boundsCorners(bounds);
   map.jumpTo({center: flat.center, zoom, pitch: p.pitch, bearing: p.bearing, padding: view});
-  let guard = 0;
-  if (p.pitch > 0) {
-    // Zoom out until every vertex is inside the padded viewport…
-    while (!cornersInside(map, corners, padding) && zoom > minZoom && guard++ < 60) { zoom -= 0.1; map.jumpTo({zoom}); }
-    // …then zoom in while they all still fit (foreshortening leaves room the flat fit did not use).
-    while (zoom + 0.1 <= maxZoom && guard++ < 120) {
-      map.jumpTo({zoom: zoom + 0.1});
-      if (!cornersInside(map, corners, padding)) { map.jumpTo({zoom}); break; }
-      zoom += 0.1;
+  if (p.pitch > 0 || recenter) {
+    zoom = searchZoom(map, corners, padding, zoom, minZoom, maxZoom);
+    if (recenter) {
+      const w = map.getContainer().clientWidth, h = map.getContainer().clientHeight;
+      const ax = (padding.left + w - padding.right) / 2, ay = (padding.top + h - padding.bottom) / 2;
+      for (let i = 0; i < 4; i++) {
+        const b = projectedBox(map, corners);
+        if (!b) break;
+        const dx = ax - (b.x0 + b.x1) / 2, dy = ay - (b.y0 + b.y1) / 2;
+        if (Math.abs(dx) < 1.5 && Math.abs(dy) < 1.5) break;
+        const c = map.project(map.getCenter());
+        map.jumpTo({center: map.unproject([c.x - dx, c.y - dy])});
+        zoom = searchZoom(map, corners, padding, zoom, minZoom, maxZoom);
+      }
     }
     zoom = Math.round(zoom * 100) / 100;
+    map.jumpTo({zoom});
   }
   const target = {center: map.getCenter(), zoom, pitch: p.pitch, bearing: p.bearing, padding: view};
   if (!apply) { map.jumpTo(start); return target; }

@@ -3,28 +3,48 @@
  "files": [
   {
    "path": "data/transit.json",
-   "bytes": 566286,
-   "sha256": "5c9c88486edddbf21aba26270217415669c6311dcd9ec7f0dae51671cc613f15"
+   "bytes": 591580,
+   "sha256": "c04475abf45c1eb14cc1a62e35598bde7ef3c2ed570dfedf52201df09aaff82e"
   },
   {
    "path": "data/rail-lines.geojson",
-   "bytes": 145722,
-   "sha256": "9fcfccfa9f120dc7d5d7cade8decff514341dbd7dc12214652656e4ba419731b"
+   "bytes": 167025,
+   "sha256": "4d0520e5e51ea0e374f62201c01f2148f3302fa1f541891d97cde48df5c98a4b"
   },
   {
    "path": "data/station-buildings.geojson",
-   "bytes": 164,
-   "sha256": "947db4720a336f3ef1ffb3e2fac3be4ce5248b3350224ba179bec82fda3c39bb"
+   "bytes": 98764,
+   "sha256": "fe0f29baf57f4f9ee7fb099e7312618437daaaef85a9b6a77f1a39b7ad03234d"
   },
   {
    "path": "data/bus.json",
-   "bytes": 280250,
-   "sha256": "9227c4595a2ae444bb9ce9dea4be7ab1e7299a7eef43d179c9bef5dcc12deba6"
+   "bytes": 280284,
+   "sha256": "87d8fe137e7c3e3e7fa78e219fc7168e599e010590d2f77d3c707d407689445b"
   },
   {
    "path": "data/boat.json",
-   "bytes": 42983,
-   "sha256": "3be1a5a86fc2afccd649ac8f12c8efa84a82d30c73aec2a0b3eb9ecb97391255"
+   "bytes": 43018,
+   "sha256": "a842b170f81be0e994a6cb53b63d4564f3620f63be50b673e1234e9e73df97a3"
+  },
+  {
+   "path": "data/layer-moto.json",
+   "bytes": 235606,
+   "sha256": "2e58ccc89c4d36b82f56b5286a43fd83d4238ef40d6eaaf4a71704f6471b49ab"
+  },
+  {
+   "path": "data/layer-intercity.json",
+   "bytes": 24943,
+   "sha256": "40faed527df91c35e990160eaf3b5d754ac7f41f599dd03fcd21424995b3a030"
+  },
+  {
+   "path": "data/layer-air.json",
+   "bytes": 8135,
+   "sha256": "27e7d603da5319710759a64704f2a53081cc2016b91a06fb01c83a53a423cfe8"
+  },
+  {
+   "path": "data/layer-srt.json",
+   "bytes": 16112,
+   "sha256": "7cf7b25fd9e00363e6eb55683e62d686d68f694b0f85485e352d6e2af9ce63f6"
   }
  ],
  "stations": {
@@ -120,5 +140,29 @@
   "arlHeldRows2024": 32,
   "btsMissingRows": 1,
   "siamMonths": 12
+ },
+ "osmConstructionWays": {
+  "MRT_PURPLE_SOUTH": 10,
+  "MRT_ORANGE_EAST": 16,
+  "MRT_ORANGE_WEST": 3
+ },
+ "holds": [
+  "MRT_PINK: OSM route colours differ {'#E76589': 26, '#C4007B': 6}; used the colour of the most member ways"
+ ],
+ "osm": {
+  "buildings": 125,
+  "colours": {
+   "BTS_SUKHUMVIT": "#65B724",
+   "BTS_SILOM": "#02817D",
+   "BTS_GOLD": "#A58704",
+   "MRT_BLUE": "#1E398D",
+   "MRT_PURPLE": "#893B90",
+   "MRT_PINK": "#E76589",
+   "MRT_YELLOW": "#FFD400",
+   "SRT_RED_NORTH": "#B5191E",
+   "SRT_RED_WEST": "#FC5353",
+   "MRT_PURPLE_SOUTH": "#893B90"
+  },
+  "unmatchedParts": 0
  }
 }

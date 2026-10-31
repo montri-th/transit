@@ -179,7 +179,8 @@ export function renderStation(d, {lineById}) {
       </dl>
       <p class="links">${(d.sources || []).map(x => link(x.url, x.label)).join(' ')}</p>
     </section>
-    ${connections ? `<section class="panel-section"><div class="section-heading"><h3>การเชื่อมต่อ</h3><span class="hint">${num(d.connections.length)}</span></div><ul class="outlet-list">${connections}</ul></section>` : ''}`;
+    ${connections ? `<section class="panel-section"><div class="section-heading"><h3>การเชื่อมต่อ</h3><span class="hint">${num(d.connections.length)}</span></div><ul class="outlet-list">${connections}</ul></section>` : ''}
+    <section class="panel-section" id="station-modes" aria-live="polite" hidden></section>`;
 }
 
 /* ---------- Active filter chips ---------- */

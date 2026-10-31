@@ -91,3 +91,22 @@ test('display constants are declared, not metrics', () => {
   assert.equal(ELEVATION.elevated, 12);
   assert.ok(PLATE.hub[0] > PLATE.station[0] && PLATE.station[0] > PLATE.stop[0]);
 });
+
+test('construction lines are dashed in 3D: dashes of `on`, gaps of `off`, total length kept', async () => {
+  const {dashPath} = await import('../js/scene.js');
+  const path = [[0, 0, 0], [100, 0, 0], [100, 0, 50]];
+  const dashes = dashPath(path, 20, 10);
+  const len = d => d.slice(1).reduce((a, q, i) => a + Math.hypot(q[0] - d[i][0], q[2] - d[i][2]), 0);
+  assert.ok(dashes.length >= 4);
+  assert.ok(dashes.slice(0, -1).every(d => Math.abs(len(d) - 20) < 1e-9), 'every full dash is 20 m');
+  assert.ok(Math.abs(dashes.reduce((a, d) => a + len(d), 0) - (150 - 10 * (dashes.length - 1))) < 1e-6 || dashes.reduce((a, d) => a + len(d), 0) < 150);
+  assert.deepEqual(dashPath([[0, 0, 0]], 20, 10), []);
+});
+
+test('contrast: dark identity colours on the dark ground get a backing; light ones do not', async () => {
+  const {contrastRatio} = await import('../js/scene.js');
+  assert.ok(Math.abs(contrastRatio('#FFFFFF', '#000000') - 21) < 1e-9);
+  assert.ok(contrastRatio('#1E398D', '#101318') < 3, 'MRT Blue on the dark ground');
+  assert.ok(contrastRatio('#65B724', '#101318') >= 3, 'BTS Sukhumvit on the dark ground');
+  assert.ok(Number.isNaN(contrastRatio('var(--x)', '#000000')));
+});

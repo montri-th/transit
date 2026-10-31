@@ -138,3 +138,35 @@ test('LDS scales: exact 41-sample LUTs, class indices round(i×40/(n−1)), meas
 test('encoded polylines decode to [lng, lat] (Google reference example, precision 5)', () => {
   assert.deepEqual(decodePolyline('_p~iF~ps|U_ulLnnqC_mqNvxq`@'), [[-120.2, 38.5], [-120.95, 40.7], [-126.453, 43.252]]);
 });
+
+test('nearby modes: counts within the radius, nearest point, outside the boundary is never zero', async () => {
+  const {nearbyModes, near, covers, distanceLabel, NEARBY_RADIUS_M} = await import('../js/nearby.js');
+  const st = {lng: 100.5, lat: 13.75, provinceCode: 'BKK'};
+  const metre = 1 / 110574;
+  const pts = [{lng: 100.5, lat: 13.75 + 100 * metre, name: 'a'}, {lng: 100.5, lat: 13.75 + 499 * metre, name: 'b'}, {lng: 100.5, lat: 13.75 + 900 * metre, name: 'c'}];
+  const r = near(pts, [st.lng, st.lat]);
+  assert.equal(r.count, 2);
+  assert.equal(r.nearest.name, 'a');
+  assert.ok(Math.abs(r.nearest.distance - 100) < 1);
+  const summary = {
+    moto: {label: 'วิน', unit: 'จุด', frame: [100.3, 13.4, 100.9, 14], provinces: ['BKK'], boundary: 'กทม.'},
+    bus: {label: 'รถเมล์', unit: 'ป้าย', frame: [99.9, 13.2, 101.2, 14.4], boundary: 'BMR'},
+    air: {label: 'สนามบิน', unit: 'แห่ง', frame: [97, 5, 106, 21], boundary: 'TH'},
+  };
+  const rows = nearbyModes(st, {moto: pts, bus: []}, summary);
+  assert.deepEqual(rows.map(x => [x.layer, x.state, x.count]), [['moto', 'measured', 2], ['bus', 'measured', 0], ['air', 'loading', null]]);
+  const outside = nearbyModes({...st, provinceCode: 'NBI'}, {moto: pts}, summary);
+  assert.equal(outside.find(x => x.layer === 'moto').state, 'outside', 'a Bangkok register says nothing about Nonthaburi');
+  assert.equal(outside.find(x => x.layer === 'moto').count, null);
+  assert.equal(covers(summary.bus, {lng: 102, lat: 13, provinceCode: 'X'}), false);
+  assert.equal(distanceLabel(87), '90 ม.');
+  assert.equal(distanceLabel(1430), '1.4 กม.');
+  assert.equal(NEARBY_RADIUS_M, 500);
+});
+
+test('camera: projectedBox spans the projected points and is null behind the camera', async () => {
+  const {projectedBox} = await import('../js/camera.js');
+  const map = {project: ([x, y]) => ({x: x * 10, y: y * 10})};
+  assert.deepEqual(projectedBox(map, [[1, 2], [3, 1]]), {x0: 10, y0: 10, x1: 30, y1: 20});
+  assert.equal(projectedBox({project: () => ({x: NaN, y: NaN})}, [[1, 2]]), null);
+});

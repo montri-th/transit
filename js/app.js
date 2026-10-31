@@ -36,26 +36,34 @@ import {installRailLines, installOptionalLayers, installAreaLabels} from './map-
 import {installProvinceLayers, buildProvinceModel, PROVINCE_FILL_MAX_ZOOM, PROVINCE_LABEL_MAX_ZOOM} from './provinces.js';
 import {buildMapStyle, basemapPalette, TILEJSON_URL, MASSING_BEFORE, DATA_FILL_BEFORE} from './map-style.js';
 import {installMassing, outerRings} from './massing.js';
+import {nearbyModes, distanceLabel, NEARBY_RADIUS_M} from './nearby.js';
 import {installScene, ELEVATION} from './scene.js';
-import {presetFor, applyPreset, fitPitched, framePoint} from './camera.js';
+import {presetFor, applyPreset, fitPitched} from './camera.js';
 import {buildBreadcrumb, renderBreadcrumb, breadcrumbText} from './breadcrumb.js';
 
 const $ = id => document.getElementById(id);
 const FIELDS = ['search', 'status', 'system', 'line', 'province'];
 const BANGKOK = {center: [100.535, 13.755], zoom: 11.6};
 const FOCUS_RADIUS_M = 700;
+/** Station level: the area drawn as focus massing around the station, and the area the camera fits. */
+const STATION_RADIUS_M = 450;
+/** Roof allowance (m) used to frame a station area before its massing has loaded — a framing margin, not data. */
+const DEFAULT_ROOF_M = 60;
+/** Optional layers of the other modes (menu order) and their lazy files. */
+const MODE_LAYERS = ['bus', 'moto', 'boat', 'intercity', 'srt', 'air'];
+const LAYER_FILE = {bus: 'data/bus.json', boat: 'data/boat.json', srt: 'data/layer-srt.json', intercity: 'data/layer-intercity.json', moto: 'data/layer-moto.json', air: 'data/layer-air.json'};
 const reduced = () => matchMedia('(prefers-reduced-motion: reduce)').matches;
 const mobilePortrait = () => matchMedia('(max-width: 760px) and (orientation: portrait)').matches;
 const animate = () => !reduced();
 
 const state = {
-  data: null, railGeo: null, buildingGeo: null, provinces: null, optionalData: {bus: null, boat: null},
+  data: null, railGeo: null, buildingGeo: null, provinces: null, optionalData: {bus: null, boat: null, srt: null, intercity: null, moto: null, air: null},
   lineById: new Map(), stationById: new Map(), systemById: new Map(), complexById: new Map(), buildingsByStation: new Map(), sourcesById: new Map(),
   scopeStations: [], baseStations: [], focusStations: [],
   view: 'lines', page: 0,
   focusMode: 'auto', selectedStationId: '', panel: {mode: 'overview', id: ''}, history: [], via: '',
   map: null, loaded: false, mapTheme: '', initialCameraDone: false, tileTemplate: '', lastPreset: '',
-  view3d: true, twoPoint: true, layers: {bus: false, boat: false},
+  view3d: true, twoPoint: true, layers: {bus: false, boat: false, srt: false, intercity: false, moto: false, air: false},
   pins: null, rail: null, optional: null, provinceLayers: null, provinceLabels: null, provinceModel: null, massing: null, scene: null, THREE: null,
   ray: {objects: [], cycle: 0}, pinAlias: new Map(), ready: false, ridershipGroup: '',
 };
@@ -65,7 +73,6 @@ const values = () => Object.fromEntries(FIELDS.map(k => [k, $(k).value]));
 const theme = () => document.documentElement.dataset.theme;
 const announce = text => { $('announcement').textContent = text; };
 const activeFilterCount = f => FIELDS.filter(k => f[k] && !(k === 'status' && f[k] === 'current')).length;
-const sheetOffset = () => (mobilePortrait() ? [0, -Math.round(window.innerHeight * 0.2)] : [0, 0]);
 const sheetOpen = () => mobilePortrait() && $('panel').classList.contains('is-open');
 const stationLevel = () => state.panel.mode === 'station';
 const cameraPreset = () => presetFor({view3d: state.view3d, mode: state.panel.mode === 'overview' ? 'overview' : 'detail', twoPoint: state.twoPoint && stationLevel() && !sheetOpen()});
@@ -86,8 +93,8 @@ function saveURL() {
   if (state.view !== 'lines') p.set('view', state.view);
   if (!state.view3d) p.set('view3d', '0');
   if (!state.twoPoint) p.set('cam', 'model');
-  if (state.layers.bus) p.set('bus', '1');
-  if (state.layers.boat) p.set('boat', '1');
+  const on = MODE_LAYERS.filter(k => state.layers[k]);
+  if (on.length) p.set('layers', on.join(','));
   history.replaceState(null, '', location.pathname + (p.size ? '?' + p : ''));
 }
 
@@ -97,6 +104,7 @@ function scenePalette() {
     plate: cssVar('--scene-solid', '#FFFFFF'), plateQuiet: cssVar('--basemap-massing-quiet', '#ECEDE8'), building: cssVar('--scene-solid', '#FFFFFF'),
     context: cssVar('--scene-context', '#FFFFFF'), pier: cssVar('--scene-pier', '#FFFFFF'), lineQuiet: cssVar('--scene-line-quiet', '#B4BDB7'),
     hover: cssVar('--map-hover-stroke', '#347DA8'), selected: cssVar('--map-selected-stroke', '#176B82'), shadowOpacity: Number(cssVar('--scene-shadow-opacity', '0.2')) || 0.2,
+    ground: cssVar('--basemap-ground', '#F1F1EC'), backing: cssVar('--border-emphasis', '#7D877F'),
   };
 }
 function applyTheme() {
@@ -221,6 +229,7 @@ function renderPanel() {
   }
   view.innerHTML = html;
   view.dataset.mode = mode;
+  if (mode === 'station') renderStationModes();
   const key = `${mode}:${state.panel.id}:${$('line').value}:${$('province').value}`;
   if (key !== renderPanel.lastKey) $('panel').scrollTop = 0;
   renderPanel.lastKey = key;
@@ -270,9 +279,9 @@ function selectStation(id, {fly = true, fromMap = false} = {}) {
   state.panel = {mode: 'station', id};
   state.selectedStationId = id;
   update();
+  if (!fromMap || mobilePortrait()) openMobilePanel();
   if (state.loaded && fly) frameStation(st);
   state.lastPreset = cameraPreset();
-  if (!fromMap || mobilePortrait()) openMobilePanel();
   announce(`เลือกสถานี${st.name}`);
 }
 
@@ -317,6 +326,7 @@ function onPanelAction(event) {
     case 'open-charts': openInsights(true); closeMobilePanel(); break;
     case 'open-table': $('results').hidden = false; closeMobilePanel(); $('toggle-table').focus({preventScroll: true}); break;
     case 'clear-filter': clearFilter(id); break;
+    case 'toggle-layer': toggleLayer(id).then(() => renderStationModes()); break;
     case 'crumb-country': $('province').value = ''; $('line').value = ''; resetToOverview(); break;
     case 'crumb-province': $('province').value = id; $('line').value = ''; resetToOverview(); break;
     case 'crumb-line': selectLine(id); break;
@@ -344,6 +354,9 @@ function renderLegend() {
   const lines = state.data.lines.filter(l => state.scopeStations.some(s => (s.lineIds || []).includes(l.id)));
   $('line-items').innerHTML = lines.map(l => `<span><i class="line-swatch${l.status === 'construction' ? ' is-construction' : ''}" style="--line-color:${esc(l.color || '')}" aria-hidden="true"></i>${esc(l.name)}</span>`).join('');
   document.querySelector('.legend-bus-item').hidden = !state.layers.bus;
+  const summary = state.data?.meta?.contextLayers || {};
+  $('legend-modes').innerHTML = MODE_LAYERS.filter(k => k !== 'bus' && state.layers[k] && summary[k]).map(k => `<span title="${esc(layerNote(summary[k]))}"><i class="mode-sym is-${k}" aria-hidden="true"></i>${esc(summary[k].short || summary[k].label)}</span>`).join('');
+  $('legend-modes').hidden = !$('legend-modes').innerHTML;
   document.querySelector('.map-panel').classList.toggle('is-3d', state.view3d);
   document.querySelector('.map-panel').classList.toggle('is-province-zoom', atProvince);
 }
@@ -462,22 +475,41 @@ function fitMap({instant = false} = {}) {
   state.lastPreset = preset;
 }
 
-/** Station level: the two-point view framed on the station's building(s) (roofs included), else its plate. */
-function frameStation(st, {instant = false} = {}) {
+/** Tallest roof (m) of the loaded massing and station buildings within `radius` of a point; null before the massing has loaded. */
+function regionRoof([lng, lat], radius = STATION_RADIUS_M) {
+  const kx = 111320 * Math.cos((lat * Math.PI) / 180), ky = 110574;
+  const near = f => outerRings(f).some(ring => ring.some(([x, y]) => Math.hypot((x - lng) * kx, (y - lat) * ky) <= radius));
+  const context = (state.contextFeatures || []).filter(near);
+  if (!context.length) return null;
+  return Math.max(...context.map(f => Number(f.properties?.height) || 0));
+}
+
+/**
+ * Station level: the camera fits the station area — the focus-massing ring of
+ * STATION_RADIUS_M around the station, with the roofs of the buildings in it —
+ * to the visible map (below the toolbar, above the chart tray or the mobile sheet).
+ */
+function frameStation(st, {instant = false, roof = null, duration = 650} = {}) {
   if (!state.loaded || !hasPoint(st)) return;
   const map = state.map, preset = cameraPreset();
-  const buildings = state.buildingsByStation.get(st.id)?.features || [];
-  if (buildings.length && preset !== 'plan' && !mobilePortrait()) {
-    const ground = [], roof = [];
-    for (const f of buildings) for (const ring of outerRings(f)) for (const [lng, lat] of ring) { ground.push([lng, lat, 0]); roof.push([lng, lat, Number(f.properties?.height) || 10]); }
-    const bounds = ground.reduce((acc, p) => acc.extend([p[0], p[1]]), new maplibregl.LngLatBounds([ground[0][0], ground[0][1]], [ground[0][0], ground[0][1]]));
-    const h = map.getContainer().clientHeight;
-    const padding = {top: Math.round(h * (preset === 'eye' ? 0.14 : 0.1)), bottom: 56, left: 56, right: 56};
-    const foot = fitPitched(map, bounds, {preset, points: ground, padding, maxZoom: 17.4, minZoom: 14.5, apply: false});
-    fitPitched(map, bounds, {preset, points: [...ground, ...roof], padding, maxZoom: 17.4, minZoom: Math.max(14.5, (foot?.zoom ?? 17.4) - 1), animate: animate() && !instant});
-    return;
-  }
-  framePoint(map, [st.lng, st.lat], {preset, zoom: 16.4, offset: sheetOffset(), animate: animate() && !instant});
+  const ring = circleRing([st.lng, st.lat], STATION_RADIUS_M, 32);
+  const own = Math.max(0, ...(state.buildingsByStation.get(st.id)?.features || []).map(f => Number(f.properties?.height) || 0));
+  const around = roof ?? regionRoof([st.lng, st.lat]);
+  const top = Math.max(own, around ?? DEFAULT_ROOF_M);
+  const points = preset === 'plan' ? ring : [...ring.map(([x, y]) => [x, y, 0]), ...ring.map(([x, y]) => [x, y, top])];
+  const bounds = ring.reduce((acc, p) => acc.extend(p), new maplibregl.LngLatBounds(ring[0], ring[0]));
+  const padding = mobilePortrait() ? cameraPadding() : pitchedPadding();
+  fitPitched(map, bounds, {preset, points, padding, maxZoom: 18.5, minZoom: 11, recenter: true, shift: 0, animate: animate() && !instant, duration});
+  state.stationFrame = {id: st.id, roof: top, measured: around != null, moved: false};
+}
+
+/** Once the massing of the station area has loaded, refit if its roofs are taller than the frame allowed (only while the user has not moved the camera). */
+function refitStationRoof() {
+  const f = state.stationFrame, st = currentStation();
+  if (!f || f.moved || !st || st.id !== f.id || state.panel.mode !== 'station' || cameraPreset() === 'plan') return;
+  const roof = regionRoof([st.lng, st.lat]);
+  if (roof == null || (f.measured && roof <= f.roof + 1) || (!f.measured && Math.abs(roof - f.roof) < 12)) { if (roof != null) f.measured = true; return; }
+  frameStation(st, {roof, duration: 450});
 }
 
 function provinceScopeStations() { return filterStations(state.data.stations, {...values(), province: '', line: ''}, state.data.lines); }
@@ -540,7 +572,7 @@ function updateSpatialLayers() {
   const c = map.getCenter();
   const anchors = focusPoints().sort((a, b) => Math.hypot(a[0] - c.lng, a[1] - c.lat) - Math.hypot(b[0] - c.lng, b[1] - c.lat)).slice(0, state.panel.mode === 'station' ? 1 : 6);
   const hosts = (state.buildingGeo?.features || []).flatMap(outerRings);
-  state.massing?.update({regions: state.view3d ? anchors.map(p => circleRing(p, state.panel.mode === 'station' ? 450 : FOCUS_RADIUS_M)) : [], hosts, anchors, enabled: true, city: state.view3d, zoom: map.getZoom(), latitude: c.lat})?.catch(e => console.warn('Massing', e));
+  state.massing?.update({regions: state.view3d ? anchors.map(p => circleRing(p, state.panel.mode === 'station' ? STATION_RADIUS_M : FOCUS_RADIUS_M)) : [], hosts, anchors, enabled: true, city: state.view3d, zoom: map.getZoom(), latitude: c.lat})?.catch(e => console.warn('Massing', e));
   state.pins?.layout();
 }
 
@@ -553,13 +585,13 @@ function installSpatialLayers() {
   state.loaded = true;
   const palette = basemapPalette(theme());
   state.provinceLayers = state.provinces?.features?.length ? installProvinceLayers(map, state.provinces, {onSelect: code => selectProvince(code)}) : null;
-  state.optional = installOptionalLayers(map, {beforeId: DATA_FILL_BEFORE});
+  state.optional = installOptionalLayers(map, {beforeId: DATA_FILL_BEFORE, onPick: showContextPopup});
   state.rail = installRailLines(map, state.railGeo, {beforeId: MASSING_BEFORE, onSelect: id => selectLine(id, {fromMap: true})});
   state.massing = installMassing(map, {
     beforeId: MASSING_BEFORE, colors: {quiet: palette.massingQuiet, focus: palette.massingFocus, ground: palette.ground},
     tileUrl: t => (state.tileTemplate ? state.tileTemplate.replace('{z}', t.z).replace('{x}', t.x).replace('{y}', t.y) : ''),
     focusRenderer: state.THREE ? 'external' : 'maplibre',
-    onFeatures: features => state.scene?.setContext(features),
+    onFeatures: features => { state.contextFeatures = features || []; state.scene?.setContext(features); refitStationRoof(); },
     onResult: result => { $('map-status').dataset.massing = `${result.features || 0}`; },
   });
   if (state.THREE) {
@@ -570,14 +602,14 @@ function installSpatialLayers() {
         onCycle: ({objects, cycle}) => renderRayStatus(objects, {cycle}),
         onSelect: hit => {
           if (!hit) return;
-          if (hit.kind === 'station') selectStation(hit.id, {fly: false, fromMap: true});
-          else if (hit.kind === 'building' && hit.stationId) selectStation(hit.stationId, {fly: false, fromMap: true});
+          if (hit.kind === 'station') selectStation(hit.id, {fromMap: true});
+          else if (hit.kind === 'building' && hit.stationId) selectStation(hit.stationId, {fromMap: true});
           else if (hit.kind === 'line') selectLine(hit.lineId, {fromMap: true});
         },
       });
     } catch (e) { state.scene = null; console.warn('3D scene unavailable', e); }
   }
-  for (const kind of ['bus', 'boat']) if (state.layers[kind]) toggleLayer(kind, true);
+  for (const kind of MODE_LAYERS) if (state.layers[kind]) toggleLayer(kind, true);
   updateSpatialLayers();
   if (!state.initialCameraDone) { state.initialCameraDone = true; fitMap({instant: true}); }
 }
@@ -609,16 +641,92 @@ function optionalGeoJSON(kind, raw) {
   return {meta: raw.meta, routes: fc([...lines, ...brt]), stops: fc([...stops, ...brtStops])};
 }
 
+const layerLoads = new Map();
+/** Fetch one optional layer once (map toggles and the station's nearby modes share it). */
+function loadLayer(kind) {
+  if (state.optionalData[kind]) return Promise.resolve(state.optionalData[kind]);
+  if (!layerLoads.has(kind)) {
+    layerLoads.set(kind, fetchJSON(LAYER_FILE[kind]).then(raw => (state.optionalData[kind] = optionalGeoJSON(kind, raw))).catch(e => { layerLoads.delete(kind); throw e; }));
+  }
+  return layerLoads.get(kind);
+}
+
 async function toggleLayer(kind, on = !state.layers[kind]) {
+  if (!LAYER_FILE[kind]) return;
   state.layers[kind] = on;
-  $(`toggle-${kind}`).setAttribute('aria-pressed', String(on));
+  renderModeMenu();
   if (on && !state.optionalData[kind]) {
-    try { state.optionalData[kind] = optionalGeoJSON(kind, await fetchJSON(`data/${kind}.json`)); }
-    catch (e) { console.warn(`Optional ${kind} layer unavailable`, e); state.layers[kind] = false; $(`toggle-${kind}`).setAttribute('aria-pressed', 'false'); $('map-status').textContent = kind === 'bus' ? 'โหลดชั้นรถเมล์ไม่สำเร็จ' : 'โหลดชั้นเรือไม่สำเร็จ'; return; }
+    try { await loadLayer(kind); }
+    catch (e) { console.warn(`Optional ${kind} layer unavailable`, e); state.layers[kind] = false; renderModeMenu(); $('map-status').textContent = `โหลดชั้น${state.data?.meta?.contextLayers?.[kind]?.label || ''}ไม่สำเร็จ`; return; }
   }
   if (state.loaded && state.optional) state.optional.setVisible(kind, state.layers[kind], state.optionalData[kind]);
   renderLegend();
   saveURL();
+  if (on) announce(`เปิดชั้น${state.data?.meta?.contextLayers?.[kind]?.label || ''}`);
+}
+
+/* ---------- other modes: menu, legend, popups, nearby ---------- */
+const layerNote = c => [c.count != null ? `${num(c.count)} ${c.unit}` : '', c.source, c.period, c.boundary].filter(Boolean).join(' · ');
+function renderModeMenu() {
+  const summary = state.data?.meta?.contextLayers || {};
+  const on = MODE_LAYERS.filter(k => state.layers[k]);
+  $('mode-active-count').textContent = on.length ? num(on.length) : '';
+  $('mode-active-count').hidden = !on.length;
+  $('toggle-modes').setAttribute('aria-label', on.length ? `ขนส่งอื่น เปิดอยู่ ${on.length} ชั้น` : 'ขนส่งอื่น');
+  $('mode-list').innerHTML = MODE_LAYERS.filter(k => summary[k]).map(k => {
+    const c = summary[k];
+    return `<li><button type="button" class="mode-item" data-layer="${k}" aria-pressed="${state.layers[k]}"><i class="mode-sym is-${k}" aria-hidden="true"></i><span class="mode-text"><strong>${esc(c.label)}</strong><small>${esc(layerNote(c))}</small></span><span class="mode-state" aria-hidden="true">${state.layers[k] ? 'เปิด' : 'ปิด'}</span></button></li>`;
+  }).join('');
+}
+function setModeMenu(open, {focus = false} = {}) {
+  $('mode-menu').hidden = !open;
+  $('toggle-modes').setAttribute('aria-expanded', String(open));
+  if (open) { renderModeMenu(); $('mode-list').querySelector('button')?.focus(); }
+  else if (focus) $('toggle-modes').focus();
+}
+
+let contextPopup = null;
+function showContextPopup({layer, properties: p, lngLat}) {
+  const summary = state.data?.meta?.contextLayers || {};
+  const kind = layer.startsWith('ctx-') ? layer.slice(4) : layer.startsWith('boat') ? 'boat' : '';
+  const c = summary[kind] || {};
+  const title = p.name || c.label || '';
+  const sub = [p.kindLabel || (kind === 'boat' ? 'ท่าเรือ' : ''), p.code, p.area].filter(Boolean).join(' · ');
+  const html = `<div class="ctx-popup"><strong>${esc(title)}</strong>${sub ? `<span>${esc(sub)}</span>` : ''}${p.status ? `<span>${esc(p.status)}</span>` : ''}<small>${esc([c.source, c.period].filter(Boolean).join(' · '))}</small></div>`;
+  contextPopup?.remove();
+  contextPopup = new maplibregl.Popup({closeButton: true, maxWidth: '280px', className: 'ctx-popup-wrap'}).setLngLat(lngLat).setHTML(html).addTo(state.map);
+}
+
+/** Points of a loaded layer as [{lng, lat, name}] for the nearby counts. */
+function layerPoints(kind) {
+  const d = state.optionalData[kind];
+  if (!d) return null;
+  if (kind === 'bus') return d.stops.features.map(f => ({lng: f.geometry.coordinates[0], lat: f.geometry.coordinates[1], name: f.properties.name || ''}));
+  if (kind === 'boat') return d.stops.features.map(f => ({lng: f.geometry.coordinates[0], lat: f.geometry.coordinates[1], name: f.properties.name || ''}));
+  const i = name => (d.fields || []).indexOf(name);
+  return (d.rows || []).map(r => ({lng: r[i('lng')], lat: r[i('lat')], name: r[i('name')] || ''}));
+}
+
+/** The station panel's "other modes around this station" block — counts within NEARBY_RADIUS_M and the nearest point of each layer. */
+function renderStationModes() {
+  const el = $('station-modes');
+  const st = currentStation();
+  const summary = state.data?.meta?.contextLayers;
+  if (!el || !st || !summary || !hasPoint(st)) { if (el) el.hidden = true; return; }
+  const points = Object.fromEntries(MODE_LAYERS.map(k => [k, layerPoints(k)]));
+  const rows = nearbyModes(st, points, summary);
+  const missing = rows.filter(r => r.state === 'loading').map(r => r.layer);
+  const line = r => {
+    if (r.state === 'outside') return `<span class="hint">นอกขอบเขตข้อมูล (${esc(r.boundary)})</span>`;
+    if (r.state === 'loading') return '<span class="hint">กำลังนับ…</span>';
+    const count = r.layer === 'air' ? '' : r.count ? `<strong class="data-number">${num(r.count)}</strong> ${esc(r.unit)}ใน ${num(NEARBY_RADIUS_M)} ม.` : `ไม่พบใน ${num(NEARBY_RADIUS_M)} ม.`;
+    const nearest = r.nearest ? `ใกล้สุด ${esc(distanceLabel(r.nearest.distance))}${r.nearest.name ? ` · ${esc(r.nearest.name)}` : ''}` : '';
+    return [count, nearest].filter(Boolean).join(' · ');
+  };
+  el.hidden = false;
+  el.innerHTML = `<div class="section-heading"><h3>ขนส่งอื่นรอบสถานี</h3><span class="hint">ระยะเส้นตรงจากจุดอ้างอิงสถานี ไม่ใช่ระยะเดิน</span></div>
+    <ul class="mode-near-list">${rows.map(r => `<li><i class="mode-sym is-${r.layer}" aria-hidden="true"></i><span class="mode-text"><strong>${esc(r.label)}</strong><span>${line(r)}</span><small>${esc([r.source, r.period].filter(Boolean).join(' · '))}</small></span><button type="button" class="btn quiet small" data-action="toggle-layer" data-id="${r.layer}" aria-pressed="${state.layers[r.layer]}">${state.layers[r.layer] ? 'ซ่อนบนแผนที่' : 'ดูบนแผนที่'}</button></li>`).join('')}</ul>`;
+  if (missing.length) Promise.allSettled(missing.map(loadLayer)).then(() => { if (currentStation()?.id === st.id) renderStationModes(); });
 }
 
 function initMap() {
@@ -637,7 +745,7 @@ function initMap() {
       const name = members.length > 1 ? state.complexById.get(row.complexId)?.name || row.name : row.name;
       return {label: `${name} · ${lines.map(l => l.name).join(', ') || 'ไม่ระบุสาย'} · ${status}`, shortLabel: name, color: lines[0]?.color || '', interchange: isInterchange(row), construction: row.status === 'construction'};
     },
-    onSelect: r => selectStation(r.id, {fly: false, fromMap: true}),
+    onSelect: r => selectStation(r.id, {fromMap: true}),
     onHover: r => state.scene?.setHover(r ? r.id : ''),
     onLayout: stats => {
       const context = stats.contextPins ? ` · บริบท ${num(stats.contextPins)}` : '';
@@ -650,6 +758,7 @@ function initMap() {
   let moveTimer = 0;
   state.map.on('moveend', () => { clearTimeout(moveTimer); moveTimer = setTimeout(() => { if (state.loaded && state.panel.mode === 'line') updateSpatialLayers(); }, 250); });
   state.map.on('error', e => console.warn('Map resource', e.error?.message || e));
+  for (const type of ['dragstart', 'zoomstart', 'rotatestart', 'pitchstart']) state.map.on(type, e => { if (e.originalEvent && state.stationFrame) state.stationFrame.moved = true; });
   fetch(TILEJSON_URL).then(r => r.json()).then(j => { state.tileTemplate = j.tiles?.[0] || ''; if (state.loaded) updateSpatialLayers(); }).catch(e => console.warn('TileJSON', e));
 }
 
@@ -748,8 +857,8 @@ function restoreFromURL() {
   state.focusMode = p.get('focus') === 'all' ? 'none' : 'auto';
   state.view3d = p.get('view3d') !== '0';
   state.twoPoint = p.get('cam') !== 'model';
-  state.layers.bus = p.get('bus') === '1';
-  state.layers.boat = p.get('boat') === '1';
+  const listed = (p.get('layers') || '').split(',');
+  for (const k of MODE_LAYERS) state.layers[k] = listed.includes(k) || p.get(k) === '1';   // bus=1 / boat=1 links of 0.1 still work
   if ($('line').value) { state.panel = {mode: 'line', id: $('line').value}; state.via = $('line').value; }
   if (p.get('station') && state.stationById.has(p.get('station'))) state.panel = {mode: 'station', id: p.get('station')};
 }
@@ -781,8 +890,11 @@ function wireEvents() {
   $('bangkok-map').onclick = () => { if (state.map) applyPreset(state.map, state.view3d ? 'city' : 'plan', {center: BANGKOK.center, zoom: BANGKOK.zoom, animate: animate()}); };
   $('toggle-3d').onclick = toggle3d;
   $('toggle-eye').onclick = toggleTwoPoint;
-  $('toggle-bus').onclick = () => toggleLayer('bus');
-  $('toggle-boat').onclick = () => toggleLayer('boat');
+  $('toggle-modes').onclick = () => setModeMenu($('mode-menu').hidden);
+  $('close-modes').onclick = () => setModeMenu(false, {focus: true});
+  $('mode-list').addEventListener('click', e => { const b = e.target.closest('[data-layer]'); if (b) toggleLayer(b.dataset.layer); });
+  document.addEventListener('keydown', e => { if (e.key === 'Escape' && !$('mode-menu').hidden) setModeMenu(false, {focus: true}); });
+  document.addEventListener('pointerdown', e => { if (!$('mode-menu').hidden && !e.target.closest('#mode-menu, #toggle-modes')) setModeMenu(false); });
   $('mobile-panel').onclick = () => { $('panel').classList.contains('is-open') ? closeMobilePanel() : openMobilePanel(); };
   $('close-mobile-panel').onclick = closeMobilePanel;
   document.querySelector('.skip').onclick = () => { openMobilePanel(); $('dataset-title').focus(); };
@@ -842,7 +954,7 @@ async function init() {
     fillOptions();
     restoreFromURL();
     $('toggle-3d').setAttribute('aria-pressed', String(state.view3d));
-    for (const kind of ['bus', 'boat']) $(`toggle-${kind}`).setAttribute('aria-pressed', String(state.layers[kind]));
+    renderModeMenu();
     syncEyeToggle();
     try { $('theme').value = localStorage.getItem('citymeter-transit-theme') || 'auto'; } catch {}
     applyTheme();

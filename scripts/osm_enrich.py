@@ -235,6 +235,85 @@ def classify_line_features(line_features, grid_for, report):
     return out
 
 
+def line_length_m(coords):
+    return sum(math.hypot(*(a - b for a, b in zip(xy(*p), xy(*q)))) for p, q in zip(coords, coords[1:]))
+
+
+def dominant_elevation(lines, line_features, meta):
+    """Elevation class of each line by length; 'mixed' when no class reaches 80 %."""
+    length = collections.defaultdict(collections.Counter)
+    for f in line_features:
+        if f['properties'].get('elevation'):
+            length[f['properties']['lineId']][f['properties']['elevation']] += line_length_m(f['geometry']['coordinates'])
+    for l in lines:
+        cnt = length.get(l['id'])
+        if cnt:
+            total = sum(cnt.values())
+            top, v = cnt.most_common(1)[0]
+            l['elevation'] = top if v / total >= 0.8 else 'mixed'
+            l['elevationShare'] = {k: round(x / total, 3) for k, x in cnt.items()}
+            meta['elevatedShare'][l['id']] = l['elevationShare']
+
+
+def station_elevation(stations, line_features):
+    """Each station takes the class of its own line within 150 m (operating stretches and construction ways)."""
+    grids = collections.defaultdict(lambda: Grid(40.0))
+    for f in line_features:
+        lvl = f['properties'].get('elevation')
+        if not lvl:
+            continue
+        for p in densify([xy(*c) for c in f['geometry']['coordinates']], 10.0):
+            grids[f['properties']['lineId']].add(p, lvl)
+    for s in stations:
+        if s['lat'] is None:
+            continue
+        hit, d = grids[s['lineIds'][0]].nearest(xy(s['lng'], s['lat']), 150.0) if s['lineIds'][0] in grids else (None, None)
+        if hit:
+            s['elevation'] = hit
+            s['elevationSource'] = 'osm_line_at_station'
+
+
+def family_colours(lines, meta):
+    """Extensions under construction carry the colour of their own line family (same colour word in the name)."""
+    for l in lines:
+        if l.get('colorBasis') == 'osm_route_colour' or not l.get('colourWord'):
+            continue
+        parent = next((x for x in lines if x is not l and x.get('colorBasis') == 'osm_route_colour' and x.get('colourWord') == l['colourWord']), None)
+        if parent:
+            l['color'] = parent['color']
+            l['colorBasis'] = 'osm_route_colour_of_line_family'
+            l['colorSource'] = {'family': parent['id'], 'osm': parent['colorSource']['osm']}
+            meta['colours'][l['id']] = parent['color']
+
+
+def construction_note(lines, added, report):
+    for lid in added:
+        line = next(l for l in lines if l['id'] == lid)
+        line['alignmentNote'] = 'แนวจาก OpenStreetMap (railway=construction) ไม่ใช่แบบก่อสร้างทางการ'
+        line['sources'].append({'title': 'แนวก่อสร้างจาก OpenStreetMap (ODbL)', 'url': 'https://www.openstreetmap.org/copyright'})
+    report['osmConstructionWays'] = dict(added)
+
+
+HEIGHT_NOTE = {'osm_height': 'ความสูงจากแท็ก height ใน OSM', 'osm_levels': 'ความสูงประมาณจากจำนวนชั้นใน OSM × 3.5 ม.',
+               'display_default': 'ไม่มีความสูงใน OSM ใช้ค่าตั้งต้นเพื่อการแสดงผลเท่านั้น'}
+
+
+def building_heights(height, levels, base, min_level, station_level):
+    """Height and base in metres from OSM tags; a declared display default when OSM has neither."""
+    basis = 'osm_height' if height else 'osm_levels' if levels else 'display_default'
+    if not height:
+        height = levels * 3.5 if levels else (22.0 if station_level == 'elevated' else 8.0)
+    if base is None:
+        base = min_level * 3.5 if min_level else 0.0
+    return round(height, 1), round(base, 1), basis
+
+
+def buildings_fc(features, meta):
+    return {'type': 'FeatureCollection', 'metadata': {'source': 'OpenStreetMap (Overpass API)', 'licence': meta['licence'], 'sha256': meta['sha256'],
+                                                      'timestampOsmBase': meta['timestampOsmBase'], 'matching': 'operator code (ref) or name within 400 m, then the containing building polygon'},
+            'features': features}
+
+
 def enrich(osm_path, lines, stations, line_features, report):
     with open(osm_path, 'rb') as fh:
         raw = fh.read()
@@ -321,42 +400,11 @@ def enrich(osm_path, lines, stations, line_features, report):
                                                          'osm_ref': f'way/{e["id"]}', 'quality': 'osm_railway_construction_way_not_design_alignment'},
                        'geometry': {'type': 'LineString', 'coordinates': [[round(v, 5) for v in ll(*q)] for q in simplify(pts, 2.0)]}})
         added[best] += 1
-    for lid, n in added.items():
-        line = next(l for l in lines if l['id'] == lid)
-        line['alignmentNote'] = 'แนวจาก OpenStreetMap (railway=construction) ไม่ใช่แบบก่อสร้างทางการ'
-        line['sources'].append({'title': 'แนวก่อสร้างจาก OpenStreetMap (ODbL)', 'url': 'https://www.openstreetmap.org/copyright'})
-    report['osmConstructionWays'] = dict(added)
+    construction_note(lines, added, report)
     line_features[:] = classified + others
-    # dominant elevation per line
-    length = collections.defaultdict(collections.Counter)
-    for f in line_features:
-        c = f['geometry']['coordinates']
-        L = sum(math.hypot(*(a - b for a, b in zip(xy(*p), xy(*q)))) for p, q in zip(c, c[1:]))
-        if f['properties'].get('elevation'):
-            length[f['properties']['lineId']][f['properties']['elevation']] += L
-    for l in lines:
-        cnt = length.get(l['id'])
-        if cnt:
-            total = sum(cnt.values())
-            top, v = cnt.most_common(1)[0]
-            l['elevation'] = top if v / total >= 0.8 else 'mixed'
-            l['elevationShare'] = {k: round(x / total, 3) for k, x in cnt.items()}
-            meta['elevatedShare'][l['id']] = l['elevationShare']
+    dominant_elevation(lines, line_features, meta)
     # ---- 2. station elevation from its own line
-    grids = collections.defaultdict(lambda: Grid(40.0))
-    for f in line_features:
-        lvl = f['properties'].get('elevation')
-        if not lvl:
-            continue
-        for p in densify([xy(*c) for c in f['geometry']['coordinates']], 10.0):
-            grids[f['properties']['lineId']].add(p, lvl)
-    for s in stations:
-        if s['lat'] is None:
-            continue
-        hit, d = grids[s['lineIds'][0]].nearest(xy(s['lng'], s['lat']), 150.0) if s['lineIds'][0] in grids else (None, None)
-        if hit:
-            s['elevation'] = hit
-            s['elevationSource'] = 'osm_line_at_station'
+    station_elevation(stations, line_features)
     # ---- 3. colours from route relations
     seen = collections.defaultdict(collections.Counter)   # colour → member ways carrying it (a branch weighs less than the main line)
     refs = collections.defaultdict(list)
@@ -377,16 +425,7 @@ def enrich(osm_path, lines, stations, line_features, report):
             meta['colours'][l['id']] = colour
             if len(seen[l['id']]) > 1:
                 report['holds'].append(f'{l["id"]}: OSM route colours differ {dict(seen[l["id"]])}; used the colour of the most member ways')
-    # extensions under construction carry the colour of their own line family (same colour word in the name)
-    for l in lines:
-        if l.get('colorBasis') == 'osm_route_colour' or not l.get('colourWord'):
-            continue
-        parent = next((x for x in lines if x is not l and x.get('colorBasis') == 'osm_route_colour' and x.get('colourWord') == l['colourWord']), None)
-        if parent:
-            l['color'] = parent['color']
-            l['colorBasis'] = 'osm_route_colour_of_line_family'
-            l['colorSource'] = {'family': parent['id'], 'osm': parent['colorSource']['osm']}
-            meta['colours'][l['id']] = parent['color']
+    family_colours(lines, meta)
     # ---- 4. buildings
     osm_stations, buildings = [], []
     for e in elements:
@@ -450,22 +489,12 @@ def enrich(osm_path, lines, stations, line_features, report):
             by_ref[ref]['properties']['stationIds'].append(s['id'])
             continue
         t = e.get('tags', {})
-        height = num(t.get('height'))
-        levels = num(t.get('building:levels'))
-        base = num(t.get('min_height'))
-        min_level = num(t.get('building:min_level'))
-        basis = 'osm_height' if height else 'osm_levels' if levels else 'display_default'
-        if not height:
-            height = levels * 3.5 if levels else (22.0 if s.get('elevation') == 'elevated' else 8.0)
-        if base is None:
-            base = min_level * 3.5 if min_level else 0.0
+        height, base, basis = building_heights(num(t.get('height')), num(t.get('building:levels')), num(t.get('min_height')), num(t.get('building:min_level')), s.get('elevation'))
         feature = {
             'type': 'Feature', 'id': ref,
             'properties': {
                 'stationId': s['id'], 'stationIds': [s['id']], 'name': t.get('name:th') or t.get('name') or '', 'osm_ref': ref, 'osm_url': f'https://www.openstreetmap.org/{ref}',
-                'height': round(height, 1), 'base': round(base, 1), 'height_basis': basis,
-                'height_note': {'osm_height': 'ความสูงจากแท็ก height ใน OSM', 'osm_levels': 'ความสูงประมาณจากจำนวนชั้นใน OSM × 3.5 ม.',
-                                'display_default': 'ไม่มีความสูงใน OSM ใช้ค่าตั้งต้นเพื่อการแสดงผลเท่านั้น'}[basis],
+                'height': height, 'base': base, 'height_basis': basis, 'height_note': HEIGHT_NOTE[basis],
                 'match': best[3] if best else 'station_tagged_building_near_point', 'match_distance_m': round(rank[1], 1),
                 'osm_station': f'{best[1]["type"]}/{best[1]["id"]}' if best else '',
             },
@@ -475,7 +504,127 @@ def enrich(osm_path, lines, stations, line_features, report):
         features.append(feature)
     meta['buildings'] = len(features)
     report['osm'] = {'buildings': len(features), 'colours': meta['colours'], 'unmatchedParts': len(report.get('osmUnmatchedParts', []))}
-    fc = {'type': 'FeatureCollection', 'metadata': {'source': 'OpenStreetMap (Overpass API)', 'licence': meta['licence'], 'sha256': meta['sha256'],
-                                                    'timestampOsmBase': meta['timestampOsmBase'], 'matching': 'operator code (ref) or name within 400 m, then the containing building polygon'},
-          'features': features}
-    return fc, meta
+    return buildings_fc(features, meta), meta
+
+
+def decode6(text):
+    """Google polyline (precision 6, lat/lng order) → [(lng, lat)]."""
+    out, i, lat, lng = [], 0, 0, 0
+    while i < len(text):
+        vals = []
+        for _ in range(2):
+            shift = result = 0
+            while True:
+                b = ord(text[i]) - 63
+                i += 1
+                result |= (b & 0x1f) << shift
+                shift += 5
+                if b < 0x20:
+                    break
+            vals.append(~(result >> 1) if result & 1 else result >> 1)
+        lat += vals[0]
+        lng += vals[1]
+        out.append((lng / 1e6, lat / 1e6))
+    return out
+
+
+def apply_derived(derived_path, lines, stations, line_features, report):
+    """Apply the results of scripts/osm-browser-extract.js — the same rules as enrich() — without the raw file.
+
+    The raw Overpass response could not be copied into the build environment, so the
+    extraction ran in the browser that held it and only its results travel (checked by
+    sha256 on both sides); the raw file's sha256 and timestamp are carried through.
+    Each alignment's runs are checked against the geometry they were computed on."""
+    with open(derived_path, 'rb') as fh:
+        raw = fh.read()
+    d = json.loads(raw)
+    m = d['meta']
+    meta = {
+        'file': 'osm-rail-stations-2026-10-31.json', 'sha256': m['rawSha256'], 'bytes': m['rawBytes'],
+        'timestampOsmBase': m['timestampOsmBase'], 'elements': m['elements'],
+        'licence': 'ODbL 1.0 — © OpenStreetMap contributors', 'frame': {'south': BBOX[0], 'west': BBOX[1], 'north': BBOX[2], 'east': BBOX[3]},
+        'colours': {}, 'buildings': 0, 'elevatedShare': {},
+        'derived': {'file': 'sources/osm/' + derived_path.replace('\\', '/').rsplit('/', 1)[-1], 'sha256': hashlib.sha256(raw).hexdigest(), 'generator': m['generator']},
+        'routeMembership': dict(sorted(d.get('routeMembership', {}).items())), 'namedWays': dict(sorted(d.get('namedWays', {}).items())),
+    }
+    # ---- 1. alignments: split each operating stretch by the runs computed on the same geometry
+    operating = [f for f in line_features if f['properties']['status'] == 'operating']
+    others = [f for f in line_features if f['properties']['status'] != 'operating']
+    classified = []
+    for f in operating:
+        key = f"{f['properties']['lineId']}:{f['properties']['part']}"
+        runs, check = d['elevation'].get(key), d['featureCheck'].get(key)
+        base = [xy(*c) for c in f['geometry']['coordinates']]
+        length = sum(math.hypot(b[0] - a[0], b[1] - a[1]) for a, b in zip(base, base[1:]))
+        if runs and (not check or check[0] != len(base) or abs(check[1] - length) > 0.5):
+            report['holds'].append(f'{key}: OSM runs were computed on another geometry ({check} vs {[len(base), round(length, 1)]}); elevation left unknown')
+            runs = None
+        if not runs:
+            classified.append(f)
+            report['osmUnmatchedParts'].append(f['properties']['lineId'])
+            continue
+        pts = densify(base, 10.0)
+        cum = [0.0]
+        for a, b in zip(pts, pts[1:]):
+            cum.append(cum[-1] + math.hypot(b[0] - a[0], b[1] - a[1]))
+
+        def at(metre):
+            return min(range(len(cum)), key=lambda i: abs(cum[i] - metre))
+        for m0, m1, level in runs:
+            seg = simplify(pts[at(m0):at(m1) + 1], 2.0)
+            if len(seg) < 2:
+                continue
+            classified.append({'type': 'Feature', 'properties': {**f['properties'], 'elevation': level, 'elevationSource': 'osm_nearest_railway_way'},
+                               'geometry': {'type': 'LineString', 'coordinates': [[round(v, 5) for v in ll(*q)] for q in seg]}})
+    # ---- 5. OSM construction ways for urban projects without an alignment
+    added = collections.Counter()
+    for c in d.get('construction', []):
+        lid = c['lineId']
+        others.append({'type': 'Feature', 'properties': {'lineId': lid, 'status': 'construction', 'elevation': c['level'], 'part': added[lid], 'source': 'OSM',
+                                                         'osm_ref': c['osmRef'], 'quality': 'osm_railway_construction_way_not_design_alignment'},
+                       'geometry': {'type': 'LineString', 'coordinates': [[round(lng, 5), round(lat, 5)] for lng, lat in decode6(c['p'])]}})
+        added[lid] += 1
+    construction_note(lines, added, report)
+    line_features[:] = classified + others
+    dominant_elevation(lines, line_features, meta)
+    # ---- 2. station elevation; must agree with the level the extraction used for building matching
+    station_elevation(stations, line_features)
+    code = d['stationLevel']
+    if code['order'] != hashlib.sha256('\n'.join(s['id'] for s in stations).encode('utf-8')).hexdigest() or len(code['code']) != len(stations):
+        raise SystemExit('osm-derived: station levels were computed on another station list; re-run scripts/osm-browser-extract.js')
+    for s, c in zip(stations, code['code']):
+        used = {'E': 'elevated', 'S': 'surface', 'U': 'underground'}.get(c)
+        if (s.get('elevation') or None) != used:
+            report['holds'].append(f"{s['id']}: station level {s.get('elevation')} here vs {used} in the extraction")
+    # ---- 3. colours
+    for l in lines:
+        c = d['colours'].get(l['id'])
+        if not c:
+            continue
+        l['color'] = c['colour']
+        l['colorBasis'] = 'osm_route_colour'
+        l['colorSource'] = {'osm': [f'relation/{r}' for r in c['relations']][:6], 'memberWays': c['memberWays'], 'variants': c['variants']}
+        meta['colours'][l['id']] = c['colour']
+        if len(c['variants']) > 1:
+            report['holds'].append(f"{l['id']}: OSM route colours differ {c['variants']}; used the colour of the most member ways")
+    family_colours(lines, meta)
+    # ---- 4. buildings
+    by_id = {s['id']: s for s in stations}
+    features = []
+    for b in d.get('buildings', []):
+        s0 = by_id[b['stationIds'][0]]
+        for sid in b['stationIds']:
+            by_id[sid].setdefault('buildingIds', []).append(b['ref'])
+        height, base, basis = building_heights(b['heightTag'], b['levelsTag'], b['minHeightTag'], b['minLevelTag'], s0.get('elevation'))
+        features.append({
+            'type': 'Feature', 'id': b['ref'],
+            'properties': {
+                'stationId': s0['id'], 'stationIds': list(b['stationIds']), 'name': b['name'], 'osm_ref': b['ref'], 'osm_url': f"https://www.openstreetmap.org/{b['ref']}",
+                'height': height, 'base': base, 'height_basis': basis, 'height_note': HEIGHT_NOTE[basis],
+                'match': b['match'], 'match_distance_m': b['dist'], 'osm_station': b['osmStation'],
+            },
+            'geometry': {'type': 'Polygon', 'coordinates': [[[round(lng, 6), round(lat, 6)] for lng, lat in decode6(b['p'])]]},
+        })
+    meta['buildings'] = len(features)
+    report['osm'] = {'buildings': len(features), 'colours': meta['colours'], 'unmatchedParts': len(report.get('osmUnmatchedParts', []))}
+    return buildings_fc(features, meta), meta

@@ -234,6 +234,47 @@ export function ribbonWidth(line, mpp) {
  * over RAMP_M metres at that end; extra vertices are inserted so the slope is
  * smooth. `path` = [[x, z], …] in scene metres. Returns [[x, y, z], …].
  */
+/** WCAG contrast ratio of two #RRGGBB colours (NaN when either is not a hex colour). */
+export function contrastRatio(a, b) {
+  const lum = hex => {
+    const m = /^#?([0-9a-f]{6})$/i.exec(String(hex || '').trim());
+    if (!m) return NaN;
+    const [r, g, bl] = [0, 2, 4].map(k => parseInt(m[1].slice(k, k + 2), 16) / 255).map(c => (c <= 0.03928 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4));
+    return 0.2126 * r + 0.7152 * g + 0.0722 * bl;
+  };
+  const [x, y] = [lum(a), lum(b)];
+  return (Math.max(x, y) + 0.05) / (Math.min(x, y) + 0.05);
+}
+
+/**
+ * Split a 3D path into dashes of `on` scene metres separated by `off` (construction
+ * lines are dashed in 3D as in the 2D legend: the cue does not rest on colour or opacity).
+ */
+export function dashPath(path, on = 36, off = 24) {
+  const out = [];
+  if (!path || path.length < 2) return out;
+  let cur = [path[0]], drawing = true, left = on;
+  for (let i = 1; i < path.length; i++) {
+    let a = path[i - 1];
+    const b = path[i];
+    let seg = Math.hypot(b[0] - a[0], b[2] - a[2]);
+    while (seg > left) {
+      const t = left / seg;
+      const p = [a[0] + (b[0] - a[0]) * t, a[1] + (b[1] - a[1]) * t, a[2] + (b[2] - a[2]) * t];
+      if (drawing) { cur.push(p); if (cur.length >= 2) out.push(cur); cur = []; }
+      else cur = [p];
+      drawing = !drawing;
+      seg -= left;
+      left = drawing ? on : off;
+      a = p;
+    }
+    left -= seg;
+    if (drawing) cur.push(b);
+  }
+  if (drawing && cur.length >= 2) out.push(cur);
+  return out;
+}
+
 export function rampPath(path, height, {startLow = null, endLow = null, ramp = RAMP_M} = {}) {
   if (path.length < 2) return path.map(([x, z]) => [x, height, z]);
   const dist = [0];
@@ -275,7 +316,7 @@ export function rampPath(path, height, {startLow = null, endLow = null, ramp = R
  *  setScale({zoom, latitude}) — rebuilds widths in half-zoom buckets
  */
 export function installScene(map, THREE, maplibregl, {beforeId, palette = {}, onHover, onSelect, onCycle, reducedMotion = () => false} = {}) {
-  const colors = {plate: '#FFFFFF', plateQuiet: '#ECEDE8', building: '#FFFFFF', context: '#FFFFFF', pier: '#FFFFFF', lineQuiet: '#B4BDB7', hover: '#347DA8', selected: '#176B82', shadowOpacity: 0.2, ...palette};
+  const colors = {plate: '#FFFFFF', plateQuiet: '#ECEDE8', building: '#FFFFFF', context: '#FFFFFF', pier: '#FFFFFF', lineQuiet: '#B4BDB7', hover: '#347DA8', selected: '#176B82', shadowOpacity: 0.2, ground: '', backing: '', ...palette};
   const T = sceneTransform(maplibregl);
   const state = {enabled: true, lines: [], stations: [], buildings: [], context: [], hoverId: '', selectedId: '', cycle: {ids: [], cycle: 0}, failed: false, pickables: [], zoom: 12, latitude: ORIGIN.lat, bucket: -1,
     meshes: {lines: [], stations: [], buildings: [], piers: [], context: []}};
@@ -418,16 +459,28 @@ export function installScene(map, THREE, maplibregl, {beforeId, palette = {}, on
         const h = ELEVATION[p.elevation] ?? ELEVATION.surface;
         const path3 = p.elevation === 'elevated' ? rampPath(p.path, h, {startLow: lowAt(p, p.path[0]), endLow: lowAt(p, p.path[p.path.length - 1])}) : p.path.map(([x, z]) => [x, h + thickness / 2, z]);
         if (!byLevel.has(p.elevation)) byLevel.set(p.elevation, []);
-        byLevel.get(p.elevation).push(path3);
+        if (line.status === 'construction') byLevel.get(p.elevation).push(...dashPath(path3, 14 * mpp(), 9 * mpp()));
+        else byLevel.get(p.elevation).push(path3);
         if (p.elevation === 'elevated' && showPiers && !line.quiet && line.status !== 'construction') pierTransforms.push(...pierPositions([path3]).filter(([x, z]) => {
           // no pier on the ramps (the deck is low there)
           const i = path3.findIndex(q => Math.hypot(q[0] - x, q[2] - z) < PIER_SPACING); return i < 0 || path3[i][1] > ELEVATION.elevated - 1;
         }));
       }
+      // An identity colour too close to the ground (navy or dark red on the dark theme) keeps its colour and
+      // gets a neutral backing ribbon underneath (LDS: legibility by outline or backing, never by changing the colour).
+      const backed = !line.quiet && colors.backing && contrastRatio(line.color, colors.ground) < 3;
       for (const [level, paths] of byLevel) {
         const data = buildRibbon(paths, {width: level === 'underground' ? width * 0.75 : width, thickness});
         if (!data.indices.length) continue;
-        const opacity = line.quiet ? 0.5 : level === 'underground' ? 0.42 : line.status === 'construction' ? 0.45 : 0.92;
+        if (backed) {
+          const back = buildRibbon(paths.map(path => path.map(([x, y, z]) => [x, y - thickness * 0.3, z])), {width: (level === 'underground' ? width * 0.75 : width) + 4 * mpp(), thickness: thickness * 0.6});
+          const backMesh = new THREE.Mesh(geometryFrom(back), material({color: colors.backing, transparent: true, opacity: line.status === 'construction' ? 0.5 : 0.85, depthWrite: false}));
+          backMesh.renderOrder = level === 'underground' ? -2 : 0;
+          backMesh.userData = {kind: 'line-backing', lineId: line.id, level};
+          scene.add(backMesh);
+          state.meshes.lines.push(backMesh);
+        }
+        const opacity = line.quiet ? 0.5 : line.status === 'construction' ? (level === 'underground' ? 0.6 : 0.75) : level === 'underground' ? 0.42 : 0.92;
         const mat = material({color: line.quiet ? colors.lineQuiet : line.color || colors.lineQuiet, transparent: true, opacity, depthWrite: !line.quiet && level !== 'underground'});
         const mesh = new THREE.Mesh(geometryFrom(data), mat);
         mesh.castShadow = !line.quiet && level === 'elevated';

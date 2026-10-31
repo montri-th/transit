@@ -1,6 +1,6 @@
 {
   "artifact": "CityMETER Transit — 3D-first, rail-first map of lines, stations and interchanges",
-  "productVersion": "0.1.0",
+  "productVersion": "0.1.1",
   "updatedOn": "2026-10-31",
   "ldsVersion": "0.9.7",
   "release": "v0.9.7-owner.1",
@@ -20,9 +20,9 @@
     "analytical": "js/scales.js — count and activity families, exact 41-sample LUTs, identical HEX on both themes; classes round(i×40/(n−1))",
     "lineIdentity": {
       "rule": "line colours are third-party identity (the colour in the line's own name) with a source per line",
-      "primary": "OpenStreetMap route relation `colour` (colorBasis osm_route_colour)",
+      "primary": "OpenStreetMap route relation `colour` (colorBasis osm_route_colour); an extension takes its line family colour (osm_route_colour_of_line_family)",
       "fallback": "LDS categorical token nearest to the named colour family (colorBasis lds-series-fallback, resolved per theme)",
-      "status": "exception to the LDS categorical palette reported to the owner (DATA_METHOD.md §7); pending approval"
+      "status": "exception to the LDS categorical palette approved by the owner 2026-10-31 (DATA_METHOD.md §7)"
     }
   },
   "firstAha": "number of interchange complexes (records joined by current relations of 31_INTERCHANGES) on the operating network, the hubs that join the most lines (ties by reach), and the stations under construction; the first paint frames those hubs in the 3D city preset",
@@ -32,12 +32,15 @@
     "scene": "js/scene.js — one MapLibre custom layer (three.js 0.186.1): ribbons per line and level (elevated 12 m, surface 0.6 m, underground 0.3 m, ramps of 200 m), instanced piers from zoom 14.5, station plates by role (hub/station) striped with the lines that meet, OSM station buildings, focus massing; depth cleared before the scene so data never hides behind basemap massing",
     "lines2d": "js/map-layers.js — 2D lines below zoom 10 or with 3D off; construction dashed; quiet grey outside the focus",
     "pins": "js/pins.js — HTML buttons for keyboard and screen readers; one pin per complex within 150 m",
-    "elevation": "from OpenStreetMap ways of the same line (route relation members); unknown when unmatched",
-    "optionalLayers": "bus corridors (width by GTFS route count class, one quiet token) and boat routes, off by default, lazy-loaded",
-    "camera": "plan / city (56/28) / model (60, FOV 14) / eye (75, FOV 24) with pitch ≤ 90 − fov/2 − 3"
+    "elevation": "from OpenStreetMap ways of the same line (route relation members and ways that name the line); unknown when unmatched",
+    "optionalLayers": "other modes in the \"ขนส่งอื่น\" menu, off by default, lazy-loaded (data/bus.json, boat.json, layer-moto/intercity/srt/air.json): bus corridors (width by GTFS route-count class) + stops + BRT, boat routes (dashed) + piers (rings), conventional rail stops (filled square), intercity terminals (diamond; hollow = บขส. stop), motorcycle-taxi stands (small triangle), airports (plane); quiet map-role tokens, shape tells the mode; route lines above the road casing and below the rail lines; counts and sources in meta.contextLayers",
+    "camera": "plan / city (56/28) / model (60, FOV 14) / eye (75, FOV 24) with pitch ≤ 90 − fov/2 − 3",
+    "stationFrame": "a click on a station (panel, pin or 3D object) fits the ring of STATION_RADIUS_M (450 m, = focus massing) with roof heights (loaded massing, else a 60 m framing allowance) to the visible map area (pitchedPadding on desktop, cameraPadding above the mobile sheet); camera.fitPitched with recenter uses the padded area as principal point; one refit when taller roofs load unless the user moved the camera",
+    "construction": "construction alignments dashed in 2D (line-dasharray) and in 3D (dashPath, 14 px on / 9 px off at the current scale)"
   },
   "chartContract": "lines: stations per line (count classes); status: operating vs construction with shape cues; ridership: one comparable series at a time (metric + unit + period + aggregation), switchable, activity LUT; every mark is a button",
   "copy": "short natural Thai; units สถานี (station–line record) / สาย / จุดเปลี่ยนสาย; provenance short and factual (period · source link · coordinate role); methodology in DATA_METHOD.md",
   "accessibility": "keyboard reachable pins, charts and panel; visible focus; reduced motion honoured; Thai and English checked at 390 px and desktop in light and dark",
-  "publication": "no Google Drive/Docs links, local paths or credentials in published files (build guard + tests); release on main after the gate; npm run verify:live before claiming a release"
+  "publication": "no Google Drive/Docs links, local paths or credentials in published files (build guard + tests); release on main after the gate; npm run verify:live before claiming a release",
+  "stationNearby": "station panel \"ขนส่งอื่นรอบสถานี\": per layer, points within 500 m of the station reference point and the nearest one (straight line, not walking); outside a layer boundary = นอกขอบเขตข้อมูล, never zero"
 }

@@ -240,7 +240,44 @@ input[type="search"]::-webkit-search-cancel-button { -webkit-appearance: none; }
 .map-toolbar button { pointer-events: auto; font-size: 13px; padding: 7px 13px; min-height: 40px; background: color-mix(in srgb, var(--surface-card) 92%, transparent); }
 .map-toolbar button#toggle-3d[aria-pressed="false"] { color: var(--text-metadata); text-decoration: line-through; text-decoration-color: var(--text-muted); }
 /* Optional layers (รถเมล์ · เรือ) are off by default: off reads neutral, on reads selected — never struck through. */
-.map-toolbar button#toggle-bus[aria-pressed="true"], .map-toolbar button#toggle-boat[aria-pressed="true"] { border-color: var(--map-selected-stroke); box-shadow: inset 0 0 0 1px var(--map-selected-stroke); color: var(--text-primary); font-weight: 600; }
+.map-toolbar button#toggle-modes[aria-expanded="true"] { border-color: var(--map-selected-stroke); box-shadow: inset 0 0 0 1px var(--map-selected-stroke); color: var(--text-primary); }
+.mode-count { display: inline-flex; align-items: center; justify-content: center; min-width: 20px; height: 20px; padding: 0 6px; border-radius: 999px; background: var(--text-primary); color: var(--surface-canvas); font-size: 11px; font-weight: 600; }
+.mode-count[hidden] { display: none; }
+
+/* Other modes: menu, symbols (shape tells the mode; colours are map-role tokens) */
+.mode-menu { position: absolute; left: 8px; top: 58px; z-index: 6; width: min(380px, calc(100% - 16px)); max-height: calc(100% - 140px); overflow: auto; display: grid; gap: 8px; padding: 12px; background: var(--surface-card); border: 1px solid var(--border-default); border-radius: var(--radius-sm); }
+.mode-menu[hidden] { display: none; }
+.mode-menu-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.mode-menu-head h2 { font-size: 14px; font-family: var(--font-body); font-weight: 600; }
+.mode-list { list-style: none; padding: 0; margin: 0; display: grid; gap: 4px; }
+.mode-item { display: grid; grid-template-columns: 26px minmax(0, 1fr) auto; align-items: center; gap: 10px; width: 100%; min-height: 48px; padding: 8px 10px; text-align: left; background: transparent; border: 1px solid var(--border-hairline); border-radius: var(--radius-sm); color: var(--text-primary); font: inherit; white-space: normal; cursor: pointer; }
+.mode-item:hover { background: var(--surface-alt); }
+.mode-item[aria-pressed="true"] { border-color: var(--map-selected-stroke); box-shadow: inset 0 0 0 1px var(--map-selected-stroke); }
+.mode-text { display: grid; gap: 1px; min-width: 0; }
+.mode-text strong { font-size: 13px; font-weight: 600; }
+.mode-text small, .mode-text > span { font-size: 12px; line-height: 1.45; color: var(--text-metadata); }
+.mode-text > span { color: var(--text-secondary); }
+.mode-state { font-size: 11px; font-weight: 600; padding: 2px 8px; border-radius: 6px; border: 1px solid var(--border-hairline); color: var(--text-metadata); }
+.mode-item[aria-pressed="true"] .mode-state { color: var(--text-primary); border-color: var(--map-selected-stroke); }
+.mode-sym { display: inline-block; flex: 0 0 auto; width: 16px; height: 16px; justify-self: center; }
+.mode-sym.is-bus { height: 0; width: 22px; border-top: 3px solid var(--scene-bus); }
+.mode-sym.is-boat { height: 0; width: 22px; border-top: 2.5px dashed var(--map-active-layer); }
+.mode-sym.is-srt { width: 11px; height: 11px; background: var(--map-marker-stroke); box-shadow: 0 0 0 2px var(--map-marker-halo); }
+.mode-sym.is-intercity { width: 11px; height: 11px; background: var(--map-marker-stroke); transform: rotate(45deg); box-shadow: 0 0 0 2px var(--map-marker-halo); }
+.mode-sym.is-moto { width: 12px; height: 11px; background: var(--scene-bus); clip-path: polygon(50% 0, 100% 100%, 0 100%); }
+.mode-sym.is-air { width: 16px; height: 16px; background: var(--map-marker-stroke); -webkit-mask: var(--plane-mask) center / contain no-repeat; mask: var(--plane-mask) center / contain no-repeat; }
+:root { --plane-mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 36 36'%3E%3Cpath d='M18 4l2.6 5v6l10.4 6v3l-10.4-3-.2 6 3.6 3v2L18 30.5 12 32v-2l3.6-3-.2-6L5 24v-3l10.4-6V9z'/%3E%3C/svg%3E"); }
+.legend-modes { display: flex; flex-wrap: wrap; gap: 4px 12px; flex-basis: 100%; }
+.legend-modes[hidden] { display: none; }
+.legend-modes span { white-space: nowrap; }
+.mode-near-list { list-style: none; padding: 0; margin: 8px 0 0; display: grid; gap: 6px; }
+.mode-near-list li { display: grid; grid-template-columns: 22px minmax(0, 1fr) auto; align-items: center; gap: 10px; padding: 6px 0; border-top: 1px solid var(--border-hairline); }
+.mode-near-list li:first-child { border-top: 0; }
+.btn.small { min-height: 36px; padding: 5px 10px; font-size: 12px; }
+.ctx-popup { display: grid; gap: 2px; margin-right: 26px; }
+.ctx-popup strong { font-size: 14px; font-weight: 600; }
+.ctx-popup span { font-size: 13px; color: var(--text-secondary); }
+.ctx-popup small { font-size: 12px; color: var(--text-metadata); }
 .map-toolbar button#toggle-3d { font-family: var(--font-mono); font-weight: 400; letter-spacing: .02em; }
 .map-toolbar button#toggle-eye[aria-pressed="false"] { text-decoration: none; }
 .map-toolbar button#toggle-eye[aria-pressed="true"] { border-color: var(--map-selected-stroke); color: var(--text-primary); }
@@ -443,6 +480,7 @@ td small { display: block; color: var(--text-metadata); font-size: 12px; margin-
   .map-toolbar button { font-size: 12px; min-height: 38px; padding: 6px 10px; flex: 0 0 auto; }
   .map-toolbar button#mobile-panel { display: inline-flex; }
   .map-legend { bottom: calc(var(--bottom-panel-height) + 8px); max-width: calc(100% - 16px); padding: 8px 10px; gap: 4px; }
+  .mode-menu { top: 52px; width: calc(100% - 16px); max-height: calc(100% - 120px); }
   .legend-marks { display: none; }
   .map-status { display: none; }
   .map-aha { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: center; gap: 10px; position: absolute; left: 8px; right: 8px; bottom: calc(var(--bottom-panel-height) + 74px); z-index: 5; padding: 10px 12px; background: var(--surface-card); border: 1px solid var(--border-default); border-radius: var(--radius-sm); }
