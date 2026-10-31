@@ -73,7 +73,7 @@ for (const f of source.features) {
     .filter(poly => poly[0].length >= 4 && ringArea(poly[0]) > 1e-5); // drop islets below ~1 km² after simplification
   features.push({
     type: 'Feature', id: p.code,
-    properties: {code: p.code, dopaCode: p.dopaCode, name: p.th, nameEn: p.en, sourceNameTh: f.properties.pro_th, sourceNameEn: f.properties.pro_en, region: f.properties.reg_nesdb || '', areaSqkm: Math.round(Number(f.properties.area_sqkm) || 0), productionVerified: PRODUCTION_VERIFIED_CODES.includes(p.code)},
+    properties: {code: p.code, dopaCode: p.dopaCode, name: p.th, nameEn: p.en, sourceNameTh: f.properties.pro_th, sourceNameEn: f.properties.pro_en, region: f.properties.reg_nesdb || '', areaSqkm: Math.round(Number(f.properties.area_sqkm) || 0), labelPoint: [round(Number(f.properties.lon)), round(Number(f.properties.lat))], productionVerified: PRODUCTION_VERIFIED_CODES.includes(p.code)},
     geometry: {type: 'MultiPolygon', coordinates},
   });
 }
@@ -89,7 +89,7 @@ const out = {
     sourceUrl: 'https://github.com/chingchai/OpenGISData-Thailand/blob/master/provinces.geojson',
     sourceCommit: opt('--commit', ''), sourceSha256: opt('--sha256', ''), retrievedOn: retrieved,
     license: 'CC BY 4.0', attribution: 'ขอบเขตจังหวัด: OpenGISData-Thailand (CC BY 4.0), อ้างอิงกรมการปกครอง',
-    processing: `all 77 provinces; coordinates rounded to 5 decimals; outlines simplified for display (Douglas–Peucker, tolerance ${tolerance}° ≈ ${Math.round(tolerance * 111000)} m); islets below ~1 km² dropped after simplification; id = three-letter province code (9 verified on CityMETER production, see js/provinces-list.js), dopaCode = DOPA two-digit code`,
+    processing: `all 77 provinces; coordinates rounded to 5 decimals; outlines simplified for display (Douglas–Peucker, tolerance ${tolerance}° ≈ ${Math.round(tolerance * 111000)} m); islets below ~1 km² dropped after simplification; id = three-letter province code (9 verified on CityMETER production, see js/provinces-list.js), dopaCode = DOPA two-digit code, labelPoint = the publisher's lon/lat label point`,
     provinces: features.length, vertices, sourceVertices,
   },
   features,

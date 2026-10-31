@@ -1,0 +1,94 @@
+/* This classic script runs before modules/CDN dependencies. The file bridge
+ * always targets this one public origin and preserves only query/hash state.
+ * It does not read local data or change browser security settings.
+ * App contract: window events citymeter:ready and citymeter:load-error.
+ */
+(function(){
+ 'use strict';
+ const PUBLIC_URL='https://montri-th.github.io/transit/';
+ const publicTarget=new URL(PUBLIC_URL);
+ publicTarget.search=window.location.search;
+ publicTarget.hash=window.location.hash;
+ const isFile=window.location.protocol==='file:';
+ let phase=isFile?'file':'loading',failure=null,warning='',elements=null,slowTimer,failTimer,redirectTimer;
+ function text(value){return typeof value==='string'?value:String(value??'');}
+ function clearTimers(){window.clearTimeout(slowTimer);window.clearTimeout(failTimer);}
+ function diagnostics(){
+  if(!failure)return warning;
+  return [failure.resource&&'Resource: '+text(failure.resource),failure.status!=null&&'Status: '+text(failure.status),failure.phase&&'Phase: '+text(failure.phase),failure.diagnostic&&text(failure.diagnostic)].filter(Boolean).join('\n');
+ }
+ function render(){
+  document.documentElement.dataset.launchState=phase;
+  if(!elements)return;
+  const e=elements;
+  e.panel.hidden=phase==='ready';
+  e.panel.setAttribute('aria-busy',String(phase==='loading'||phase==='slow'));
+  e.panel.setAttribute('role',phase==='error'?'alert':'status');
+  e.retry.hidden=!['error','slow'].includes(phase);
+  e.public.href=publicTarget.href;
+  e.public.textContent=publicTarget.href;
+  if(phase==='file'){
+   e.title.textContent='กำลังเปิดเว็บ Transit';
+   e.message.textContent='หน้านี้เปิดจากไฟล์ในเครื่อง กำลังพาไปเว็บสาธารณะเพื่อโหลดข้อมูลและแผนที่ หากหน้าไม่เปลี่ยน ให้กดลิงก์ด้านล่าง';
+  }else if(phase==='error'){
+   e.title.textContent='ยังโหลดข้อมูลไม่สำเร็จ';
+   e.message.textContent=text(failure?.message)||'ไม่สามารถเริ่มหน้าจอได้ ลองโหลดใหม่ หรือเปิดเว็บสาธารณะจากลิงก์ด้านล่าง';
+  }else if(phase==='slow'){
+   e.title.textContent='กำลังรอข้อมูล';
+   e.message.textContent='การโหลดใช้เวลานานกว่าปกติ คุณสามารถรอต่อ ลองโหลดใหม่ หรือเปิดเว็บสาธารณะจากลิงก์ด้านล่าง';
+  }else if(phase==='loading'){
+   e.title.textContent='กำลังโหลดข้อมูล';
+   e.message.textContent=warning?'กำลังอ่านข้อมูลสายและสถานี บางส่วนของแผนที่หรือกราฟยังโหลดไม่ครบ':'กำลังอ่านข้อมูลสาย สถานี และอาคาร หากรอนาน สามารถเปิดเว็บสาธารณะได้จากลิงก์นี้';
+  }
+  const detail=diagnostics();e.debug.hidden=!detail;e.diagnostics.textContent=detail;
+ }
+ function fail(detail){
+  if(isFile||phase==='ready')return;
+  clearTimers();failure=detail&&typeof detail==='object'?detail:{message:text(detail)};phase='error';render();
+ }
+ function ready(){if(isFile)return;clearTimers();failure=null;phase='ready';render();}
+ function dependencyWarning(resource){
+  if(isFile||phase==='ready')return;
+  warning='โหลดส่วนประกอบไม่สำเร็จ: '+text(resource);render();
+ }
+ function bind(){
+  if(elements)return true;
+  const ids={panel:'launch-status',title:'launch-title',message:'launch-message',public:'launch-public',retry:'launch-retry',debug:'launch-debug',diagnostics:'launch-diagnostics'};
+  const found={};for(const [key,id]of Object.entries(ids)){found[key]=document.getElementById(id);if(!found[key])return false;}
+  elements=found;elements.retry.addEventListener('click',()=>window.location.reload());render();
+  if(isFile){
+   redirectTimer=window.setTimeout(()=>{
+    try{window.location.replace(publicTarget.href);}catch{
+     elements.title.textContent='เปิดเว็บ Transit';
+     elements.message.textContent='ไม่สามารถเปลี่ยนหน้าอัตโนมัติได้ กรุณากดลิงก์เว็บสาธารณะด้านล่าง';
+    }
+   },800);
+  }else if(phase==='loading'){
+   slowTimer=window.setTimeout(()=>{if(phase==='loading'){phase='slow';render();}},15000);
+   failTimer=window.setTimeout(()=>fail({message:'ยังเริ่มหน้าจอไม่สำเร็จ อาจมีไฟล์ข้อมูลหรือส่วนประกอบโหลดไม่ครบ ลองโหลดใหม่ หรือเปิดเว็บสาธารณะด้านล่าง',phase:'startup-timeout',diagnostic:warning||'No citymeter:ready event received within 30 seconds.'}),30000);
+  }
+  return true;
+ }
+ window.addEventListener('citymeter:ready',ready);
+ window.addEventListener('citymeter:load-error',event=>fail(event.detail));
+ window.addEventListener('error',event=>{
+  const target=event.target;
+  if(target?.tagName==='SCRIPT'){
+   const resource=target.src||target.getAttribute('src')||'';
+   if(/\/js\/app\.js(?:[?#]|$)/.test(resource))fail({message:'โหลดส่วนแสดงข้อมูลไม่สำเร็จ ลองโหลดใหม่ หรือเปิดเว็บสาธารณะด้านล่าง',resource,phase:'module-load'});
+   else dependencyWarning(resource);
+  }else if(event.message){
+   fail({message:'เริ่มหน้าจอไม่สำเร็จ ลองโหลดใหม่ หรือเปิดเว็บสาธารณะด้านล่าง',resource:event.filename,phase:'script-error',diagnostic:event.message});
+  }
+ },true);
+ window.addEventListener('unhandledrejection',event=>{
+  const reason=event.reason;
+  fail({message:'การโหลดหน้าจอหยุดก่อนข้อมูลพร้อม ลองโหลดใหม่ หรือเปิดเว็บสาธารณะด้านล่าง',phase:'unhandled-rejection',diagnostic:reason?.message||text(reason)});
+ });
+ window.addEventListener('pagehide',()=>{clearTimers();window.clearTimeout(redirectTimer);});
+ if(!bind()){
+  const observer=new MutationObserver(()=>{if(bind())observer.disconnect();});
+  observer.observe(document.documentElement,{childList:true,subtree:true});
+  document.addEventListener('DOMContentLoaded',()=>{bind();observer.disconnect();},{once:true});
+ }
+})();

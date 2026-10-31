@@ -212,22 +212,79 @@ export function cycleHits(previous, ids) {
   return {ids, cycle: same ? (previous.cycle + 1) % ids.length : 0};
 }
 
+/* ---------- display scale (pure) ---------- */
+
+/** Ground metres per CSS pixel at a zoom and latitude (Web Mercator, 512 px tiles). */
+export const metresPerPixel = (zoom, latitude = ORIGIN.lat) => (40075016.686 * Math.cos((latitude * Math.PI) / 180)) / (512 * 2 ** zoom);
+
+/** Minimum on-screen sizes so the model stays readable when zoomed out (display only). */
+export const MIN_PX = Object.freeze({ribbon: 4.5, ribbonQuiet: 2.5, plateLength: 12, plateWidth: 4});
+export const PIER_MIN_ZOOM = 14.5;
+export const RAMP_M = 200;
+
+/** Ribbon width (m) for a line at a display scale: the real width or the minimum pixel width, whichever is larger. */
+export function ribbonWidth(line, mpp) {
+  const real = line.quiet ? RIBBON.quietWidth : line.elevation === 'underground' ? RIBBON.widthUnderground : RIBBON.width;
+  return Math.max(real, (line.quiet ? MIN_PX.ribbonQuiet : MIN_PX.ribbon) * mpp);
+}
+
+/**
+ * Per-vertex heights along one part with ramps: an elevated part that meets a
+ * lower part of the same line (shared end point) slopes down to the lower level
+ * over RAMP_M metres at that end; extra vertices are inserted so the slope is
+ * smooth. `path` = [[x, z], …] in scene metres. Returns [[x, y, z], …].
+ */
+export function rampPath(path, height, {startLow = null, endLow = null, ramp = RAMP_M} = {}) {
+  if (path.length < 2) return path.map(([x, z]) => [x, height, z]);
+  const dist = [0];
+  for (let i = 1; i < path.length; i++) dist.push(dist[i - 1] + Math.hypot(path[i][0] - path[i - 1][0], path[i][1] - path[i - 1][1]));
+  const total = dist[dist.length - 1];
+  const r = Math.min(ramp, total / 2);
+  // Insert vertices at r from each end so the slope breaks exactly there.
+  const cuts = [];
+  if (startLow != null) cuts.push(r);
+  if (endLow != null) cuts.push(total - r);
+  const pts = [];
+  for (let i = 0; i < path.length; i++) {
+    if (i > 0) for (const c of cuts) if (c > dist[i - 1] + 0.5 && c < dist[i] - 0.5) {
+      const f = (c - dist[i - 1]) / (dist[i] - dist[i - 1]);
+      pts.push({x: path[i - 1][0] + (path[i][0] - path[i - 1][0]) * f, z: path[i - 1][1] + (path[i][1] - path[i - 1][1]) * f, d: c});
+    }
+    pts.push({x: path[i][0], z: path[i][1], d: dist[i]});
+  }
+  return pts.map(p => {
+    let y = height;
+    if (startLow != null && p.d < r) y = startLow + (height - startLow) * (p.d / r);
+    if (endLow != null && total - p.d < r) y = Math.min(y, endLow + (height - endLow) * ((total - p.d) / r));
+    return [p.x, y, p.z];
+  });
+}
+
 /* ---------- the custom layer ---------- */
 
 /**
  * Install the scene on a loaded style. `palette` keys: plate, plateQuiet,
- * building, pier, lineQuiet, hover, selected, shadowOpacity. Callbacks receive
- * plain hit records {kind: 'station'|'line'|'building', id, lineId?, stationId?}.
+ * building, context, pier, lineQuiet, hover, selected, shadowOpacity.
+ * Callbacks receive plain hit records {kind: 'station'|'line'|'building', id, lineId?, stationId?}.
+ *
+ * Content setters:
+ *  setLines([{id, color, status, quiet, elevation, parts: [{coords: [[lng, lat]…], elevation}]}])
+ *  setStations([{id, lng, lat, role, elevation, bearing, colors: [hex], quiet, status}])
+ *  setBuildings(GeoJSON features with properties {height, base, stationId, osm_id})
+ *  setContext(GeoJSON features with properties {height, base}) — focus massing, merged, not pickable
+ *  setScale({zoom, latitude}) — rebuilds widths in half-zoom buckets
  */
 export function installScene(map, THREE, maplibregl, {beforeId, palette = {}, onHover, onSelect, onCycle, reducedMotion = () => false} = {}) {
-  const colors = {plate: '#FFFFFF', plateQuiet: '#ECEDE8', building: '#FFFFFF', pier: '#FFFFFF', lineQuiet: '#B4BDB7', hover: '#347DA8', selected: '#176B82', shadowOpacity: 0.2, ...palette};
+  const colors = {plate: '#FFFFFF', plateQuiet: '#ECEDE8', building: '#FFFFFF', context: '#FFFFFF', pier: '#FFFFFF', lineQuiet: '#B4BDB7', hover: '#347DA8', selected: '#176B82', shadowOpacity: 0.2, ...palette};
   const T = sceneTransform(maplibregl);
-  const state = {enabled: true, lines: [], stations: [], buildings: [], hoverId: '', selectedId: '', cycle: {ids: [], cycle: 0}, failed: false, pickables: [], meshes: {lines: [], stations: [], buildings: [], piers: []}};
+  const state = {enabled: true, lines: [], stations: [], buildings: [], context: [], hoverId: '', selectedId: '', cycle: {ids: [], cycle: 0}, failed: false, pickables: [], zoom: 12, latitude: ORIGIN.lat, bucket: -1,
+    meshes: {lines: [], stations: [], buildings: [], piers: [], context: []}};
   let renderer = null, scene = null, camera = null, sun = null, ground = null, raycaster = null, shadowCenter = null, disposed = false, frameMatrix = null, lastHits = [];
   const geometries = new Set(), materials = new Set();
   const track = g => { geometries.add(g); return g; };
-  const material = (opts) => { const m = new THREE.MeshStandardMaterial({roughness: 1, metalness: 0, side: THREE.DoubleSide, ...opts}); materials.add(m); return m; };
+  const material = opts => { const m = new THREE.MeshStandardMaterial({roughness: 1, metalness: 0, side: THREE.DoubleSide, ...opts}); materials.add(m); return m; };
   const pulse = () => !reducedMotion();
+  const mpp = () => metresPerPixel(state.zoom, state.latitude);
 
   const layer = {
     id: SCENE_LAYER, type: 'custom', renderingMode: '3d',
@@ -235,7 +292,8 @@ export function installScene(map, THREE, maplibregl, {beforeId, palette = {}, on
       scene = new THREE.Scene();
       camera = new THREE.Camera();
       raycaster = new THREE.Raycaster();
-      // Lights: fill, main (shadow) and a low strip from the other side — the studio recipe of the reference scene.
+      // Lights — the studio recipe of the reference scene: a fill, one main light that casts the
+      // soft shadow, and a strong low strip light from the opposite side that rims the slabs.
       scene.add(new THREE.AmbientLight(0xffffff, 0.5 * Math.PI));
       sun = new THREE.DirectionalLight(0xffffff, Math.PI);
       sun.position.set(300, 2000, -600);
@@ -253,7 +311,7 @@ export function installScene(map, THREE, maplibregl, {beforeId, palette = {}, on
       ground.rotation.x = -Math.PI / 2;
       ground.position.y = 0.05;
       ground.receiveShadow = true;
-      ground.renderOrder = -1;
+      ground.renderOrder = -2;
       scene.add(ground);
       renderer = new THREE.WebGLRenderer({canvas: map.getCanvas(), context: gl, antialias: true});
       renderer.autoClear = false;
@@ -267,6 +325,7 @@ export function installScene(map, THREE, maplibregl, {beforeId, palette = {}, on
       for (const g of geometries) g.dispose();
       for (const m of materials) m.dispose();
       geometries.clear(); materials.clear();
+      renderer?.dispose?.();
       scene = null; camera = null; renderer = null;
     },
     render(gl, args) {
@@ -283,6 +342,9 @@ export function installScene(map, THREE, maplibregl, {beforeId, palette = {}, on
         followShadow();
         animateHover();
         renderer.resetState();
+        // Data is never hidden by the quiet MapLibre city massing drawn before this layer
+        // (translucent extrusions still write depth): start the scene on a clear depth buffer.
+        renderer.clearDepth();
         renderer.render(scene, camera);
         if (state.hoverId && pulse()) map.triggerRepaint();
       } catch (e) {
@@ -308,13 +370,11 @@ export function installScene(map, THREE, maplibregl, {beforeId, palette = {}, on
 
   let t0 = 0;
   function animateHover() {
-    const mesh = state.meshes.stations.find(s => s.userData.id === state.hoverId);
-    for (const s of state.meshes.stations) if (s !== mesh && s.scale.x !== 1) s.scale.setScalar(1);
-    if (!mesh) return;
-    if (!pulse()) { mesh.scale.setScalar(1.04); return; }
-    t0 = (t0 || performance.now());
-    const t = (performance.now() - t0) / 1000;
-    mesh.scale.setScalar(1 + Math.sin(t * 10) / 50 + 0.02);
+    const group = state.meshes.stations.find(s => s.userData.id === state.hoverId);
+    for (const s of state.meshes.stations) if (s !== group && s.userData.plate.scale.y !== s.userData.baseScale.y) s.userData.plate.scale.copy(s.userData.baseScale);
+    if (!group) return;
+    const k = pulse() ? 1 + Math.sin((performance.now() - (t0 ||= performance.now())) / 100) / 50 + 0.02 : 1.04;
+    group.userData.plate.scale.copy(group.userData.baseScale).multiplyScalar(k);
   }
 
   const before = beforeId && map.getLayer(beforeId) ? beforeId : undefined;
@@ -322,7 +382,10 @@ export function installScene(map, THREE, maplibregl, {beforeId, palette = {}, on
 
   /* ---------- content ---------- */
   function clear(kind) {
-    for (const mesh of state.meshes[kind]) { scene?.remove(mesh); mesh.geometry?.dispose(); geometries.delete(mesh.geometry); if (mesh.material && !mesh.userData.shared) { mesh.material.dispose(); materials.delete(mesh.material); } }
+    for (const mesh of state.meshes[kind]) {
+      scene?.remove(mesh);
+      mesh.traverse?.(o => { if (o.geometry && !o.userData?.sharedGeometry) { o.geometry.dispose(); geometries.delete(o.geometry); } if (o.material && !o.userData?.sharedMaterial) { o.material.dispose(); materials.delete(o.material); } });
+    }
     state.meshes[kind] = [];
   }
   const geometryFrom = data => {
@@ -333,37 +396,56 @@ export function installScene(map, THREE, maplibregl, {beforeId, palette = {}, on
     g.computeBoundingSphere();
     return track(g);
   };
-  const scenePath = (coords, y) => coords.map(([lng, lat]) => toScene(maplibregl, T, lng, lat, y));
+  const xz = ([lng, lat]) => { const p = toScene(maplibregl, T, lng, lat, 0); return [p[0], p[2]]; };
+  const key = ([x, z]) => `${Math.round(x / 8)},${Math.round(z / 8)}`;
 
   function rebuildLines() {
     if (!scene) return;
     clear('lines'); clear('piers');
-    const pierGeometry = track(new THREE.BoxGeometry(PIER_SIZE.w, PIER_SIZE.h, PIER_SIZE.w));
-    const pierMaterial = material({color: colors.pier, transparent: true, opacity: 0.9});
     const pierTransforms = [];
+    const showPiers = state.zoom >= PIER_MIN_ZOOM;
     for (const line of state.lines) {
-      const elevation = ELEVATION[line.elevation] ?? ELEVATION.surface;
-      const parts = (line.parts || []).map(part => scenePath(part, elevation));
+      const parts = (line.parts || []).map(p => ({path: (p.coords || []).map(xz), elevation: p.elevation || line.elevation || 'surface'})).filter(p => p.path.length >= 2);
       if (!parts.length) continue;
-      const quiet = line.quiet;
-      const width = quiet ? RIBBON.quietWidth : line.elevation === 'underground' ? RIBBON.widthUnderground : RIBBON.width;
-      const data = buildRibbon(parts, {width, thickness: quiet ? RIBBON.thickness * 0.6 : RIBBON.thickness});
-      if (!data.indices.length) continue;
-      const mat = material({color: quiet ? colors.lineQuiet : line.color || colors.lineQuiet, transparent: true, opacity: quiet ? 0.55 : line.elevation === 'underground' ? 0.5 : line.status === 'construction' ? 0.45 : 0.9});
-      const mesh = new THREE.Mesh(geometryFrom(data), mat);
-      mesh.castShadow = !quiet && line.elevation === 'elevated';
-      mesh.receiveShadow = false;
-      mesh.userData = {kind: 'line', id: line.id, lineId: line.id};
-      scene.add(mesh);
-      state.meshes.lines.push(mesh);
-      if (line.elevation === 'elevated' && !quiet && line.status !== 'construction') for (const p of parts) pierTransforms.push(...pierPositions([p]));
+      // Junctions between parts of the same line at different levels (shared end points).
+      const ends = new Map();
+      for (const p of parts) for (const pt of [p.path[0], p.path[p.path.length - 1]]) { const k = key(pt); if (!ends.has(k)) ends.set(k, []); ends.get(k).push(p); }
+      const lowAt = (p, pt) => { const others = (ends.get(key(pt)) || []).filter(o => o !== p && o.elevation !== 'elevated'); return others.length ? (ELEVATION[others[0].elevation] ?? ELEVATION.surface) : null; };
+      const width = ribbonWidth(line, mpp());
+      const thickness = Math.max(line.quiet ? RIBBON.thickness * 0.6 : RIBBON.thickness, width * 0.18);
+      const byLevel = new Map();
+      for (const p of parts) {
+        const h = ELEVATION[p.elevation] ?? ELEVATION.surface;
+        const path3 = p.elevation === 'elevated' ? rampPath(p.path, h, {startLow: lowAt(p, p.path[0]), endLow: lowAt(p, p.path[p.path.length - 1])}) : p.path.map(([x, z]) => [x, h + thickness / 2, z]);
+        if (!byLevel.has(p.elevation)) byLevel.set(p.elevation, []);
+        byLevel.get(p.elevation).push(path3);
+        if (p.elevation === 'elevated' && showPiers && !line.quiet && line.status !== 'construction') pierTransforms.push(...pierPositions([path3]).filter(([x, z]) => {
+          // no pier on the ramps (the deck is low there)
+          const i = path3.findIndex(q => Math.hypot(q[0] - x, q[2] - z) < PIER_SPACING); return i < 0 || path3[i][1] > ELEVATION.elevated - 1;
+        }));
+      }
+      for (const [level, paths] of byLevel) {
+        const data = buildRibbon(paths, {width: level === 'underground' ? width * 0.75 : width, thickness});
+        if (!data.indices.length) continue;
+        const opacity = line.quiet ? 0.5 : level === 'underground' ? 0.42 : line.status === 'construction' ? 0.45 : 0.92;
+        const mat = material({color: line.quiet ? colors.lineQuiet : line.color || colors.lineQuiet, transparent: true, opacity, depthWrite: !line.quiet && level !== 'underground'});
+        const mesh = new THREE.Mesh(geometryFrom(data), mat);
+        mesh.castShadow = !line.quiet && level === 'elevated';
+        mesh.receiveShadow = false;
+        mesh.renderOrder = level === 'underground' ? -1 : 1;
+        mesh.userData = {kind: 'line', id: line.id, lineId: line.id, level};
+        scene.add(mesh);
+        state.meshes.lines.push(mesh);
+      }
     }
     if (pierTransforms.length) {
+      const pierGeometry = track(new THREE.BoxGeometry(PIER_SIZE.w, PIER_SIZE.h, PIER_SIZE.w));
+      const pierMaterial = material({color: colors.pier, transparent: true, opacity: 0.9});
       const inst = new THREE.InstancedMesh(pierGeometry, pierMaterial, pierTransforms.length);
       const o = new THREE.Object3D();
       pierTransforms.forEach(([x, z, bearing], i) => { o.position.set(x, PIER_SIZE.h / 2, z); o.rotation.set(0, (-bearing * Math.PI) / 180, 0); o.updateMatrix(); inst.setMatrixAt(i, o.matrix); });
       inst.castShadow = true; inst.receiveShadow = false;
-      inst.userData = {kind: 'pier', shared: true};
+      inst.userData = {kind: 'pier'};
       inst.frustumCulled = false;
       scene.add(inst);
       state.meshes.piers.push(inst);
@@ -377,45 +459,51 @@ export function installScene(map, THREE, maplibregl, {beforeId, palette = {}, on
     if (!scene) return;
     clear('stations');
     const box = track(new THREE.BoxGeometry(1, 1, 1));
+    const m = mpp();
+    const pierMat = material({color: colors.pier, transparent: true, opacity: 0.9});
     for (const s of state.stations) {
-      const [len, wid] = PLATE[s.role] || PLATE.station;
-      const elevation = ELEVATION[s.elevation] ?? ELEVATION.surface;
-      const y = s.elevation === 'elevated' ? elevation : PLATE.thickness / 2 + 0.2;
+      if (!Number.isFinite(s.lng) || !Number.isFinite(s.lat)) continue;
+      const [realLen, realWid] = PLATE[s.role] || PLATE.station;
+      const quiet = Boolean(s.quiet);
+      const len = Math.max(realLen * (quiet ? 0.7 : 1), MIN_PX.plateLength * m * (quiet ? 0.6 : 1));
+      const wid = Math.max(realWid * (quiet ? 0.7 : 1), MIN_PX.plateWidth * m * (quiet ? 0.6 : 1));
+      const thick = Math.max(PLATE.thickness, Math.min(wid * 0.25, 1.2 * m));
+      const elevated = s.elevation === 'elevated';
+      const y = elevated ? ELEVATION.elevated + thick / 2 + 0.6 : thick / 2 + 0.2;
       const p = toScene(maplibregl, T, s.lng, s.lat, y);
       const group = new THREE.Group();
       group.position.set(p[0], p[1], p[2]);
-      group.rotation.y = (-(s.bearing || 0) * Math.PI) / 180;
-      const quiet = s.quiet;
-      const mat = material({color: quiet ? colors.plateQuiet : colors.plate, transparent: true, opacity: quiet ? 0.5 : 0.62});
+      group.rotation.y = (-(s.bearing || 0) * Math.PI) / 180 + Math.PI / 2;
+      const construction = s.status === 'construction';
+      const mat = material({color: quiet ? colors.plateQuiet : colors.plate, transparent: true, opacity: quiet ? 0.45 : construction ? 0.4 : 0.62});
       const plate = new THREE.Mesh(box, mat);
-      plate.scale.set(quiet ? len * 0.7 : len, PLATE.thickness, quiet ? wid * 0.7 : wid);
+      plate.userData = {kind: 'station', id: s.id, stationId: s.id, base: {color: mat.color.getHex(), opacity: mat.opacity}, sharedGeometry: true};
+      plate.scale.set(len, thick, wid);
       plate.castShadow = !quiet; plate.receiveShadow = true;
-      plate.userData = {kind: 'station', id: s.id, stationId: s.id, base: {color: mat.color.getHex(), opacity: mat.opacity}};
       group.add(plate);
-      // Colour stripes along the roof edge: one per line serving the station (identity cue, not a metric).
+      // Colour stripes along the roof: one per line serving the station (identity cue, not a metric).
       const stripes = (s.colors || []).slice(0, 4);
+      const stripeW = Math.min(wid / Math.max(2, stripes.length + 1), Math.max(PLATE.stripe, 1.2 * m));
       stripes.forEach((hex, i) => {
-        const sm = material({color: hex, transparent: true, opacity: quiet ? 0.7 : 1});
-        const stripe = new THREE.Mesh(box, sm);
-        const offset = (i - (stripes.length - 1) / 2) * (PLATE.stripe + 0.6);
-        stripe.scale.set((quiet ? len * 0.7 : len) * 0.96, 0.6, PLATE.stripe);
-        stripe.position.set(0, PLATE.thickness / 2 + 0.3, offset);
-        stripe.userData = {kind: 'stripe', shared: false};
+        const stripe = new THREE.Mesh(box, material({color: hex, transparent: true, opacity: quiet ? 0.6 : construction ? 0.5 : 1}));
+        stripe.userData = {kind: 'stripe', sharedGeometry: true};
+        stripe.scale.set(len * 0.96, Math.max(0.6, thick * 0.25), stripeW);
+        stripe.position.set(0, thick / 2 + Math.max(0.3, thick * 0.12), (i - (stripes.length - 1) / 2) * stripeW * 1.35);
         group.add(stripe);
       });
-      // Elevated plates stand on four piers.
-      if (s.elevation === 'elevated' && !quiet) {
-        const pm = material({color: colors.pier, transparent: true, opacity: 0.9});
+      // Elevated plates stand on four piers (near zoom only).
+      if (elevated && !quiet && state.zoom >= PIER_MIN_ZOOM) {
+        const h = y - thick / 2;
         for (const [dx, dz] of [[-0.42, -0.3], [0.42, -0.3], [-0.42, 0.3], [0.42, 0.3]]) {
-          const pier = new THREE.Mesh(box, pm);
-          pier.scale.set(PIER_SIZE.w, elevation - PLATE.thickness / 2, PIER_SIZE.w);
-          pier.position.set(dx * len, -(elevation - PLATE.thickness / 2) / 2 - PLATE.thickness / 2, dz * wid);
+          const pier = new THREE.Mesh(box, pierMat);
+          pier.userData = {kind: 'pier', sharedGeometry: true, sharedMaterial: true};
+          pier.scale.set(PIER_SIZE.w, h, PIER_SIZE.w);
+          pier.position.set(dx * len, -thick / 2 - h / 2, dz * wid);
           pier.castShadow = true;
-          pier.userData = {kind: 'pier', shared: true};
           group.add(pier);
         }
       }
-      group.userData = {kind: 'station', id: s.id, stationId: s.id, plate};
+      group.userData = {kind: 'station', id: s.id, stationId: s.id, plate, baseScale: plate.scale.clone()};
       scene.add(group);
       state.meshes.stations.push(group);
     }
@@ -429,7 +517,7 @@ export function installScene(map, THREE, maplibregl, {beforeId, palette = {}, on
     if (!scene) return;
     clear('buildings');
     for (const f of state.buildings) {
-      const rings = ringsOf(f).map(ring => ring.map(([lng, lat]) => { const p = toScene(maplibregl, T, lng, lat, 0); return [p[0], p[2]]; }));
+      const rings = ringsOf(f).map(ring => ring.map(xz));
       if (!rings.length) continue;
       const height = Number(f.properties?.height) || 3, base = Number(f.properties?.base) || 0;
       const data = buildExtrusion(rings, {height, base});
@@ -441,28 +529,56 @@ export function installScene(map, THREE, maplibregl, {beforeId, palette = {}, on
       scene.add(mesh);
       state.meshes.buildings.push(mesh);
     }
+    applyStates();
     refreshPickables();
     if (renderer) renderer.shadowMap.needsUpdate = true;
     map.triggerRepaint();
   }
 
-  function rebuildAll() { rebuildLines(); rebuildStations(); rebuildBuildings(); }
+  /** Focus massing (context): one merged translucent solid that casts and receives the soft shadow, never pickable, never hiding data. */
+  function rebuildContext() {
+    if (!scene) return;
+    clear('context');
+    const positions = [], normals = [], indices = [];
+    for (const f of state.context) {
+      const rings = ringsOf(f).map(ring => ring.map(xz));
+      if (!rings.length) continue;
+      const data = buildExtrusion(rings, {height: Number(f.properties?.height) || 3, base: Number(f.properties?.base) || 0});
+      const offset = positions.length / 3;
+      for (const v of data.positions) positions.push(v);
+      for (const v of data.normals) normals.push(v);
+      for (const i of data.indices) indices.push(i + offset);
+    }
+    if (indices.length) {
+      const mat = material({color: colors.context, transparent: true, opacity: 0.38, depthWrite: false});
+      const mesh = new THREE.Mesh(geometryFrom({positions: new Float32Array(positions), normals: new Float32Array(normals), indices: new Uint32Array(indices)}), mat);
+      mesh.castShadow = true; mesh.receiveShadow = true;
+      mesh.renderOrder = -1;
+      mesh.userData = {kind: 'context'};
+      scene.add(mesh);
+      state.meshes.context.push(mesh);
+    }
+    if (renderer) renderer.shadowMap.needsUpdate = true;
+    map.triggerRepaint();
+  }
+
+  function rebuildAll() { rebuildContext(); rebuildLines(); rebuildStations(); rebuildBuildings(); }
 
   function refreshPickables() {
     state.pickables = [...state.meshes.stations.map(g => g.userData.plate), ...state.meshes.buildings, ...state.meshes.lines.filter(m => !state.lines.find(l => l.id === m.userData.id)?.quiet)];
   }
 
-  /** Hover/selected treatment: colour and opacity only, never geometry — the pulse is in animateHover(). */
+  /** Hover/selected treatment: colour and opacity only — the hover pulse is in animateHover(). */
   function applyStates() {
     for (const g of state.meshes.stations) {
       const plate = g.userData.plate, base = plate.userData.base;
       if (g.userData.id === state.selectedId) { plate.material.color.set(colors.selected); plate.material.opacity = 0.9; }
-      else if (g.userData.id === state.hoverId) { plate.material.color.set(colors.hover); plate.material.opacity = 0.78; }
+      else if (g.userData.id === state.hoverId) { plate.material.color.set(colors.hover); plate.material.opacity = 0.8; }
       else { plate.material.color.setHex(base.color); plate.material.opacity = base.opacity; }
     }
     for (const b of state.meshes.buildings) {
       const base = b.userData.base;
-      if (b.userData.stationId && b.userData.stationId === state.selectedId) { b.material.color.set(colors.selected); b.material.opacity = 0.55; }
+      if (b.userData.stationId && b.userData.stationId === state.selectedId) { b.material.color.set(colors.selected); b.material.opacity = 0.5; }
       else if (b.userData.id === state.hoverId) { b.material.color.set(colors.hover); b.material.opacity = 0.7; }
       else { b.material.color.setHex(base.color); b.material.opacity = base.opacity; }
     }
@@ -471,7 +587,7 @@ export function installScene(map, THREE, maplibregl, {beforeId, palette = {}, on
 
   /* ---------- picking ---------- */
   function hitsAt(point) {
-    if (!frameMatrix || !raycaster || !state.pickables.length) return [];
+    if (!frameMatrix || !raycaster || !state.pickables.length || !state.enabled) return [];
     const w = map.getCanvas().clientWidth, h = map.getCanvas().clientHeight;
     const nx = (point[0] / w) * 2 - 1, ny = -((point[1] / h) * 2 - 1);
     const inv = camera.projectionMatrixInverse;
@@ -482,9 +598,9 @@ export function installScene(map, THREE, maplibregl, {beforeId, palette = {}, on
     const seen = new Set(), out = [];
     for (const hit of hits) {
       const u = hit.object.userData;
-      const key = `${u.kind}:${u.id}`;
-      if (seen.has(key)) continue;
-      seen.add(key);
+      const id = `${u.kind}:${u.id}`;
+      if (seen.has(id)) continue;
+      seen.add(id);
       out.push({kind: u.kind, id: u.id, stationId: u.stationId || '', lineId: u.lineId || '', osmId: u.osmId ?? null, distance: hit.distance});
     }
     return out;
@@ -496,14 +612,16 @@ export function installScene(map, THREE, maplibregl, {beforeId, palette = {}, on
     lastHits = hits;
     const top = hits[0] || null;
     const id = top ? top.id : '';
-    map.getCanvas().style.cursor = top ? 'pointer' : map.getCanvas().style.cursor === 'pointer' ? '' : map.getCanvas().style.cursor;
-    if (id !== state.hoverId) { state.hoverId = id; t0 = 0; applyStates(); onHover?.(top); }
+    if (top) map.getCanvas().style.cursor = 'pointer';
+    else if (state.hoverId) map.getCanvas().style.cursor = '';
+    if (id !== state.hoverId) { state.hoverId = id; t0 = 0; applyStates(); }
+    onHover?.(top, hits, state.cycle);
   };
   const onClick = e => {
     if (!state.enabled || state.failed || e.originalEvent?.__citymeterSceneHandled) return;
     const hits = hitsAt([e.point.x, e.point.y]);
     if (!hits.length) { state.cycle = {ids: [], cycle: 0}; onCycle?.({objects: [], cycle: 0}); return; }
-    e.originalEvent.__citymeterSceneHandled = true;
+    if (e.originalEvent) e.originalEvent.__citymeterSceneHandled = true;
     state.cycle = cycleHits(state.cycle, hits.map(h => `${h.kind}:${h.id}`));
     onCycle?.({objects: hits, cycle: state.cycle.cycle});
     onSelect?.(hits[state.cycle.cycle], hits);
@@ -515,6 +633,16 @@ export function installScene(map, THREE, maplibregl, {beforeId, palette = {}, on
     setLines(lines) { state.lines = Array.isArray(lines) ? lines : []; rebuildLines(); },
     setStations(stations) { state.stations = Array.isArray(stations) ? stations : []; rebuildStations(); },
     setBuildings(features) { state.buildings = Array.isArray(features) ? features : []; rebuildBuildings(); },
+    setContext(features) { state.context = Array.isArray(features) ? features : []; rebuildContext(); },
+    /** Widths and plate sizes follow the zoom in half-zoom buckets (and piers appear from PIER_MIN_ZOOM). */
+    setScale({zoom = state.zoom, latitude = state.latitude} = {}) {
+      const bucket = Math.round(zoom * 2) / 2;
+      state.latitude = latitude;
+      if (bucket === state.bucket) return false;
+      state.bucket = bucket; state.zoom = bucket;
+      rebuildLines(); rebuildStations();
+      return true;
+    },
     setSelected(id) { state.selectedId = id || ''; applyStates(); },
     setHover(id) { state.hoverId = id || ''; t0 = 0; applyStates(); },
     setEnabled(on) { state.enabled = Boolean(on); if (scene) scene.visible = state.enabled; map.triggerRepaint(); },
@@ -522,7 +650,7 @@ export function installScene(map, THREE, maplibregl, {beforeId, palette = {}, on
     hitTest: hitsAt,
     get hits() { return lastHits.slice(); },
     get failed() { return state.failed; },
-    get counts() { return {lines: state.meshes.lines.length, stations: state.meshes.stations.length, buildings: state.meshes.buildings.length, piers: state.meshes.piers.reduce((n, m) => n + m.count, 0)}; },
+    get counts() { return {lines: state.meshes.lines.length, stations: state.meshes.stations.length, buildings: state.meshes.buildings.length, context: state.context.length, piers: state.meshes.piers.reduce((n, m) => n + m.count, 0), zoomBucket: state.bucket}; },
     dispose() {
       if (disposed) return;
       disposed = true;

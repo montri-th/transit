@@ -1,0 +1,807 @@
+{
+ "meta": {
+  "asOf": "2026-10-30",
+  "synthetic": true,
+  "note": "SYNTHETIC harness fixture — invented stations and lines; not CityMETER data",
+  "sources": []
+ },
+ "systems": [
+  {
+   "id": "test-sys-1",
+   "name": "ระบบทดสอบ 1"
+  },
+  {
+   "id": "test-sys-2",
+   "name": "ระบบทดสอบ 2"
+  }
+ ],
+ "lines": [
+  {
+   "id": "test-green",
+   "systemId": "test-sys-1",
+   "name": "สายทดสอบ ก",
+   "nameEn": "Test line A",
+   "code": "TA",
+   "short": "TA",
+   "color": "#6196D1",
+   "colorSource": "synthetic fixture",
+   "status": "operating",
+   "elevation": "elevated",
+   "operator": "ผู้ให้บริการทดสอบ",
+   "stationIds": [
+    "st-a0",
+    "st-a1",
+    "st-a2",
+    "st-a3",
+    "st-a4",
+    "st-a5",
+    "st-a6",
+    "st-a7"
+   ],
+   "sources": []
+  },
+  {
+   "id": "test-blue",
+   "systemId": "test-sys-2",
+   "name": "สายทดสอบ ข",
+   "nameEn": "Test line B",
+   "code": "TB",
+   "short": "TB",
+   "color": "#49C0BC",
+   "colorSource": "synthetic fixture",
+   "status": "operating",
+   "elevation": "mixed",
+   "operator": "ผู้ให้บริการทดสอบ",
+   "stationIds": [
+    "st-b0",
+    "st-b1",
+    "st-b2",
+    "st-a3",
+    "st-b4",
+    "st-b5",
+    "st-b6"
+   ],
+   "sources": []
+  },
+  {
+   "id": "test-orange",
+   "systemId": "test-sys-2",
+   "name": "สายทดสอบ ค (ก่อสร้าง)",
+   "nameEn": "Test line C",
+   "code": "TC",
+   "short": "TC",
+   "color": "#E39B6E",
+   "colorSource": "synthetic fixture",
+   "status": "construction",
+   "elevation": "underground",
+   "operator": "ผู้ให้บริการทดสอบ",
+   "stationIds": [
+    "st-c0",
+    "st-c1",
+    "st-c2",
+    "st-c3"
+   ],
+   "sources": [],
+   "progressPercent": 62.5,
+   "progressMetric": "ความคืบหน้างานโยธา",
+   "progressPeriod": "2026-09"
+  }
+ ],
+ "stations": [
+  {
+   "id": "st-a0",
+   "name": "สถานีทดสอบ ก0",
+   "nameEn": "Test 0",
+   "codes": [
+    "T00"
+   ],
+   "lineIds": [
+    "test-green"
+   ],
+   "systemIds": [
+    "test-sys-1"
+   ],
+   "lat": 13.745,
+   "lng": 100.5,
+   "status": "operating",
+   "statusBasis": "synthetic",
+   "provinceCode": "BKK",
+   "district": "เขตทดสอบ",
+   "elevation": "elevated",
+   "bearing": 90,
+   "interchangeIds": [],
+   "ridership": [
+    {
+     "metric": "avg_daily",
+     "label": "เฉลี่ยต่อวัน (ทดสอบ)",
+     "value": 1000,
+     "unit": "คน-เที่ยว",
+     "period": "ก.ย. 2569",
+     "aggregation": "mean"
+    }
+   ],
+   "sourceRefs": [
+    {
+     "url": "https://example.org/synthetic",
+     "label": "หลักฐาน"
+    }
+   ],
+   "checkedOn": "2026-10-31",
+   "coordinateNote": "จุดสังเคราะห์สำหรับทดสอบ"
+  },
+  {
+   "id": "st-a1",
+   "name": "สถานีทดสอบ ก1",
+   "nameEn": "Test 1",
+   "codes": [
+    "T01"
+   ],
+   "lineIds": [
+    "test-green"
+   ],
+   "systemIds": [
+    "test-sys-1"
+   ],
+   "lat": 13.745,
+   "lng": 100.51,
+   "status": "operating",
+   "statusBasis": "synthetic",
+   "provinceCode": "BKK",
+   "district": "เขตทดสอบ",
+   "elevation": "elevated",
+   "bearing": 90,
+   "interchangeIds": [],
+   "ridership": [
+    {
+     "metric": "avg_daily",
+     "label": "เฉลี่ยต่อวัน (ทดสอบ)",
+     "value": 1731,
+     "unit": "คน-เที่ยว",
+     "period": "ก.ย. 2569",
+     "aggregation": "mean"
+    }
+   ],
+   "sourceRefs": [
+    {
+     "url": "https://example.org/synthetic",
+     "label": "หลักฐาน"
+    }
+   ],
+   "checkedOn": "2026-10-31",
+   "coordinateNote": "จุดสังเคราะห์สำหรับทดสอบ"
+  },
+  {
+   "id": "st-a2",
+   "name": "สถานีทดสอบ ก2",
+   "nameEn": "Test 2",
+   "codes": [
+    "T02"
+   ],
+   "lineIds": [
+    "test-green"
+   ],
+   "systemIds": [
+    "test-sys-1"
+   ],
+   "lat": 13.745,
+   "lng": 100.52,
+   "status": "operating",
+   "statusBasis": "synthetic",
+   "provinceCode": "BKK",
+   "district": "เขตทดสอบ",
+   "elevation": "elevated",
+   "bearing": 90,
+   "interchangeIds": [],
+   "ridership": [
+    {
+     "metric": "avg_daily",
+     "label": "เฉลี่ยต่อวัน (ทดสอบ)",
+     "value": 2462,
+     "unit": "คน-เที่ยว",
+     "period": "ก.ย. 2569",
+     "aggregation": "mean"
+    }
+   ],
+   "sourceRefs": [
+    {
+     "url": "https://example.org/synthetic",
+     "label": "หลักฐาน"
+    }
+   ],
+   "checkedOn": "2026-10-31",
+   "coordinateNote": "จุดสังเคราะห์สำหรับทดสอบ"
+  },
+  {
+   "id": "st-a3",
+   "name": "สถานีทดสอบ ก3",
+   "nameEn": "Test 3",
+   "codes": [
+    "T03"
+   ],
+   "lineIds": [
+    "test-green",
+    "test-blue"
+   ],
+   "systemIds": [
+    "test-sys-1",
+    "test-sys-2"
+   ],
+   "lat": 13.745,
+   "lng": 100.535,
+   "status": "operating",
+   "statusBasis": "synthetic",
+   "provinceCode": "BKK",
+   "district": "เขตทดสอบ",
+   "elevation": "elevated",
+   "bearing": 90,
+   "interchangeIds": [],
+   "ridership": [
+    {
+     "metric": "avg_daily",
+     "label": "เฉลี่ยต่อวัน (ทดสอบ)",
+     "value": 3193,
+     "unit": "คน-เที่ยว",
+     "period": "ก.ย. 2569",
+     "aggregation": "mean"
+    }
+   ],
+   "sourceRefs": [
+    {
+     "url": "https://example.org/synthetic",
+     "label": "หลักฐาน"
+    }
+   ],
+   "checkedOn": "2026-10-31",
+   "coordinateNote": "จุดสังเคราะห์สำหรับทดสอบ"
+  },
+  {
+   "id": "st-a4",
+   "name": "สถานีทดสอบ ก4",
+   "nameEn": "Test 4",
+   "codes": [
+    "T04"
+   ],
+   "lineIds": [
+    "test-green"
+   ],
+   "systemIds": [
+    "test-sys-1",
+    "test-sys-2"
+   ],
+   "lat": 13.745,
+   "lng": 100.545,
+   "status": "operating",
+   "statusBasis": "synthetic",
+   "provinceCode": "BKK",
+   "district": "เขตทดสอบ",
+   "elevation": "elevated",
+   "bearing": 90,
+   "interchangeIds": [],
+   "ridership": [
+    {
+     "metric": "avg_daily",
+     "label": "เฉลี่ยต่อวัน (ทดสอบ)",
+     "value": 3924,
+     "unit": "คน-เที่ยว",
+     "period": "ก.ย. 2569",
+     "aggregation": "mean"
+    }
+   ],
+   "sourceRefs": [
+    {
+     "url": "https://example.org/synthetic",
+     "label": "หลักฐาน"
+    }
+   ],
+   "checkedOn": "2026-10-31",
+   "coordinateNote": "จุดสังเคราะห์สำหรับทดสอบ"
+  },
+  {
+   "id": "st-a5",
+   "name": "สถานีทดสอบ ก5",
+   "nameEn": "Test 5",
+   "codes": [
+    "T05"
+   ],
+   "lineIds": [
+    "test-green"
+   ],
+   "systemIds": [
+    "test-sys-1"
+   ],
+   "lat": 13.745,
+   "lng": 100.55,
+   "status": "operating",
+   "statusBasis": "synthetic",
+   "provinceCode": "BKK",
+   "district": "เขตทดสอบ",
+   "elevation": "elevated",
+   "bearing": 90,
+   "interchangeIds": [],
+   "ridership": [
+    {
+     "metric": "avg_daily",
+     "label": "เฉลี่ยต่อวัน (ทดสอบ)",
+     "value": 4655,
+     "unit": "คน-เที่ยว",
+     "period": "ก.ย. 2569",
+     "aggregation": "mean"
+    }
+   ],
+   "sourceRefs": [
+    {
+     "url": "https://example.org/synthetic",
+     "label": "หลักฐาน"
+    }
+   ],
+   "checkedOn": "2026-10-31",
+   "coordinateNote": "จุดสังเคราะห์สำหรับทดสอบ"
+  },
+  {
+   "id": "st-a6",
+   "name": "สถานีทดสอบ ก6",
+   "nameEn": "Test 6",
+   "codes": [
+    "T06"
+   ],
+   "lineIds": [
+    "test-green"
+   ],
+   "systemIds": [
+    "test-sys-1"
+   ],
+   "lat": 13.745,
+   "lng": 100.55999999999999,
+   "status": "operating",
+   "statusBasis": "synthetic",
+   "provinceCode": "BKK",
+   "district": "เขตทดสอบ",
+   "elevation": "elevated",
+   "bearing": 90,
+   "interchangeIds": [],
+   "ridership": [
+    {
+     "metric": "avg_daily",
+     "label": "เฉลี่ยต่อวัน (ทดสอบ)",
+     "value": 5386,
+     "unit": "คน-เที่ยว",
+     "period": "ก.ย. 2569",
+     "aggregation": "mean"
+    }
+   ],
+   "sourceRefs": [
+    {
+     "url": "https://example.org/synthetic",
+     "label": "หลักฐาน"
+    }
+   ],
+   "checkedOn": "2026-10-31",
+   "coordinateNote": "จุดสังเคราะห์สำหรับทดสอบ"
+  },
+  {
+   "id": "st-a7",
+   "name": "สถานีทดสอบ ก7",
+   "nameEn": "Test 7",
+   "codes": [
+    "T07"
+   ],
+   "lineIds": [
+    "test-green"
+   ],
+   "systemIds": [
+    "test-sys-1"
+   ],
+   "lat": 13.745,
+   "lng": 100.57,
+   "status": "operating",
+   "statusBasis": "synthetic",
+   "provinceCode": "BKK",
+   "district": "เขตทดสอบ",
+   "elevation": "elevated",
+   "bearing": 90,
+   "interchangeIds": [],
+   "ridership": [
+    {
+     "metric": "avg_daily",
+     "label": "เฉลี่ยต่อวัน (ทดสอบ)",
+     "value": 6117,
+     "unit": "คน-เที่ยว",
+     "period": "ก.ย. 2569",
+     "aggregation": "mean"
+    }
+   ],
+   "sourceRefs": [
+    {
+     "url": "https://example.org/synthetic",
+     "label": "หลักฐาน"
+    }
+   ],
+   "checkedOn": "2026-10-31",
+   "coordinateNote": "จุดสังเคราะห์สำหรับทดสอบ"
+  },
+  {
+   "id": "st-b0",
+   "name": "สถานีทดสอบ ข0",
+   "nameEn": "Test 10",
+   "codes": [
+    "T10"
+   ],
+   "lineIds": [
+    "test-blue"
+   ],
+   "systemIds": [
+    "test-sys-2"
+   ],
+   "lat": 13.715,
+   "lng": 100.535,
+   "status": "operating",
+   "statusBasis": "synthetic",
+   "provinceCode": "BKK",
+   "district": "เขตทดสอบ",
+   "elevation": "underground",
+   "bearing": 0,
+   "interchangeIds": [],
+   "ridership": [
+    {
+     "metric": "avg_daily",
+     "label": "เฉลี่ยต่อวัน (ทดสอบ)",
+     "value": 8310,
+     "unit": "คน-เที่ยว",
+     "period": "ก.ย. 2569",
+     "aggregation": "mean"
+    }
+   ],
+   "sourceRefs": [
+    {
+     "url": "https://example.org/synthetic",
+     "label": "หลักฐาน"
+    }
+   ],
+   "checkedOn": "2026-10-31",
+   "coordinateNote": "จุดสังเคราะห์สำหรับทดสอบ"
+  },
+  {
+   "id": "st-b1",
+   "name": "สถานีทดสอบ ข1",
+   "nameEn": "Test 11",
+   "codes": [
+    "T11"
+   ],
+   "lineIds": [
+    "test-blue"
+   ],
+   "systemIds": [
+    "test-sys-2"
+   ],
+   "lat": 13.726666666666667,
+   "lng": 100.535,
+   "status": "operating",
+   "statusBasis": "synthetic",
+   "provinceCode": "BKK",
+   "district": "เขตทดสอบ",
+   "elevation": "underground",
+   "bearing": 0,
+   "interchangeIds": [],
+   "ridership": [
+    {
+     "metric": "avg_daily",
+     "label": "เฉลี่ยต่อวัน (ทดสอบ)",
+     "value": 9041,
+     "unit": "คน-เที่ยว",
+     "period": "ก.ย. 2569",
+     "aggregation": "mean"
+    }
+   ],
+   "sourceRefs": [
+    {
+     "url": "https://example.org/synthetic",
+     "label": "หลักฐาน"
+    }
+   ],
+   "checkedOn": "2026-10-31",
+   "coordinateNote": "จุดสังเคราะห์สำหรับทดสอบ"
+  },
+  {
+   "id": "st-b2",
+   "name": "สถานีทดสอบ ข2",
+   "nameEn": "Test 12",
+   "codes": [
+    "T12"
+   ],
+   "lineIds": [
+    "test-blue"
+   ],
+   "systemIds": [
+    "test-sys-2"
+   ],
+   "lat": 13.738333333333333,
+   "lng": 100.535,
+   "status": "operating",
+   "statusBasis": "synthetic",
+   "provinceCode": "BKK",
+   "district": "เขตทดสอบ",
+   "elevation": "underground",
+   "bearing": 0,
+   "interchangeIds": [],
+   "ridership": [
+    {
+     "metric": "avg_daily",
+     "label": "เฉลี่ยต่อวัน (ทดสอบ)",
+     "value": 9772,
+     "unit": "คน-เที่ยว",
+     "period": "ก.ย. 2569",
+     "aggregation": "mean"
+    }
+   ],
+   "sourceRefs": [
+    {
+     "url": "https://example.org/synthetic",
+     "label": "หลักฐาน"
+    }
+   ],
+   "checkedOn": "2026-10-31",
+   "coordinateNote": "จุดสังเคราะห์สำหรับทดสอบ"
+  },
+  {
+   "id": "st-b4",
+   "name": "สถานีทดสอบ ข4",
+   "nameEn": "Test 14",
+   "codes": [
+    "T14"
+   ],
+   "lineIds": [
+    "test-blue"
+   ],
+   "systemIds": [
+    "test-sys-2"
+   ],
+   "lat": 13.761666666666667,
+   "lng": 100.535,
+   "status": "operating",
+   "statusBasis": "synthetic",
+   "provinceCode": "BKK",
+   "district": "เขตทดสอบ",
+   "elevation": "elevated",
+   "bearing": 0,
+   "interchangeIds": [],
+   "ridership": [
+    {
+     "metric": "avg_daily",
+     "label": "เฉลี่ยต่อวัน (ทดสอบ)",
+     "value": 2234,
+     "unit": "คน-เที่ยว",
+     "period": "ก.ย. 2569",
+     "aggregation": "mean"
+    }
+   ],
+   "sourceRefs": [
+    {
+     "url": "https://example.org/synthetic",
+     "label": "หลักฐาน"
+    }
+   ],
+   "checkedOn": "2026-10-31",
+   "coordinateNote": "จุดสังเคราะห์สำหรับทดสอบ"
+  },
+  {
+   "id": "st-b5",
+   "name": "สถานีทดสอบ ข5",
+   "nameEn": "Test 15",
+   "codes": [
+    "T15"
+   ],
+   "lineIds": [
+    "test-blue"
+   ],
+   "systemIds": [
+    "test-sys-2"
+   ],
+   "lat": 13.773333333333333,
+   "lng": 100.535,
+   "status": "operating",
+   "statusBasis": "synthetic",
+   "provinceCode": "BKK",
+   "district": "เขตทดสอบ",
+   "elevation": "elevated",
+   "bearing": 0,
+   "interchangeIds": [],
+   "ridership": [
+    {
+     "metric": "avg_daily",
+     "label": "เฉลี่ยต่อวัน (ทดสอบ)",
+     "value": 2965,
+     "unit": "คน-เที่ยว",
+     "period": "ก.ย. 2569",
+     "aggregation": "mean"
+    }
+   ],
+   "sourceRefs": [
+    {
+     "url": "https://example.org/synthetic",
+     "label": "หลักฐาน"
+    }
+   ],
+   "checkedOn": "2026-10-31",
+   "coordinateNote": "จุดสังเคราะห์สำหรับทดสอบ"
+  },
+  {
+   "id": "st-b6",
+   "name": "สถานีทดสอบ ข6",
+   "nameEn": "Test 16",
+   "codes": [
+    "T16"
+   ],
+   "lineIds": [
+    "test-blue"
+   ],
+   "systemIds": [
+    "test-sys-2"
+   ],
+   "lat": 13.785,
+   "lng": 100.535,
+   "status": "operating",
+   "statusBasis": "synthetic",
+   "provinceCode": "BKK",
+   "district": "เขตทดสอบ",
+   "elevation": "elevated",
+   "bearing": 0,
+   "interchangeIds": [],
+   "ridership": [
+    {
+     "metric": "avg_daily",
+     "label": "เฉลี่ยต่อวัน (ทดสอบ)",
+     "value": 3696,
+     "unit": "คน-เที่ยว",
+     "period": "ก.ย. 2569",
+     "aggregation": "mean"
+    }
+   ],
+   "sourceRefs": [
+    {
+     "url": "https://example.org/synthetic",
+     "label": "หลักฐาน"
+    }
+   ],
+   "checkedOn": "2026-10-31",
+   "coordinateNote": "จุดสังเคราะห์สำหรับทดสอบ"
+  },
+  {
+   "id": "st-c0",
+   "name": "สถานีทดสอบ ค0",
+   "nameEn": "Test 20",
+   "codes": [
+    "T20"
+   ],
+   "lineIds": [
+    "test-orange"
+   ],
+   "systemIds": [
+    "test-sys-2"
+   ],
+   "lat": 13.775,
+   "lng": 100.51,
+   "status": "construction",
+   "statusBasis": "synthetic",
+   "provinceCode": "BKK",
+   "district": "เขตทดสอบ",
+   "elevation": "underground",
+   "bearing": 0,
+   "interchangeIds": [],
+   "ridership": [],
+   "sourceRefs": [
+    {
+     "url": "https://example.org/synthetic",
+     "label": "หลักฐาน"
+    }
+   ],
+   "checkedOn": "2026-10-31",
+   "coordinateNote": "จุดสังเคราะห์สำหรับทดสอบ"
+  },
+  {
+   "id": "st-c1",
+   "name": "สถานีทดสอบ ค1",
+   "nameEn": "Test 21",
+   "codes": [
+    "T21"
+   ],
+   "lineIds": [
+    "test-orange"
+   ],
+   "systemIds": [
+    "test-sys-2"
+   ],
+   "lat": 13.761666666666667,
+   "lng": 100.52666666666667,
+   "status": "construction",
+   "statusBasis": "synthetic",
+   "provinceCode": "BKK",
+   "district": "เขตทดสอบ",
+   "elevation": "underground",
+   "bearing": 0,
+   "interchangeIds": [],
+   "ridership": [],
+   "sourceRefs": [
+    {
+     "url": "https://example.org/synthetic",
+     "label": "หลักฐาน"
+    }
+   ],
+   "checkedOn": "2026-10-31",
+   "coordinateNote": "จุดสังเคราะห์สำหรับทดสอบ"
+  },
+  {
+   "id": "st-c2",
+   "name": "สถานีทดสอบ ค2",
+   "nameEn": "Test 22",
+   "codes": [
+    "T22"
+   ],
+   "lineIds": [
+    "test-orange"
+   ],
+   "systemIds": [
+    "test-sys-2"
+   ],
+   "lat": 13.748333333333333,
+   "lng": 100.54333333333334,
+   "status": "construction",
+   "statusBasis": "synthetic",
+   "provinceCode": "BKK",
+   "district": "เขตทดสอบ",
+   "elevation": "underground",
+   "bearing": 0,
+   "interchangeIds": [],
+   "ridership": [],
+   "sourceRefs": [
+    {
+     "url": "https://example.org/synthetic",
+     "label": "หลักฐาน"
+    }
+   ],
+   "checkedOn": "2026-10-31",
+   "coordinateNote": "จุดสังเคราะห์สำหรับทดสอบ"
+  },
+  {
+   "id": "st-c3",
+   "name": "สถานีทดสอบ ค3",
+   "nameEn": "Test 23",
+   "codes": [
+    "T23"
+   ],
+   "lineIds": [
+    "test-orange"
+   ],
+   "systemIds": [
+    "test-sys-2"
+   ],
+   "lat": 13.735000000000001,
+   "lng": 100.56,
+   "status": "construction",
+   "statusBasis": "synthetic",
+   "provinceCode": "BKK",
+   "district": "เขตทดสอบ",
+   "elevation": "underground",
+   "bearing": 0,
+   "interchangeIds": [],
+   "ridership": [],
+   "sourceRefs": [
+    {
+     "url": "https://example.org/synthetic",
+     "label": "หลักฐาน"
+    }
+   ],
+   "checkedOn": "2026-10-31",
+   "coordinateNote": "จุดสังเคราะห์สำหรับทดสอบ"
+  }
+ ],
+ "interchanges": [
+  {
+   "id": "ic-1",
+   "stationIds": [
+    "st-a3"
+   ],
+   "pathwayLabel": "ทางเชื่อมทดสอบ",
+   "statusLabel": "ทดสอบ"
+  }
+ ]
+}

@@ -19,6 +19,13 @@
  *
  * Heights are OpenMapTiles render_height / render_min_height (OSM tags where
  * present, otherwise the schema's default). They are context, never a claim.
+ *
+ * Transit (2026-10-31): the focus tier can be handed to the three.js scene
+ * instead of MapLibre (`focusRenderer: 'external'` + `onFeatures`), so the
+ * buildings around the focused stations cast and receive the same soft shadow
+ * as the rail model. The MapLibre focus layers then stay hidden; the city tier
+ * is unchanged. Station buildings matched from OSM are passed as `hosts`, so
+ * their tile twins are hidden exactly like Luxury Brands host buildings.
  */
 import {parseVectorTile, tileToLonLat, lonLatToTileUnits, tilesForBBox, metresPerTileUnit} from './mvt.js';
 import {clipRingToBox, offsetRing, roundRing, isClockwise, ringsIntersect, cleanRing, signedArea} from './geometry.js';
@@ -134,7 +141,8 @@ export function tilesForRegions(regions, z = TILE_ZOOM, max = MAX_TILES) {
  * (OpenMapTiles schema). `tileUrl(tile)` returns the URL of one tile; the app
  * reads it from the same TileJSON MapLibre uses.
  */
-export function installMassing(map, {sourceId = 'openmaptiles', beforeId, colors, tileUrl, fetchImpl = (...a) => fetch(...a), onResult = null} = {}) {
+export function installMassing(map, {sourceId = 'openmaptiles', beforeId, colors, tileUrl, fetchImpl = (...a) => fetch(...a), onResult = null, onFeatures = null, focusRenderer = 'maplibre'} = {}) {
+  const focusVisible = () => focusRenderer !== 'external';
   const palette = {quiet: '#ECEBE5', focus: '#E6E3DA', ground: '#EEF1EE', ...colors};
   const cityColor = () => ['interpolate', ['linear'], ['coalesce', ['feature-state', 'fade'], 1], 0, palette.quiet, 1, palette.ground];
   let enabled = true, hiddenIds = [], disposed = false, token = 0, lastKey = '', lastBucket = -1;
@@ -212,7 +220,7 @@ export function installMassing(map, {sourceId = 'openmaptiles', beforeId, colors
     if (nextAnchors) setAnchors(nextAnchors);
     // In plan view (pitch 0) the focus tier still draws as flat rounded footprints; the city tier is hidden.
     if (map.getLayer(CITY_LAYER)) map.setLayoutProperty(CITY_LAYER, 'visibility', enabled && city ? 'visible' : 'none');
-    for (const id of [FOCUS_LAYER, OCCLUDER_LAYER]) if (map.getLayer(id)) map.setLayoutProperty(id, 'visibility', enabled ? 'visible' : 'none');
+    for (const id of [FOCUS_LAYER, OCCLUDER_LAYER]) if (map.getLayer(id)) map.setLayoutProperty(id, 'visibility', enabled && focusVisible() ? 'visible' : 'none');
     const bucket = Math.floor(zoom);
     const {tiles, truncated} = tilesForRegions(regions);
     const ready = typeof tileUrl === 'function' && tiles.length > 0 && tiles.every(t => Boolean(tileUrl(t)));
@@ -222,6 +230,7 @@ export function installMassing(map, {sourceId = 'openmaptiles', beforeId, colors
     if (!enabled || !regions.length || !ready) {
       map.getSource(FOCUS_SOURCE)?.setData({type: 'FeatureCollection', features: []}); setHidden([]);
       currentFeatures = []; setOccluders([]);
+      if (typeof onFeatures === 'function') { try { onFeatures([]); } catch (e) { console.warn('Massing onFeatures', e); } }
       const empty = {features: 0, tiles: 0, ready};
       if (typeof onResult === 'function') { try { onResult(empty); } catch (e) { console.warn('Massing onResult', e); } }
       return empty;
@@ -240,8 +249,10 @@ export function installMassing(map, {sourceId = 'openmaptiles', beforeId, colors
     // Unique feature ids (OpenFreeMap merges same-height buildings under one OSM id); osm_id stays in properties.
     features.forEach((f, i) => { f.id = i + 1; });
     currentFeatures = features;
-    map.getSource(FOCUS_SOURCE)?.setData({type: 'FeatureCollection', features});
+    map.getSource(FOCUS_SOURCE)?.setData({type: 'FeatureCollection', features: focusVisible() ? features : []});
     setHidden(hidden);
+    if (typeof onFeatures === 'function') { try { onFeatures(features); } catch (e) { console.warn('Massing onFeatures', e); } }
+    if (!focusVisible()) setTwins(features.map(f => f.properties.osm_id).filter(id => id != null));
     updateOcclusion();
     const result = {features: kept, droppedForHosts: dropped, tiles: tiles.length, truncated, radiusM, offsetM, occluders: occluderIds.length};
     // Every applied result (including zoom-triggered rebuilds) reaches the host app through onResult,
@@ -267,6 +278,26 @@ export function installMassing(map, {sourceId = 'openmaptiles', beforeId, colors
     for (const a of anchors) d = Math.min(d, metresBetween(point, a));
     return Math.min(1, Math.max(0, (d - FADE_NEAR_M) / (FADE_FAR_M - FADE_NEAR_M)));
   }
+  /**
+   * External focus renderer: the city-tier twins of the focus buildings are faded to
+   * the ground tone (feature-state fade = 1), so the translucent three.js model is not
+   * doubled by a grey MapLibre box inside it. Cheap: one feature-state per twin.
+   */
+  let twins = new Set();
+  function setTwins(ids) {
+    const next = new Set(ids);
+    for (const id of twins) if (!next.has(id)) { stated.delete(id); }
+    twins = next;
+    applyTwins();
+    updateFade();
+  }
+  function applyTwins() {
+    if (disposed || !map.getSource(sourceId)) return;
+    for (const id of twins) {
+      try { map.setFeatureState({source: sourceId, sourceLayer: 'building', id}, {fade: 1}); } catch { continue; }
+      stated.set(id, 1);
+    }
+  }
   /** Write fade for buildings in the loaded tiles that have not been stated yet (cheap, incremental). */
   function updateFade() {
     if (disposed || !map.getLayer(CITY_LAYER) || !map.getSource(sourceId)) return 0;
@@ -290,6 +321,7 @@ export function installMassing(map, {sourceId = 'openmaptiles', beforeId, colors
     anchorKey = key; anchors = next.filter(a => Array.isArray(a) && a.length >= 2);
     stated.clear();
     try { map.removeFeatureState({source: sourceId, sourceLayer: 'building'}); } catch {}
+    applyTwins();
     updateFade();
   }
   let fadeTimer = 0;

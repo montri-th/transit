@@ -1,9 +1,14 @@
-/* Applied LDS 0.9.7 values used by this demo (release v0.9.7-owner.1, color-srgb-10).
-   Every value below is copied exactly from machine.tokens / machine.analyticalScales
+/* Applied LDS 0.9.7 values used by CityMETER Transit (release v0.9.7-owner.1, color-srgb-10).
+   Every LDS value below is copied exactly from machine.tokens / machine.analyticalScales
    of Landometer-Design-System-v0.9.7.md (SHA-256 d3085cbc…96). No derived colours.
    Scope: UI foundation pairs, categorical series 1–10, map/data-state roles and the
-   five-class projection of the `count` sequential family. The full LDS library and
-   the remaining analytical scales are intentionally not distributed here. */
+   five-class projection of the `count` sequential family (the 41-sample LUTs of `count`
+   and `activity` live in js/scales.js). The full LDS library is not distributed here.
+   Two groups are NOT LDS tokens and are declared once here so no value is approximated
+   in code: --basemap-* (paper basemap, carried over from Luxury Brands 0.5) and
+   --scene-* (the three.js transit scene: solids, context massing, shadow strength).
+   Both are context, never data. Rail line colours are third-party identity (the colour in
+   a line's own name, e.g. สายสีม่วง) and come with their source from data/transit.json. */
 
 :root {
   /* Foundation — light */
@@ -121,10 +126,18 @@
   --basemap-sky: #F6F7F3;
   --basemap-horizon: #DCE1DD;
   --basemap-fog: #EEF1EE;
-  /* Neighborhood (ย่าน) label chip — ink chip so it never reads as a brand logo box */
+  /* Province / station label chip — ink chip */
   --area-label-bg: #182327;
   --area-label-ink: #F6F7F3;
   --area-label-border: #182327;
+  /* Scene-only tokens (three.js layer, js/scene.js): translucent white solids on paper,
+     like a white architectural model; shadow strength of the soft ground shadow. */
+  --scene-solid: #FFFFFF;
+  --scene-context: #FFFFFF;
+  --scene-pier: #FFFFFF;
+  --scene-line-quiet: #B4BDB7;
+  --scene-shadow-opacity: 0.2;
+  --scene-bus: #7B877D;
 }
 
 :root[data-theme="dark"] {
@@ -223,4 +236,10 @@
   --area-label-bg: #182327;
   --area-label-ink: #F6F7F3;
   --area-label-border: #8D9D99;
+  --scene-solid: #C4CECA;
+  --scene-context: #7C8A84;
+  --scene-pier: #A6B5B1;
+  --scene-line-quiet: #5E6B67;
+  --scene-shadow-opacity: 0.45;
+  --scene-bus: #8D9D99;
 }

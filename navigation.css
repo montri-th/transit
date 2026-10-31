@@ -1,0 +1,58 @@
+/* LDS 0.9.7 approved nav-7 icon subset, unchanged bytes; Apache-2.0.
+   SHA-256 d7e283106ed2898726b24504c4e0f5ad524292984a90a4d29553c7dcf53b9657.
+   Static outline FILL 0 / wght 300 / GRAD 0 / opsz 24. Glyphs never change
+   with state; selection is shown by surface, text and outline instead. */
+@font-face {
+  font-family: "LDS Material Symbols Rounded Nav";
+  src: url("assets/icons/material-nav-300.woff2") format("woff2");
+  font-style: normal; font-weight: 300; font-display: block;
+  unicode-range: U+E518, U+E51C, U+E5CD, U+E5D2, U+E89E, U+EB37, U+F233;
+}
+.nav-icon {
+  display: inline-block; flex: 0 0 22px; width: 22px; height: 22px;
+  font-family: "LDS Material Symbols Rounded Nav" !important; font-size: 22px !important;
+  font-style: normal !important; font-weight: 300 !important; line-height: 1 !important;
+  letter-spacing: normal !important; text-transform: none !important; font-synthesis: none;
+  font-variation-settings: "FILL" 0, "wght" 300, "GRAD" 0, "opsz" 24;
+  vertical-align: middle; overflow: hidden; visibility: hidden; pointer-events: none;
+}
+.nav-icons-ready .nav-icon { visibility: visible; }
+.nav-icons-unavailable .nav-icon { display: none; }
+.nav-decorated { align-items: center; justify-content: center; gap: 5px; }
+button.nav-decorated { display: inline-flex; }
+a.nav-decorated { display: inline-flex; justify-content: flex-start; vertical-align: middle; gap: 3px; }
+a.nav-decorated .nav-icon { flex-basis: 16px; width: 16px; height: 16px; font-size: 16px !important; }
+.theme-control { display: flex; align-items: center; gap: 3px; white-space: nowrap; }
+.theme-visible-label { font-size: 12px; font-weight: 600; }
+.theme-control .nav-icon { margin-right: 1px; }
+
+/* Help dialog */
+.usage-dialog { width: min(660px, calc(100vw - 32px)); max-height: 90dvh; margin: auto; padding: 24px; background: var(--surface-card); color: var(--text-primary); border: 1px solid var(--border-default); border-radius: 16px; overflow: auto; overscroll-behavior: contain; box-shadow: none; font: 400 14px/1.7 "Bai Jamjuree", sans-serif; }
+.usage-dialog::backdrop { background: rgba(17, 25, 29, .55); }
+.help-heading { display: flex; align-items: flex-start; justify-content: space-between; gap: 20px; }
+.help-heading h2 { font-size: 24px; line-height: 1.4; }
+.help-heading .eyebrow { font-size: 12px; }
+.help-heading button { flex-shrink: 0; min-height: 44px; font-size: 13px; }
+.help-intro { margin-top: 16px; color: var(--text-secondary); }
+.help-steps { margin: 20px 0; padding-left: 24px; }
+.help-steps li { padding-left: 5px; margin: 0 0 16px; }
+.help-steps p { margin-top: 4px; color: var(--text-secondary); }
+.help-keyboard { padding-top: 16px; border-top: 1px solid var(--border-hairline); }
+.help-links { margin-top: 16px; font-size: 13px; }
+
+@media (max-width: 760px) and (orientation: portrait) {
+  .theme-control { gap: 2px; }
+  .theme-control select { width: 66px; }
+  .usage-dialog { padding: 18px; }
+  .help-heading { gap: 10px; }
+  .help-heading h2 { font-size: 21px; }
+  .help-heading button { padding: 6px 10px; }
+  .help-steps { padding-left: 20px; }
+}
+@media (max-width: 359px) {
+  .theme-visible-label { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
+  .theme-control select { width: 61px; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .usage-dialog, .nav-icon { animation: none !important; transition: none !important; scroll-behavior: auto !important; }
+}
