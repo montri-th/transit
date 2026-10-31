@@ -128,7 +128,7 @@ test('future lines: Orange and Purple South have alignments (OSM construction wa
 
 test('other modes: each layer file carries source, date and boundary; counts match the summary', () => {
   const summary = data.meta.contextLayers;
-  assert.deepEqual(Object.keys(summary).sort(), ['air', 'boat', 'bus', 'intercity', 'moto', 'srt']);
+  assert.deepEqual(Object.keys(summary).sort(), ['air', 'boat', 'bus', 'intercity', 'moto', 'srt', 'stops']);
   for (const k of ['moto', 'intercity', 'air', 'srt']) {
     const d = read(`layer-${k}.json`);
     assert.equal(d.rows.length, d.meta.count, k);
@@ -141,5 +141,8 @@ test('other modes: each layer file carries source, date and boundary; counts mat
   }
   assert.deepEqual(summary.moto.provinces, ['BKK'], 'motorcycle-taxi stands are a Bangkok register');
   assert.equal(summary.intercity.kindCounts[1] + summary.intercity.kindCounts[2], 31, 'the 31 boarding points of บขส. (access candidates)');
-  assert.equal(summary.bus.count, read('bus.json').meta.stops);
+  const bus = read('bus.json');
+  assert.equal(summary.bus.count, bus.meta.routesUsed, 'bus routes: GTFS route records drawn');
+  assert.equal(summary.stops.count, decodePoints(bus.stops).length + bus.brt.stations.length, 'bus stops + BRT stations');
+  assert.deepEqual(summary.stops.kindCounts, [bus.meta.stops, bus.brt.stations.length]);
 });

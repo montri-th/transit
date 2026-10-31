@@ -150,15 +150,15 @@ test('nearby modes: counts within the radius, nearest point, outside the boundar
   assert.ok(Math.abs(r.nearest.distance - 100) < 1);
   const summary = {
     moto: {label: 'วิน', unit: 'จุด', frame: [100.3, 13.4, 100.9, 14], provinces: ['BKK'], boundary: 'กทม.'},
-    bus: {label: 'รถเมล์', unit: 'ป้าย', frame: [99.9, 13.2, 101.2, 14.4], boundary: 'BMR'},
+    stops: {label: 'ป้ายรถเมล์', unit: 'จุด', frame: [99.9, 13.2, 101.2, 14.4], boundary: 'BMR'},
     air: {label: 'สนามบิน', unit: 'แห่ง', frame: [97, 5, 106, 21], boundary: 'TH'},
   };
-  const rows = nearbyModes(st, {moto: pts, bus: []}, summary);
-  assert.deepEqual(rows.map(x => [x.layer, x.state, x.count]), [['moto', 'measured', 2], ['bus', 'measured', 0], ['air', 'loading', null]]);
+  const rows = nearbyModes(st, {moto: pts, stops: []}, summary);
+  assert.deepEqual(rows.map(x => [x.layer, x.state, x.count]), [['moto', 'measured', 2], ['stops', 'measured', 0], ['air', 'loading', null]]);
   const outside = nearbyModes({...st, provinceCode: 'NBI'}, {moto: pts}, summary);
   assert.equal(outside.find(x => x.layer === 'moto').state, 'outside', 'a Bangkok register says nothing about Nonthaburi');
   assert.equal(outside.find(x => x.layer === 'moto').count, null);
-  assert.equal(covers(summary.bus, {lng: 102, lat: 13, provinceCode: 'X'}), false);
+  assert.equal(covers(summary.stops, {lng: 102, lat: 13, provinceCode: 'X'}), false);
   assert.equal(distanceLabel(87), '90 ม.');
   assert.equal(distanceLabel(1430), '1.4 กม.');
   assert.equal(NEARBY_RADIUS_M, 500);

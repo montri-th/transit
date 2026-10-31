@@ -104,8 +104,10 @@ export function installRailLines(map, geojson, {beforeId, onSelect, onHover} = {
 
 /**
  * Optional context layers (owner 2026-10-31: every mode of the research master
- * with coordinates, off by default, lazy-loaded; rail stays the subject):
- *   bus   — GTFS route corridors (width = route-count class) + stops + BRT
+ * with coordinates, off by default, lazy-loaded; rail stays the subject; once
+ * switched on, visible at every zoom and on every screen — no minimum zoom):
+ *   bus   — GTFS route corridors (width = route-count class) + BRT routes
+ *   stops — GTFS bus stops + BRT stations
  *   boat  — GTFS boat routes (dashed) + piers (rings)
  *   srt   — conventional rail stops with scheduled trips (filled square)
  *   intercity — bus terminals and บขส. boarding points (diamond; hollow = บขส. stop)
@@ -161,7 +163,7 @@ export function installOptionalLayers(map, {beforeId, lineBeforeId = 'rail-casin
   const boat = () => cssVar('--map-active-layer', '#347DA8');
   const halo = () => cssVar('--map-marker-halo', '#FFFFFF');
   const ink = () => cssVar('--map-marker-stroke', '#182327');
-  const state = {bus: false, boat: false, srt: false, intercity: false, moto: false, air: false, loaded: new Set()};
+  const state = {bus: false, stops: false, boat: false, srt: false, intercity: false, moto: false, air: false, loaded: new Set()};
   // Route lines above the roads (0.1 put them under the road casing, where nothing showed) and under the rail lines.
   const linesBefore = () => (map.getLayer(lineBeforeId) ? lineBeforeId : beforeId);
   function images() {
@@ -178,49 +180,60 @@ export function installOptionalLayers(map, {beforeId, lineBeforeId = 'rail-casin
     if (state.loaded.has(kind) || !data) return;
     if (kind === 'bus') {
       map.addSource(BUS_SOURCE, {type: 'geojson', data: data.routes, tolerance: 0.6});
-      map.addSource(BUS_STOPS, {type: 'geojson', data: data.stops});
       // Width (not colour) carries the count class: how many GTFS route records pass a stretch (data/bus.json meta.classes).
       const classWidth = k => ['case', ['==', ['get', 'brt'], 1], 2.2 * k, ['match', ['get', 'class'], 0, 0.45 * k, 1, 0.75 * k, 2, 1.1 * k, 3, 1.6 * k, 2.2 * k]];
-      map.addLayer({id: OPTIONAL_LAYERS.bus, type: 'line', source: BUS_SOURCE, minzoom: 9,
+      map.addLayer({id: OPTIONAL_LAYERS.bus, type: 'line', source: BUS_SOURCE,
         layout: {'line-cap': 'round', 'line-join': 'round', visibility: 'none'},
-        paint: {'line-color': bus(), 'line-opacity': ['interpolate', ['linear'], ['zoom'], 9, 0.45, 13, 0.6, 16, 0.7], 'line-width': ['interpolate', ['linear'], ['zoom'], 9, classWidth(0.7), 13, classWidth(1.3), 16, classWidth(2.1)]}}, linesBefore());
-      map.addLayer({id: OPTIONAL_LAYERS.busStops, type: 'circle', source: BUS_STOPS, minzoom: 14,
+        paint: {'line-color': bus(), 'line-opacity': ['interpolate', ['linear'], ['zoom'], 6, 0.5, 9, 0.5, 13, 0.6, 16, 0.7], 'line-width': ['interpolate', ['linear'], ['zoom'], 6, classWidth(0.35), 9, classWidth(0.7), 13, classWidth(1.3), 16, classWidth(2.1)]}}, linesBefore());
+    } else if (kind === 'stops') {
+      map.addSource(BUS_STOPS, {type: 'geojson', data: data.stops});
+      // Every zoom: a fine texture when far out (where the stops are), dots with a halo when close.
+      map.addLayer({id: OPTIONAL_LAYERS.busStops, type: 'circle', source: BUS_STOPS,
         layout: {visibility: 'none'},
-        paint: {'circle-radius': ['interpolate', ['linear'], ['zoom'], 14, ['case', ['==', ['get', 'brt'], 1], 3, 1.6], 17, ['case', ['==', ['get', 'brt'], 1], 5, 3.2]], 'circle-color': bus(), 'circle-stroke-color': halo(), 'circle-stroke-width': 1}});
+        paint: {'circle-radius': ['interpolate', ['linear'], ['zoom'], 6, ['case', ['==', ['get', 'brt'], 1], 1.4, 0.5], 10, ['case', ['==', ['get', 'brt'], 1], 2.2, 0.9], 13, ['case', ['==', ['get', 'brt'], 1], 2.8, 1.4], 17, ['case', ['==', ['get', 'brt'], 1], 5, 3.4]],
+          'circle-color': bus(), 'circle-stroke-color': halo(), 'circle-stroke-width': ['interpolate', ['linear'], ['zoom'], 12, 0, 13.5, 1], 'circle-opacity': ['interpolate', ['linear'], ['zoom'], 6, 0.65, 12, 0.85, 14, 1]}});
+      pickable.push(OPTIONAL_LAYERS.busStops);
     } else if (kind === 'boat') {
       map.addSource(BOAT_SOURCE, {type: 'geojson', data: data.routes});
       map.addSource(`${BOAT_SOURCE}-stops`, {type: 'geojson', data: data.stops});
       map.addLayer({id: OPTIONAL_LAYERS.boat, type: 'line', source: BOAT_SOURCE,
         layout: {'line-cap': 'round', 'line-join': 'round', visibility: 'none'},
         paint: {'line-color': boat(), 'line-opacity': 0.8, 'line-width': ['interpolate', ['linear'], ['zoom'], 9, 1.2, 14, 2.4, 17, 3.6], 'line-dasharray': [3, 2]}}, linesBefore());
-      map.addLayer({id: OPTIONAL_LAYERS.boatStops, type: 'circle', source: `${BOAT_SOURCE}-stops`, minzoom: 11,
+      map.addLayer({id: OPTIONAL_LAYERS.boatStops, type: 'circle', source: `${BOAT_SOURCE}-stops`,
         layout: {visibility: 'none'},
-        paint: {'circle-radius': ['interpolate', ['linear'], ['zoom'], 11, 2, 17, 4.5], 'circle-color': halo(), 'circle-stroke-color': boat(), 'circle-stroke-width': 1.6}});
+        paint: {'circle-radius': ['interpolate', ['linear'], ['zoom'], 6, 1.2, 11, 2, 17, 4.5], 'circle-color': halo(), 'circle-stroke-color': boat(), 'circle-stroke-width': ['interpolate', ['linear'], ['zoom'], 6, 1, 11, 1.6]}});
       pickable.push(OPTIONAL_LAYERS.boatStops);
     } else if (CONTEXT_POINT_LAYERS.includes(kind)) {
       images();
       const id = CONTEXT_LAYER_IDS[kind];
-      map.addSource(id, {type: 'geojson', data: contextFeatures(data)});
+      const fc = contextFeatures(data);
+      map.addSource(id, {type: 'geojson', data: fc});
+      // Names get their own source: a tile whose label font fails to load drops every layer of that source,
+      // and the symbols must not depend on the font server.
+      map.addSource(`${id}-label`, {type: 'geojson', data: fc});
       const icon = kind === 'srt' ? 'ctx-sym-square' : kind === 'moto' ? 'ctx-sym-moto' : kind === 'air' ? 'ctx-sym-air'
         : ['case', ['==', ['get', 'kind'], 2], 'ctx-sym-diamond-open', 'ctx-sym-diamond'];
-      const minzoom = kind === 'moto' ? 12 : kind === 'srt' ? 7 : 4;
-      const labelZoom = kind === 'air' ? 8 : kind === 'srt' ? 11 : kind === 'intercity' ? 11 : 16;
-      map.addLayer({id, type: 'symbol', source: id, minzoom,
+      // No minimum zoom (owner 2026-10-31): a switched-on layer shows at every zoom; symbols shrink when far out.
+      // Icons and names are two layers, so a symbol never waits for (or fails with) the label font.
+      const labelZoom = kind === 'air' ? 7 : kind === 'srt' ? 10 : kind === 'intercity' ? 10 : 16;
+      map.addLayer({id, type: 'symbol', source: id,
         layout: {
-          visibility: 'none', 'icon-image': icon, 'icon-allow-overlap': kind !== 'moto', 'icon-ignore-placement': kind !== 'moto',
-          'icon-size': kind === 'moto' ? ['interpolate', ['linear'], ['zoom'], 12, 0.8, 16, 1.1] : ['interpolate', ['linear'], ['zoom'], 5, 0.75, 12, 1, 16, 1.2],
-          'text-field': ['step', ['zoom'], '', labelZoom, ['get', 'name']], 'text-font': ['Noto Sans Regular'], 'text-size': 11,
-          'text-offset': [0, 1.1], 'text-anchor': 'top', 'text-max-width': 9, 'text-optional': true,
+          visibility: 'none', 'icon-image': icon, 'icon-allow-overlap': true, 'icon-ignore-placement': true,
+          'icon-size': kind === 'moto' ? ['interpolate', ['linear'], ['zoom'], 8, 0.35, 11, 0.5, 13, 0.75, 16, 1.1] : ['interpolate', ['linear'], ['zoom'], 5, 0.6, 9, 0.8, 12, 1, 16, 1.2],
         },
+        paint: {'icon-opacity': kind === 'moto' ? ['interpolate', ['linear'], ['zoom'], 9, 0.6, 13, 1] : 1}});
+      map.addLayer({id: `${id}-label`, type: 'symbol', source: `${id}-label`, minzoom: labelZoom,
+        layout: {visibility: 'none', 'text-field': ['get', 'name'], 'text-font': ['Noto Sans Regular'], 'text-size': 11, 'text-offset': [0, 1.1], 'text-anchor': 'top', 'text-max-width': 9},
         paint: {'text-color': ink(), 'text-halo-color': halo(), 'text-halo-width': 1.4}});
       pickable.push(id);
     }
     state.loaded.add(kind);
   }
   function idsOf(kind) {
-    if (kind === 'bus') return [OPTIONAL_LAYERS.bus, OPTIONAL_LAYERS.busStops];
+    if (kind === 'bus') return [OPTIONAL_LAYERS.bus];
+    if (kind === 'stops') return [OPTIONAL_LAYERS.busStops];
     if (kind === 'boat') return [OPTIONAL_LAYERS.boat, OPTIONAL_LAYERS.boatStops];
-    return [CONTEXT_LAYER_IDS[kind]];
+    return [CONTEXT_LAYER_IDS[kind], `${CONTEXT_LAYER_IDS[kind]}-label`];
   }
   function setVisible(kind, on, data) {
     ensure(kind, data);
@@ -244,8 +257,8 @@ export function installOptionalLayers(map, {beforeId, lineBeforeId = 'rail-casin
   function dispose() {
     map.off('click', onClick);
     map.off('mousemove', onMove);
-    for (const id of [...Object.values(OPTIONAL_LAYERS), ...Object.values(CONTEXT_LAYER_IDS)]) if (map.getLayer(id)) map.removeLayer(id);
-    for (const id of [BUS_SOURCE, BUS_STOPS, BOAT_SOURCE, `${BOAT_SOURCE}-stops`, ...Object.values(CONTEXT_LAYER_IDS)]) if (map.getSource(id)) map.removeSource(id);
+    for (const id of [...Object.values(OPTIONAL_LAYERS), ...Object.values(CONTEXT_LAYER_IDS).flatMap(id => [`${id}-label`, id])]) if (map.getLayer(id)) map.removeLayer(id);
+    for (const id of [BUS_SOURCE, BUS_STOPS, BOAT_SOURCE, `${BOAT_SOURCE}-stops`, ...Object.values(CONTEXT_LAYER_IDS).flatMap(id => [id, `${id}-label`])]) if (map.getSource(id)) map.removeSource(id);
   }
   return {setVisible, dispose, get state() { return {...state, loaded: [...state.loaded]}; }};
 }
@@ -267,7 +280,7 @@ export function installAreaLabels(map, container, {onSelect, reservedBottom = ()
   function layout() {
     const width = container.clientWidth, height = container.clientHeight - reservedBottom();
     const panel = container.closest('.map-panel'), rect = container.getBoundingClientRect();
-    const chrome = panel ? [...panel.querySelectorAll('.map-toolbar, .map-legend, .map-status, .map-aha, .ray-status, .maplibregl-ctrl-top-right')]
+    const chrome = panel ? [...panel.querySelectorAll('.map-toolbar, .mode-chips, .mode-menu, .map-legend, .map-status, .map-aha, .ray-status, .maplibregl-ctrl-top-right')]
       .filter(e => e.offsetWidth && e.offsetHeight)
       .map(e => { const b = e.getBoundingClientRect(); return {left: b.left - rect.left - 4, right: b.right - rect.left + 4, top: b.top - rect.top - 4, bottom: b.bottom - rect.top + 4}; }) : [];
     const placed = [];

@@ -12,7 +12,7 @@
  */
 export const NEARBY_RADIUS_M = 500;
 /** Order of the rows in the station panel; air last (its point is the aerodrome reference point, not a terminal). */
-export const NEARBY_ORDER = ['moto', 'bus', 'boat', 'srt', 'intercity', 'air'];
+export const NEARBY_ORDER = ['moto', 'stops', 'boat', 'srt', 'intercity', 'air'];
 
 /** Metres between two [lng, lat] points (equirectangular; exact enough within tens of kilometres). */
 export function distanceM([lng1, lat1], [lng2, lat2]) {

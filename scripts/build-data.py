@@ -1189,8 +1189,11 @@ def write_json(path, obj, pretty=False):
 def context_summary(bus, boat, context):
     """Counts, source and frame of every optional layer, so the layer menu can say what it holds before loading it."""
     out = {
-        'bus': {'label': 'รถเมล์ · BRT', 'short': 'รถเมล์', 'count': bus['meta']['stops'], 'unit': 'ป้าย', 'routes': bus['meta']['routesUsed'],
+        'bus': {'label': 'สายรถเมล์ · BRT', 'short': 'สายรถเมล์', 'count': bus['meta']['routesUsed'], 'unit': 'เส้นทาง',
                 'boundary': 'กรุงเทพฯ และปริมณฑล', 'frame': BUS_FRAME, 'source': 'GTFS ของ สนข.', 'period': 'ตาราง 30 ต.ค. 2569'},
+        'stops': {'label': 'ป้ายรถเมล์ · สถานี BRT', 'short': 'ป้ายรถเมล์', 'count': bus['meta']['stops'] + len(bus['brt']['stations']), 'unit': 'จุด',
+                  'kinds': ['ป้ายรถเมล์ใน GTFS (ระเบียนจุดจอด)', 'สถานี BRT'], 'kindCounts': [bus['meta']['stops'], len(bus['brt']['stations'])],
+                  'boundary': 'กรุงเทพฯ และปริมณฑล', 'frame': BUS_FRAME, 'source': 'GTFS ของ สนข.', 'period': 'ตาราง 30 ต.ค. 2569'},
         'boat': {'label': 'เรือโดยสาร', 'short': 'เรือโดยสาร', 'count': len(boat['stops']['features']), 'unit': 'ท่า', 'routes': len(boat['routes']['features']),
                  'boundary': 'กรุงเทพฯ และปริมณฑล', 'frame': BOAT_FRAME, 'source': 'GTFS ของ สนข. และรายชื่อท่าของผู้ให้บริการ', 'period': 'ตาราง 30 ต.ค. 2569'},
     }

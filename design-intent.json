@@ -1,6 +1,6 @@
 {
   "artifact": "CityMETER Transit — 3D-first, rail-first map of lines, stations and interchanges",
-  "productVersion": "0.1.1",
+  "productVersion": "0.1.2",
   "updatedOn": "2026-10-31",
   "ldsVersion": "0.9.7",
   "release": "v0.9.7-owner.1",
@@ -33,7 +33,7 @@
     "lines2d": "js/map-layers.js — 2D lines below zoom 10 or with 3D off; construction dashed; quiet grey outside the focus",
     "pins": "js/pins.js — HTML buttons for keyboard and screen readers; one pin per complex within 150 m",
     "elevation": "from OpenStreetMap ways of the same line (route relation members and ways that name the line); unknown when unmatched",
-    "optionalLayers": "other modes in the \"ขนส่งอื่น\" menu, off by default, lazy-loaded (data/bus.json, boat.json, layer-moto/intercity/srt/air.json): bus corridors (width by GTFS route-count class) + stops + BRT, boat routes (dashed) + piers (rings), conventional rail stops (filled square), intercity terminals (diamond; hollow = บขส. stop), motorcycle-taxi stands (small triangle), airports (plane); quiet map-role tokens, shape tells the mode; route lines above the road casing and below the rail lines; counts and sources in meta.contextLayers",
+    "optionalLayers": "other modes in the \"ขนส่งอื่น\" menu, off by default, lazy-loaded (data/bus.json, boat.json, layer-moto/intercity/srt/air.json): bus routes (width by GTFS route-count class) + BRT, bus stops + BRT stations (separate layer), boat routes (dashed) + piers (rings), conventional rail stops (filled square), intercity terminals (diamond; hollow = บขส. stop), motorcycle-taxi stands (small triangle), airports (plane); quiet map-role tokens, shape tells the mode; route lines above the road casing and below the rail lines; counts and sources in meta.contextLayers; once on, visible at every zoom (no minzoom; symbols shrink; labels in their own source so icons never wait for the font) with active-layer chips under the toolbar on every screen",
     "camera": "plan / city (56/28) / model (60, FOV 14) / eye (75, FOV 24) with pitch ≤ 90 − fov/2 − 3",
     "stationFrame": "a click on a station (panel, pin or 3D object) fits the ring of STATION_RADIUS_M (450 m, = focus massing) with roof heights (loaded massing, else a 60 m framing allowance) to the visible map area (pitchedPadding on desktop, cameraPadding above the mobile sheet); camera.fitPitched with recenter uses the padded area as principal point; one refit when taller roofs load unless the user moved the camera",
     "construction": "construction alignments dashed in 2D (line-dasharray) and in 3D (dashPath, 14 px on / 9 px off at the current scale)"

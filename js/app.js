@@ -50,20 +50,20 @@ const STATION_RADIUS_M = 450;
 /** Roof allowance (m) used to frame a station area before its massing has loaded — a framing margin, not data. */
 const DEFAULT_ROOF_M = 60;
 /** Optional layers of the other modes (menu order) and their lazy files. */
-const MODE_LAYERS = ['bus', 'moto', 'boat', 'intercity', 'srt', 'air'];
-const LAYER_FILE = {bus: 'data/bus.json', boat: 'data/boat.json', srt: 'data/layer-srt.json', intercity: 'data/layer-intercity.json', moto: 'data/layer-moto.json', air: 'data/layer-air.json'};
+const MODE_LAYERS = ['bus', 'stops', 'moto', 'boat', 'intercity', 'srt', 'air'];
+const LAYER_FILE = {bus: 'data/bus.json', stops: 'data/bus.json', boat: 'data/boat.json', srt: 'data/layer-srt.json', intercity: 'data/layer-intercity.json', moto: 'data/layer-moto.json', air: 'data/layer-air.json'};
 const reduced = () => matchMedia('(prefers-reduced-motion: reduce)').matches;
 const mobilePortrait = () => matchMedia('(max-width: 760px) and (orientation: portrait)').matches;
 const animate = () => !reduced();
 
 const state = {
-  data: null, railGeo: null, buildingGeo: null, provinces: null, optionalData: {bus: null, boat: null, srt: null, intercity: null, moto: null, air: null},
+  data: null, railGeo: null, buildingGeo: null, provinces: null, optionalData: {bus: null, stops: null, boat: null, srt: null, intercity: null, moto: null, air: null},
   lineById: new Map(), stationById: new Map(), systemById: new Map(), complexById: new Map(), buildingsByStation: new Map(), sourcesById: new Map(),
   scopeStations: [], baseStations: [], focusStations: [],
   view: 'lines', page: 0,
   focusMode: 'auto', selectedStationId: '', panel: {mode: 'overview', id: ''}, history: [], via: '',
   map: null, loaded: false, mapTheme: '', initialCameraDone: false, tileTemplate: '', lastPreset: '',
-  view3d: true, twoPoint: true, layers: {bus: false, boat: false, srt: false, intercity: false, moto: false, air: false},
+  view3d: true, twoPoint: true, layers: {bus: false, stops: false, boat: false, srt: false, intercity: false, moto: false, air: false},
   pins: null, rail: null, optional: null, provinceLayers: null, provinceLabels: null, provinceModel: null, massing: null, scene: null, THREE: null,
   ray: {objects: [], cycle: 0}, pinAlias: new Map(), ready: false, ridershipGroup: '',
 };
@@ -354,9 +354,7 @@ function renderLegend() {
   const lines = state.data.lines.filter(l => state.scopeStations.some(s => (s.lineIds || []).includes(l.id)));
   $('line-items').innerHTML = lines.map(l => `<span><i class="line-swatch${l.status === 'construction' ? ' is-construction' : ''}" style="--line-color:${esc(l.color || '')}" aria-hidden="true"></i>${esc(l.name)}</span>`).join('');
   document.querySelector('.legend-bus-item').hidden = !state.layers.bus;
-  const summary = state.data?.meta?.contextLayers || {};
-  $('legend-modes').innerHTML = MODE_LAYERS.filter(k => k !== 'bus' && state.layers[k] && summary[k]).map(k => `<span title="${esc(layerNote(summary[k]))}"><i class="mode-sym is-${k}" aria-hidden="true"></i>${esc(summary[k].short || summary[k].label)}</span>`).join('');
-  $('legend-modes').hidden = !$('legend-modes').innerHTML;
+
   document.querySelector('.map-panel').classList.toggle('is-3d', state.view3d);
   document.querySelector('.map-panel').classList.toggle('is-province-zoom', atProvince);
 }
@@ -422,10 +420,16 @@ function renderTable() {
 }
 
 /* ---------- map ---------- */
+/** Bottom edge of the top map chrome: the toolbar, or the row of active-mode chips under it. */
+function topChrome() {
+  const toolbar = document.querySelector('.map-toolbar').getBoundingClientRect();
+  const chips = $('mode-chips');
+  return {bottom: !chips.hidden && chips.offsetHeight ? Math.max(toolbar.bottom, chips.getBoundingClientRect().bottom) : toolbar.bottom};
+}
 function cameraPadding() {
   const height = $('map').clientHeight, panel = $('insights').getBoundingClientRect().height;
   const edge = Math.min(48, Math.max(12, (height - panel) / 6));
-  const mapTop = $('map').getBoundingClientRect().top, toolbar = document.querySelector('.map-toolbar').getBoundingClientRect();
+  const mapTop = $('map').getBoundingClientRect().top, toolbar = topChrome();
   const aha = $('map-aha'), legend = $('map-legend');
   const chromeTop = !aha.hidden && aha.offsetHeight ? aha.getBoundingClientRect().top : legend.offsetHeight ? legend.getBoundingClientRect().top : null;
   let bottom = chromeTop != null ? height - (chromeTop - mapTop) + 12 : panel + edge;
@@ -433,7 +437,7 @@ function cameraPadding() {
   return {top: Math.max(edge, toolbar.bottom - mapTop + 12), left: edge, right: edge, bottom: Math.min(height * 0.7, bottom)};
 }
 function pitchedPadding() {
-  const mapTop = $('map').getBoundingClientRect().top, toolbar = document.querySelector('.map-toolbar').getBoundingClientRect();
+  const mapTop = $('map').getBoundingClientRect().top, toolbar = topChrome();
   return {top: Math.round(toolbar.bottom - mapTop + 12), bottom: Math.round($('insights').getBoundingClientRect().height + 40), left: 24, right: 24};
 }
 
@@ -632,7 +636,7 @@ function renderRayStatus(objects = [], cycle = {cycle: 0}) {
 
 /** data/bus.json is stored as encoded polylines (scripts/build-data.py); the map layers take GeoJSON. */
 function optionalGeoJSON(kind, raw) {
-  if (kind !== 'bus' || !Array.isArray(raw?.routes)) return raw;
+  if (!['bus', 'stops'].includes(kind) || !Array.isArray(raw?.routes)) return raw;
   const fc = features => ({type: 'FeatureCollection', features});
   const lines = raw.routes.map(r => ({type: 'Feature', properties: {class: r.c, routes: r.n}, geometry: {type: 'LineString', coordinates: decodePolyline(r.p)}}));
   const brt = (raw.brt?.routes || []).map(r => ({type: 'Feature', properties: {class: 0, routes: 1, brt: 1, name: r.name}, geometry: {type: 'LineString', coordinates: decodePolyline(r.p)}}));
@@ -642,13 +646,18 @@ function optionalGeoJSON(kind, raw) {
 }
 
 const layerLoads = new Map();
-/** Fetch one optional layer once (map toggles and the station's nearby modes share it). */
+/** Fetch one layer file once (map toggles and the station's nearby modes share it; bus routes and stops share data/bus.json). */
 function loadLayer(kind) {
   if (state.optionalData[kind]) return Promise.resolve(state.optionalData[kind]);
-  if (!layerLoads.has(kind)) {
-    layerLoads.set(kind, fetchJSON(LAYER_FILE[kind]).then(raw => (state.optionalData[kind] = optionalGeoJSON(kind, raw))).catch(e => { layerLoads.delete(kind); throw e; }));
+  const file = LAYER_FILE[kind];
+  if (!layerLoads.has(file)) {
+    layerLoads.set(file, fetchJSON(file).then(raw => {
+      const data = optionalGeoJSON(kind, raw);
+      for (const k of MODE_LAYERS) if (LAYER_FILE[k] === file) state.optionalData[k] = data;
+      return data;
+    }).catch(e => { layerLoads.delete(file); throw e; }));
   }
-  return layerLoads.get(kind);
+  return layerLoads.get(file);
 }
 
 async function toggleLayer(kind, on = !state.layers[kind]) {
@@ -670,6 +679,9 @@ const layerNote = c => [c.count != null ? `${num(c.count)} ${c.unit}` : '', c.so
 function renderModeMenu() {
   const summary = state.data?.meta?.contextLayers || {};
   const on = MODE_LAYERS.filter(k => state.layers[k]);
+  // Active layers stay in sight on every screen: one chip per layer under the toolbar (symbol + name, tap to hide).
+  $('mode-chips').innerHTML = on.filter(k => summary[k]).map(k => `<button type="button" class="mode-chip" data-layer="${k}" title="${esc(layerNote(summary[k]))}" aria-label="ซ่อนชั้น${esc(summary[k].label)}"><i class="mode-sym is-${k}" aria-hidden="true"></i><span>${esc(summary[k].short || summary[k].label)}</span><span class="chip-x" aria-hidden="true">×</span></button>`).join('');
+  $('mode-chips').hidden = !on.length || !$('mode-menu').hidden;
   $('mode-active-count').textContent = on.length ? num(on.length) : '';
   $('mode-active-count').hidden = !on.length;
   $('toggle-modes').setAttribute('aria-label', on.length ? `ขนส่งอื่น เปิดอยู่ ${on.length} ชั้น` : 'ขนส่งอื่น');
@@ -681,17 +693,18 @@ function renderModeMenu() {
 function setModeMenu(open, {focus = false} = {}) {
   $('mode-menu').hidden = !open;
   $('toggle-modes').setAttribute('aria-expanded', String(open));
-  if (open) { renderModeMenu(); $('mode-list').querySelector('button')?.focus(); }
+  renderModeMenu();
+  if (open) $('mode-list').querySelector('button')?.focus();
   else if (focus) $('toggle-modes').focus();
 }
 
 let contextPopup = null;
 function showContextPopup({layer, properties: p, lngLat}) {
   const summary = state.data?.meta?.contextLayers || {};
-  const kind = layer.startsWith('ctx-') ? layer.slice(4) : layer.startsWith('boat') ? 'boat' : '';
+  const kind = layer.startsWith('ctx-') ? layer.slice(4) : layer.startsWith('boat') ? 'boat' : layer.startsWith('bus-stop') ? 'stops' : '';
   const c = summary[kind] || {};
-  const title = p.name || c.label || '';
-  const sub = [p.kindLabel || (kind === 'boat' ? 'ท่าเรือ' : ''), p.code, p.area].filter(Boolean).join(' · ');
+  const title = p.name || (kind === 'stops' ? 'ป้ายรถเมล์ใน GTFS' : c.label || '');
+  const sub = [p.kindLabel || (kind === 'boat' ? 'ท่าเรือ' : kind === 'stops' ? (p.brt ? 'สถานี BRT' : 'จุดจอดของแหล่ง ไม่ใช่จำนวนป้ายจริง') : ''), p.code, p.area].filter(Boolean).join(' · ');
   const html = `<div class="ctx-popup"><strong>${esc(title)}</strong>${sub ? `<span>${esc(sub)}</span>` : ''}${p.status ? `<span>${esc(p.status)}</span>` : ''}<small>${esc([c.source, c.period].filter(Boolean).join(' · '))}</small></div>`;
   contextPopup?.remove();
   contextPopup = new maplibregl.Popup({closeButton: true, maxWidth: '280px', className: 'ctx-popup-wrap'}).setLngLat(lngLat).setHTML(html).addTo(state.map);
@@ -701,7 +714,7 @@ function showContextPopup({layer, properties: p, lngLat}) {
 function layerPoints(kind) {
   const d = state.optionalData[kind];
   if (!d) return null;
-  if (kind === 'bus') return d.stops.features.map(f => ({lng: f.geometry.coordinates[0], lat: f.geometry.coordinates[1], name: f.properties.name || ''}));
+  if (kind === 'bus' || kind === 'stops') return d.stops.features.map(f => ({lng: f.geometry.coordinates[0], lat: f.geometry.coordinates[1], name: f.properties.name || ''}));
   if (kind === 'boat') return d.stops.features.map(f => ({lng: f.geometry.coordinates[0], lat: f.geometry.coordinates[1], name: f.properties.name || ''}));
   const i = name => (d.fields || []).indexOf(name);
   return (d.rows || []).map(r => ({lng: r[i('lng')], lat: r[i('lat')], name: r[i('name')] || ''}));
@@ -893,6 +906,7 @@ function wireEvents() {
   $('toggle-modes').onclick = () => setModeMenu($('mode-menu').hidden);
   $('close-modes').onclick = () => setModeMenu(false, {focus: true});
   $('mode-list').addEventListener('click', e => { const b = e.target.closest('[data-layer]'); if (b) toggleLayer(b.dataset.layer); });
+  $('mode-chips').addEventListener('click', e => { const b = e.target.closest('[data-layer]'); if (b) toggleLayer(b.dataset.layer, false); });
   document.addEventListener('keydown', e => { if (e.key === 'Escape' && !$('mode-menu').hidden) setModeMenu(false, {focus: true}); });
   document.addEventListener('pointerdown', e => { if (!$('mode-menu').hidden && !e.target.closest('#mode-menu, #toggle-modes')) setModeMenu(false); });
   $('mobile-panel').onclick = () => { $('panel').classList.contains('is-open') ? closeMobilePanel() : openMobilePanel(); };

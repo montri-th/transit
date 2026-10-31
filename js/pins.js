@@ -129,7 +129,7 @@ export function installStationPins(map, container, {onSelect, onHover, onLayout,
     const panel = container.closest('.map-panel'), rect = container.getBoundingClientRect();
     panel?.classList.toggle('is-tight', height < 480);
     const obstacle = e => { const b = e.getBoundingClientRect(); return {left: b.left - rect.left - 3, right: b.right - rect.left + 3, top: b.top - rect.top - 3, bottom: b.bottom - rect.top + 3}; };
-    const blockers = panel ? [...panel.querySelectorAll('.map-toolbar button, .province-label, .map-legend, .map-status, .map-aha, .ray-status, .maplibregl-ctrl-top-right, .maplibregl-ctrl-bottom-right, .maplibregl-ctrl-bottom-left')]
+    const blockers = panel ? [...panel.querySelectorAll('.map-toolbar button, .mode-chip, .mode-menu, .province-label, .map-legend, .map-status, .map-aha, .ray-status, .maplibregl-ctrl-top-right, .maplibregl-ctrl-bottom-right, .maplibregl-ctrl-bottom-left')]
       .filter(e => e.offsetWidth && e.offsetHeight).map(obstacle) : [];
     const bounds = {left: 5, right: width - 5, top: 5, bottom: Math.max(6, height - reservedBottom()), exclusions: blockers};
     const zoom = map.getZoom();
