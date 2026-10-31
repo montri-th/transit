@@ -107,12 +107,14 @@ export function installOptionalLayers(map, {beforeId} = {}) {
     if (kind === 'bus' && !state.busLoaded && data) {
       map.addSource(BUS_SOURCE, {type: 'geojson', data: data.routes, tolerance: 0.6});
       map.addSource(BUS_STOPS, {type: 'geojson', data: data.stops});
+      // Width (not colour) carries the count class: how many GTFS route records pass a stretch (data/bus.json meta.classes).
+      const classWidth = k => ['case', ['==', ['get', 'brt'], 1], 2.2 * k, ['match', ['get', 'class'], 0, 0.45 * k, 1, 0.75 * k, 2, 1.1 * k, 3, 1.6 * k, 2.2 * k]];
       map.addLayer({id: OPTIONAL_LAYERS.bus, type: 'line', source: BUS_SOURCE, minzoom: 9,
         layout: {'line-cap': 'round', 'line-join': 'round', visibility: 'none'},
-        paint: {'line-color': bus(), 'line-opacity': ['interpolate', ['linear'], ['zoom'], 9, 0.25, 13, 0.45, 16, 0.6], 'line-width': ['interpolate', ['linear'], ['zoom'], 9, 0.5, 13, 1, 16, 2]}}, beforeId);
+        paint: {'line-color': bus(), 'line-opacity': ['interpolate', ['linear'], ['zoom'], 9, 0.3, 13, 0.5, 16, 0.65], 'line-width': ['interpolate', ['linear'], ['zoom'], 9, classWidth(0.6), 13, classWidth(1.2), 16, classWidth(2)]}}, beforeId);
       map.addLayer({id: OPTIONAL_LAYERS.busStops, type: 'circle', source: BUS_STOPS, minzoom: 14,
         layout: {visibility: 'none'},
-        paint: {'circle-radius': ['interpolate', ['linear'], ['zoom'], 14, 1.6, 17, 3.2], 'circle-color': bus(), 'circle-stroke-color': halo(), 'circle-stroke-width': 1}});
+        paint: {'circle-radius': ['interpolate', ['linear'], ['zoom'], 14, ['case', ['==', ['get', 'brt'], 1], 3, 1.6], 17, ['case', ['==', ['get', 'brt'], 1], 5, 3.2]], 'circle-color': bus(), 'circle-stroke-color': halo(), 'circle-stroke-width': 1}});
       state.busLoaded = true;
     }
     if (kind === 'boat' && !state.boatLoaded && data) {

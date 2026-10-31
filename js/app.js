@@ -26,6 +26,7 @@
  * URL state: filters, line, station, focus, view, view3d, cam, bus, boat.
  */
 import {STATUS, hasPoint, isInterchange, filterStations, summarize, provinceByCode, PROVINCE_LIST} from './model.js';
+import {decodePolyline, decodePoints} from './polyline.js';
 import {computeInsight, rankLines, buildLineProfile, buildStationDetail} from './profile-model.js';
 import {renderOverview, renderLine, renderStation, renderFilterChips, statusPill, link, esc, num, lineBadges} from './panel.js';
 import {renderInsightChart} from './charts.js';
@@ -49,14 +50,14 @@ const animate = () => !reduced();
 
 const state = {
   data: null, railGeo: null, buildingGeo: null, provinces: null, optionalData: {bus: null, boat: null},
-  lineById: new Map(), stationById: new Map(), systemById: new Map(), buildingsByStation: new Map(), sourcesById: new Map(),
+  lineById: new Map(), stationById: new Map(), systemById: new Map(), complexById: new Map(), buildingsByStation: new Map(), sourcesById: new Map(),
   scopeStations: [], baseStations: [], focusStations: [],
   view: 'lines', page: 0,
   focusMode: 'auto', selectedStationId: '', panel: {mode: 'overview', id: ''}, history: [], via: '',
   map: null, loaded: false, mapTheme: '', initialCameraDone: false, tileTemplate: '', lastPreset: '',
   view3d: true, twoPoint: true, layers: {bus: false, boat: false},
   pins: null, rail: null, optional: null, provinceLayers: null, provinceLabels: null, provinceModel: null, massing: null, scene: null, THREE: null,
-  ray: {objects: [], cycle: 0},
+  ray: {objects: [], cycle: 0}, pinAlias: new Map(), ready: false,
 };
 
 /* ---------- helpers ---------- */
@@ -103,6 +104,8 @@ function applyTheme() {
   const next = value === 'auto' ? (matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light') : value;
   document.documentElement.dataset.theme = next;
   try { localStorage.setItem('citymeter-transit-theme', value); } catch {}
+  resolveLineColors();
+  if (state.ready) { renderPanel(); renderLegend(); updatePins(); }
   if (state.map && next !== state.mapTheme) {
     state.loaded = false;
     disposeSpatial();
@@ -126,7 +129,7 @@ function update({fit = false} = {}) {
   if (line && state.panel.mode === 'overview') state.panel = {mode: 'line', id: line.id};
   state.selectedStationId = state.panel.mode === 'station' ? state.panel.id : '';
 
-  const s = summarize(state.baseStations, state.data.lines);
+  const s = summarize(state.baseStations, state.data.lines, state.data.complexes);
   $('result-count').textContent = num(state.baseStations.length);
   $('filter-count').textContent = activeFilterCount(f) ? String(activeFilterCount(f)) : '';
   $('filter-chips').innerHTML = renderFilterChips(f, {
@@ -152,18 +155,39 @@ function update({fit = false} = {}) {
 
 /** Line ids that carry the detail: the selected line, the selected station's lines, or null (= all lines). */
 function focusLineIds() {
-  if (state.panel.mode === 'station') { const st = currentStation(); return st ? new Set(st.lineIds || []) : null; }
+  if (state.panel.mode === 'station') { const st = currentStation(); return st ? new Set([...(st.lineIds || []), ...(state.complexById.get(st.complexId)?.lineIds || [])]) : null; }
   const line = selectedLine();
   return line ? new Set([line.id]) : null;
+}
+
+/**
+ * One pin per interchange complex: records of a complex within 150 m of the first
+ * shown member share that pin (a presentation choice — every record stays in the
+ * counts, the table and the panel). The selected station leads its complex.
+ */
+const metresBetween = (a, b) => Math.hypot((a.lng - b.lng) * 111320 * Math.cos((a.lat * Math.PI) / 180), (a.lat - b.lat) * 110574);
+function groupComplexPins(rows, alias = null) {
+  const lead = state.selectedStationId;
+  const ordered = lead ? [...rows].sort((a, b) => (b.id === lead) - (a.id === lead)) : rows;
+  const anchors = new Map(), out = [];
+  for (const r of ordered) {
+    const a = r.complexId && hasPoint(r) ? anchors.get(r.complexId) : null;
+    if (a && metresBetween(a, r) <= 150) { a.pinMembers.push(r); alias?.set(r.id, a.id); continue; }
+    const row = r.complexId ? {...r, pinMembers: [r]} : r;
+    if (r.complexId && hasPoint(r) && !a) anchors.set(r.complexId, row);
+    out.push(row);
+  }
+  return out;
 }
 
 function updatePins() {
   if (!state.pins) return;
   const focus = focusLineIds();
-  const rows = focus ? state.scopeStations.filter(s => (s.lineIds || []).some(id => focus.has(id))) : state.baseStations;
-  const ids = new Set(rows.map(r => r.id));
-  state.pins.update(rows, {contextRows: state.scopeStations.filter(r => !ids.has(r.id))});
-  if (state.selectedStationId) state.pins.select(state.selectedStationId);
+  state.pinAlias = new Map();
+  const rows = groupComplexPins(focus ? state.scopeStations.filter(s => (s.lineIds || []).some(id => focus.has(id))) : state.baseStations, state.pinAlias);
+  const ids = new Set(rows.flatMap(r => (r.pinMembers || [r]).map(m => m.id)));
+  state.pins.update(rows, {contextRows: groupComplexPins(state.scopeStations.filter(r => !ids.has(r.id)), state.pinAlias)});
+  if (state.selectedStationId) state.pins.select(state.pinAlias.get(state.selectedStationId) || state.selectedStationId);
 }
 
 /* ---------- breadcrumb ---------- */
@@ -178,19 +202,19 @@ function renderCrumbs() {
 }
 
 /* ---------- panel ---------- */
-function renderPanel(summary = summarize(state.baseStations, state.data.lines)) {
+function renderPanel() {
   const view = $('panel-view');
   const mode = state.panel.mode;
   renderCrumbs();
   syncEyeToggle();
   let html = '';
-  if (mode === 'line') html = renderLine(buildLineProfile(selectedLine(), state.scopeStations, {stationById: state.stationById, lineById: state.lineById, systems: state.data.systems}));
-  else if (mode === 'station') html = renderStation(buildStationDetail(currentStation(), {stationById: state.stationById, lineById: state.lineById, interchanges: state.data.interchanges || [], buildingsByStation: state.buildingsByStation, sourcesById: state.sourcesById}), {lineById: state.lineById});
+  if (mode === 'line') html = renderLine(buildLineProfile(selectedLine(), state.scopeStations, {stationById: state.stationById, lineById: state.lineById, complexById: state.complexById, systems: state.data.systems}));
+  else if (mode === 'station') html = renderStation(buildStationDetail(currentStation(), {stationById: state.stationById, lineById: state.lineById, interchanges: state.data.interchanges || [], complexById: state.complexById, buildingsByStation: state.buildingsByStation, sourcesById: state.sourcesById}), {lineById: state.lineById});
   if (!html) {
-    const insight = computeInsight(state.scopeStations);
+    const insight = computeInsight(state.scopeStations, state.data.complexes || []);
     const ranking = rankLines(state.scopeStations, state.data.lines, state.data.systems).rows;
     const provinces = $('province').value ? [] : (state.provinceModel?.provinces || buildProvinceModelSafe()).filter(p => p.stations > 0).sort((a, b) => b.stations - a.stations || b.lines - a.lines);
-    html = renderOverview({insight, summary: summarize(state.scopeStations, state.data.lines), lineRanking: ranking, provinces, focusMode: state.focusMode, asOf: state.data.meta?.asOf || '', provinceName: provinceByCode($('province').value)?.th || ''});
+    html = renderOverview({insight, summary: summarize(state.scopeStations, state.data.lines, state.data.complexes), lineRanking: ranking, provinces, focusMode: state.focusMode, asOf: state.data.meta?.asOf || '', provinceName: provinceByCode($('province').value)?.th || ''});
     renderMapAha(insight);
   } else {
     $('map-aha').hidden = true;
@@ -207,7 +231,7 @@ function renderMapAha(insight) {
   if (!insight.stations) { el.hidden = true; return; }
   el.hidden = $('panel').classList.contains('is-open');
   const crumb = `<p class="map-aha-crumb">${esc(breadcrumbText(buildBreadcrumb({provinceCode: $('province').value})))}</p>`;
-  el.innerHTML = `<div>${crumb}<h2>${num(insight.interchanges)} จุดเปลี่ยนสาย · ${num(insight.stations)} สถานี</h2><p>${insight.hubs.map(h => esc(h.name)).join(' · ')}</p></div>${state.focusMode === 'auto'
+  el.innerHTML = `<div>${crumb}<h2>${num(insight.interchanges)} จุดเปลี่ยนสาย · ${num(insight.lines)} สาย</h2><p>${insight.hubs.map(h => `${esc(h.name)} ${num(h.lines)} สาย`).join(' · ')}</p></div>${state.focusMode === 'auto'
     ? '<button type="button" class="btn" data-action="clear-focus">ดูทั้งหมด</button>'
     : '<button type="button" class="btn primary" data-action="explore-top">โฟกัส</button>'}`;
 }
@@ -327,12 +351,18 @@ function renderLegend() {
 /* ---------- charts ---------- */
 let chartDispose = null;
 function ridershipMetrics() {
-  // Group reported values by metric + unit + period + aggregation so a bar chart never mixes incomparable values.
+  // Group values by metric + unit + period + aggregation so a bar chart never mixes incomparable values;
+  // a value the source reports for a whole complex (seriesKey shared by two records) is drawn once.
   const groups = new Map();
   for (const s of state.baseStations) for (const r of s.ridership || []) {
     const key = [r.metric, r.unit, r.period, r.aggregation].join('|');
-    if (!groups.has(key)) groups.set(key, {key, label: r.label, unit: r.unit, period: r.period, aggregation: r.aggregation, values: []});
-    groups.get(key).values.push({stationId: s.id, name: s.name, value: r.value, lineIds: s.lineIds});
+    if (!groups.has(key)) groups.set(key, {key, label: r.label.split(' · ')[0], fullLabel: r.label, unit: r.unit, period: r.period, aggregation: r.aggregation, dataset: r.dataset || '', source: r.source || '', note: r.note || '', values: [], seen: new Set()});
+    const g = groups.get(key);
+    const series = r.seriesKey || `${s.id}|${key}`;
+    if (g.seen.has(series)) continue;
+    g.seen.add(series);
+    const complex = r.shared ? state.complexById.get(s.complexId) : null;
+    g.values.push({stationId: s.id, name: complex ? `${complex.name} (รวม ${num(complex.lineIds.length)} สาย)` : s.name, value: r.value, lineIds: complex ? complex.lineIds : s.lineIds});
   }
   return [...groups.values()].sort((a, b) => b.values.length - a.values.length);
 }
@@ -408,7 +438,7 @@ function focusPoints() {
   const line = selectedLine();
   if (line) return state.scopeStations.filter(s => (s.lineIds || []).includes(line.id) && hasPoint(s)).map(s => [s.lng, s.lat]);
   if (state.focusMode === 'auto') {
-    const hubs = computeInsight(state.scopeStations).hubs.filter(h => Number.isFinite(h.lat));
+    const hubs = computeInsight(state.scopeStations, state.data.complexes || []).hubs.filter(h => Number.isFinite(h.lat));
     if (hubs.length) return hubs.map(h => [h.lng, h.lat]);
   }
   return state.baseStations.filter(hasPoint).map(s => [s.lng, s.lat]);
@@ -472,12 +502,16 @@ function sceneLines(focus) {
 }
 
 function sceneStations(focus) {
-  return state.scopeStations.filter(hasPoint).map(s => ({
-    id: s.id, lng: s.lng, lat: s.lat, status: s.status, bearing: s.bearing || 0,
-    role: isInterchange(s) ? 'hub' : 'station', elevation: s.elevation || 'surface',
-    colors: linesOf(s).map(l => l.color).filter(Boolean),
-    quiet: Boolean(focus && !(s.lineIds || []).some(id => focus.has(id))),
-  }));
+  // Same grouping as the pins: one plate per interchange complex, striped with every line that meets there.
+  return groupComplexPins(state.scopeStations.filter(hasPoint)).map(s => {
+    const members = s.pinMembers || [s];
+    return {
+      id: s.id, lng: s.lng, lat: s.lat, status: s.status, bearing: s.bearing || 0,
+      role: isInterchange(s) ? 'hub' : 'station', elevation: s.elevation || 'surface',
+      colors: [...new Set(members.flatMap(linesOf))].map(l => l.color).filter(Boolean),
+      quiet: Boolean(focus && !members.some(m => (m.lineIds || []).some(id => focus.has(id)))),
+    };
+  });
 }
 
 function updateSpatialLayers() {
@@ -498,7 +532,7 @@ function updateSpatialLayers() {
     state.scene.setStations(sceneStations(focus));
     const shown = new Set(state.scopeStations.map(s => s.id));
     state.scene.setBuildings((state.buildingGeo?.features || []).filter(f => shown.has(f.properties?.stationId)));
-    state.scene.setSelected(state.selectedStationId);
+    state.scene.setSelected(state.pinAlias.get(state.selectedStationId) || state.selectedStationId);
     state.scene.setScale({zoom: map.getZoom(), latitude: map.getCenter().lat});
   }
   // Focus massing: rings around the focused stations (≤ 6, nearest the view centre), hosts = matched station buildings.
@@ -563,11 +597,22 @@ function renderRayStatus(objects = [], cycle = {cycle: 0}) {
   el.hidden = false;
 }
 
+/** data/bus.json is stored as encoded polylines (scripts/build-data.py); the map layers take GeoJSON. */
+function optionalGeoJSON(kind, raw) {
+  if (kind !== 'bus' || !Array.isArray(raw?.routes)) return raw;
+  const fc = features => ({type: 'FeatureCollection', features});
+  const lines = raw.routes.map(r => ({type: 'Feature', properties: {class: r.c, routes: r.n}, geometry: {type: 'LineString', coordinates: decodePolyline(r.p)}}));
+  const brt = (raw.brt?.routes || []).map(r => ({type: 'Feature', properties: {class: 0, routes: 1, brt: 1, name: r.name}, geometry: {type: 'LineString', coordinates: decodePolyline(r.p)}}));
+  const stops = decodePoints(raw.stops || '').map(c => ({type: 'Feature', properties: {brt: 0}, geometry: {type: 'Point', coordinates: c}}));
+  const brtStops = (raw.brt?.stations || []).map(st => ({type: 'Feature', properties: {brt: 1, name: st.name}, geometry: {type: 'Point', coordinates: [st.lng, st.lat]}}));
+  return {meta: raw.meta, routes: fc([...lines, ...brt]), stops: fc([...stops, ...brtStops])};
+}
+
 async function toggleLayer(kind, on = !state.layers[kind]) {
   state.layers[kind] = on;
   $(`toggle-${kind}`).setAttribute('aria-pressed', String(on));
   if (on && !state.optionalData[kind]) {
-    try { state.optionalData[kind] = await fetchJSON(`data/${kind}.json`); }
+    try { state.optionalData[kind] = optionalGeoJSON(kind, await fetchJSON(`data/${kind}.json`)); }
     catch (e) { console.warn(`Optional ${kind} layer unavailable`, e); state.layers[kind] = false; $(`toggle-${kind}`).setAttribute('aria-pressed', 'false'); $('map-status').textContent = kind === 'bus' ? 'โหลดชั้นรถเมล์ไม่สำเร็จ' : 'โหลดชั้นเรือไม่สำเร็จ'; return; }
   }
   if (state.loaded && state.optional) state.optional.setVisible(kind, state.layers[kind], state.optionalData[kind]);
@@ -585,9 +630,11 @@ function initMap() {
     reservedBottom: () => $('insights').getBoundingClientRect().height + 12,
     altitude: row => (state.view3d && state.scene && row.elevation === 'elevated' ? ELEVATION.elevated + 3 : 0),
     describe: row => {
-      const lines = linesOf(row);
+      const members = row.pinMembers || [row];
+      const lines = [...new Set(members.flatMap(linesOf))];
       const status = STATUS[row.status]?.label || '';
-      return {label: `${row.name} · ${lines.map(l => l.name).join(', ') || 'ไม่ระบุสาย'} · ${status}`, shortLabel: row.name, color: lines[0]?.color || '', interchange: isInterchange(row), construction: row.status === 'construction'};
+      const name = members.length > 1 ? state.complexById.get(row.complexId)?.name || row.name : row.name;
+      return {label: `${name} · ${lines.map(l => l.name).join(', ') || 'ไม่ระบุสาย'} · ${status}`, shortLabel: name, color: lines[0]?.color || '', interchange: isInterchange(row), construction: row.status === 'construction'};
     },
     onSelect: r => selectStation(r.id, {fly: false, fromMap: true}),
     onHover: r => state.scene?.setHover(r ? r.id : ''),
@@ -752,11 +799,22 @@ function wireEvents() {
   document.addEventListener('keydown', e => { if (e.key === 'Escape' && !$('results').hidden) { $('results').hidden = true; $('open-table').focus(); } });
 }
 
+/** Display colour of every line: the sourced identity HEX when the data has one, else its LDS series token for this theme. */
+function resolveLineColors() {
+  if (!state.data) return;
+  for (const l of state.data.lines) {
+    if (!('colorSourced' in l)) l.colorSourced = l.color || null;
+    l.color = l.colorSourced || cssVar(`--${l.colorToken || 'series-9'}-fill`, '#8AA4AA');
+  }
+  for (const f of state.railGeo?.features || []) f.properties.color = state.lineById.get(f.properties.lineId)?.color || null;
+}
+
 function indexData() {
   const d = state.data;
   state.lineById = new Map(d.lines.map(l => [l.id, l]));
   state.stationById = new Map(d.stations.map(s => [s.id, s]));
   state.systemById = new Map(d.systems.map(s => [s.id, s]));
+  state.complexById = new Map((d.complexes || []).map(c => [c.id, c]));
   state.sourcesById = new Map((d.meta?.sources || []).map(s => [s.id, s]));
   state.buildingsByStation = new Map();
   for (const f of state.buildingGeo?.features || []) {
@@ -765,6 +823,7 @@ function indexData() {
     if (!state.buildingsByStation.has(id)) state.buildingsByStation.set(id, {features: [], name: f.properties.name || '', osmRef: f.properties.osm_ref || '', url: f.properties.osm_url || '', heightNote: f.properties.height_note || ''});
     state.buildingsByStation.get(id).features.push(f);
   }
+  resolveLineColors();
 }
 
 async function init() {
@@ -788,6 +847,7 @@ async function init() {
     wireEvents();
     update();
     if (state.panel.mode !== 'overview') openMobilePanel();
+    state.ready = true;
     window.dispatchEvent(new CustomEvent('citymeter:ready'));
     startMap();
   } catch (e) {

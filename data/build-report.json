@@ -1,0 +1,124 @@
+{
+ "release": "transit-data-2026-10-31-r1",
+ "files": [
+  {
+   "path": "data/transit.json",
+   "bytes": 562833,
+   "sha256": "3dc8b1ec737b220ef3153641a3a09c57bc38eaeb1fde2d914e3053849999f801"
+  },
+  {
+   "path": "data/rail-lines.geojson",
+   "bytes": 145722,
+   "sha256": "9fcfccfa9f120dc7d5d7cade8decff514341dbd7dc12214652656e4ba419731b"
+  },
+  {
+   "path": "data/station-buildings.geojson",
+   "bytes": 164,
+   "sha256": "947db4720a336f3ef1ffb3e2fac3be4ce5248b3350224ba179bec82fda3c39bb"
+  },
+  {
+   "path": "data/bus.json",
+   "bytes": 280250,
+   "sha256": "9227c4595a2ae444bb9ce9dea4be7ab1e7299a7eef43d179c9bef5dcc12deba6"
+  },
+  {
+   "path": "data/boat.json",
+   "bytes": 42983,
+   "sha256": "3be1a5a86fc2afccd649ac8f12c8efa84a82d30c73aec2a0b3eb9ecb97391255"
+  }
+ ],
+ "stations": {
+  "operating": 195,
+  "construction": 106,
+  "unverified": 4
+ },
+ "lines": {
+  "operating": 10,
+  "construction": 7
+ },
+ "interchanges": {
+  "current": 22,
+  "branch": 2,
+  "future": 12
+ },
+ "complexes": 18,
+ "coordStatus": {
+  "selected": 193,
+  "selected_gtfs_conflict": 1,
+  "conflict_held": 1,
+  "selected_community_station_polygon_representative_reference": 1,
+  "selected_community_station_reference_accuracy_unspecified": 26,
+  "selected_approximate_official_project_map_reference_datum_inferred": 12,
+  "selected_official_planning_map_reference_accuracy_unspecified": 17,
+  "official_project_embedded_map_station_marker": 17,
+  "shared_complex_reference_selected_future_HSR_platform_unlocated": 2,
+  "selected_historical_official_project_reference_current_design_accuracy_unverified": 4,
+  "historical_station_plan_georeferenced_reference_selected": 31
+ },
+ "provinceBasis": {
+  "reference_province": 274,
+  "frame_point_in_polygon": 31
+ },
+ "unmappedStations": [],
+ "projectAlignments": [
+  {
+   "route": "ROUTE:SRTENRICH:MOT:HSR:OID1",
+   "name": "แนวโครงการรถไฟความเร็วสูงไทย–จีน กรุงเทพฯ–นครราชสีมา (MOT planning2018)",
+   "geometries": 6
+  },
+  {
+   "route": "ROUTE:SRTENRICH:OSM:REL13196611",
+   "name": "แนวโครงการรถไฟ เด่นชัย–เชียงราย–เชียงของ (OSM reference)",
+   "geometries": 299
+  },
+  {
+   "route": "ROUTE:SRTENRICH:OSM:WAY983531194",
+   "name": "แนวโครงการรถไฟ บ้านไผ่–นครพนม (OSM construction reference)",
+   "geometries": 1
+  }
+ ],
+ "constructionLines": [
+  {
+   "id": "MRT_ORANGE_WEST",
+   "stations": 11,
+   "alignmentParts": 0
+  },
+  {
+   "id": "MRT_ORANGE_EAST",
+   "stations": 17,
+   "alignmentParts": 0
+  },
+  {
+   "id": "MRT_PURPLE_SOUTH",
+   "stations": 17,
+   "alignmentParts": 0
+  },
+  {
+   "id": "THAI_CHINA_HSR_PHASE1",
+   "stations": 6,
+   "alignmentParts": 6
+  },
+  {
+   "id": "SRT_DENCHAI_CHIANGRAI_CHIANGKHONG",
+   "stations": 26,
+   "alignmentParts": 299
+  },
+  {
+   "id": "SRT_BANPHAI_NAKHONPHANOM",
+   "stations": 32,
+   "alignmentParts": 1
+  },
+  {
+   "id": "SRT_MAPKABAO_CHIRA",
+   "stations": 1,
+   "alignmentParts": 0
+  }
+ ],
+ "ridership": {
+  "arlStations": 8,
+  "btsStations": 61,
+  "arlHeldRows2024": 32,
+  "btsMissingRows": 1,
+  "siamMonths": 12
+ }
+}

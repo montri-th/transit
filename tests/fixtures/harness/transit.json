@@ -38,7 +38,8 @@
     "st-a6",
     "st-a7"
    ],
-   "sources": []
+   "sources": [],
+   "colorToken": "series-8"
   },
   {
    "id": "test-blue",
@@ -56,12 +57,13 @@
     "st-b0",
     "st-b1",
     "st-b2",
-    "st-a3",
+    "st-b3",
     "st-b4",
     "st-b5",
     "st-b6"
    ],
-   "sources": []
+   "sources": [],
+   "colorToken": "series-8"
   },
   {
    "id": "test-orange",
@@ -84,7 +86,8 @@
    "sources": [],
    "progressPercent": 62.5,
    "progressMetric": "ความคืบหน้างานโยธา",
-   "progressPeriod": "2026-09"
+   "progressPeriod": "2026-09",
+   "colorToken": "series-8"
   }
  ],
  "stations": [
@@ -127,7 +130,8 @@
     }
    ],
    "checkedOn": "2026-10-31",
-   "coordinateNote": "จุดสังเคราะห์สำหรับทดสอบ"
+   "coordinateNote": "จุดสังเคราะห์สำหรับทดสอบ",
+   "complexId": ""
   },
   {
    "id": "st-a1",
@@ -168,7 +172,8 @@
     }
    ],
    "checkedOn": "2026-10-31",
-   "coordinateNote": "จุดสังเคราะห์สำหรับทดสอบ"
+   "coordinateNote": "จุดสังเคราะห์สำหรับทดสอบ",
+   "complexId": ""
   },
   {
    "id": "st-a2",
@@ -209,7 +214,8 @@
     }
    ],
    "checkedOn": "2026-10-31",
-   "coordinateNote": "จุดสังเคราะห์สำหรับทดสอบ"
+   "coordinateNote": "จุดสังเคราะห์สำหรับทดสอบ",
+   "complexId": ""
   },
   {
    "id": "st-a3",
@@ -219,12 +225,10 @@
     "T03"
    ],
    "lineIds": [
-    "test-green",
-    "test-blue"
+    "test-green"
    ],
    "systemIds": [
-    "test-sys-1",
-    "test-sys-2"
+    "test-sys-1"
    ],
    "lat": 13.745,
    "lng": 100.535,
@@ -234,7 +238,9 @@
    "district": "เขตทดสอบ",
    "elevation": "elevated",
    "bearing": 90,
-   "interchangeIds": [],
+   "interchangeIds": [
+    "ic-1"
+   ],
    "ridership": [
     {
      "metric": "avg_daily",
@@ -252,7 +258,43 @@
     }
    ],
    "checkedOn": "2026-10-31",
-   "coordinateNote": "จุดสังเคราะห์สำหรับทดสอบ"
+   "coordinateNote": "จุดสังเคราะห์สำหรับทดสอบ",
+   "complexId": "CX-test"
+  },
+  {
+   "id": "st-b3",
+   "name": "สถานีทดสอบ ข3",
+   "nameEn": "Test B3",
+   "codes": [
+    "TB3"
+   ],
+   "lineIds": [
+    "test-blue"
+   ],
+   "systemIds": [
+    "test-sys-2"
+   ],
+   "lat": 13.745,
+   "lng": 100.535,
+   "status": "operating",
+   "statusBasis": "synthetic",
+   "provinceCode": "BKK",
+   "district": "เขตทดสอบ",
+   "elevation": "underground",
+   "bearing": 90,
+   "interchangeIds": [
+    "ic-1"
+   ],
+   "ridership": [],
+   "sourceRefs": [
+    {
+     "url": "https://example.org/synthetic",
+     "label": "หลักฐาน"
+    }
+   ],
+   "checkedOn": "2026-10-31",
+   "coordinateNote": "จุดสังเคราะห์สำหรับทดสอบ",
+   "complexId": "CX-test"
   },
   {
    "id": "st-a4",
@@ -276,7 +318,9 @@
    "district": "เขตทดสอบ",
    "elevation": "elevated",
    "bearing": 90,
-   "interchangeIds": [],
+   "interchangeIds": [
+    "ic-2"
+   ],
    "ridership": [
     {
      "metric": "avg_daily",
@@ -294,7 +338,8 @@
     }
    ],
    "checkedOn": "2026-10-31",
-   "coordinateNote": "จุดสังเคราะห์สำหรับทดสอบ"
+   "coordinateNote": "จุดสังเคราะห์สำหรับทดสอบ",
+   "complexId": ""
   },
   {
    "id": "st-a5",
@@ -335,7 +380,8 @@
     }
    ],
    "checkedOn": "2026-10-31",
-   "coordinateNote": "จุดสังเคราะห์สำหรับทดสอบ"
+   "coordinateNote": "จุดสังเคราะห์สำหรับทดสอบ",
+   "complexId": ""
   },
   {
    "id": "st-a6",
@@ -376,7 +422,8 @@
     }
    ],
    "checkedOn": "2026-10-31",
-   "coordinateNote": "จุดสังเคราะห์สำหรับทดสอบ"
+   "coordinateNote": "จุดสังเคราะห์สำหรับทดสอบ",
+   "complexId": ""
   },
   {
    "id": "st-a7",
@@ -417,7 +464,8 @@
     }
    ],
    "checkedOn": "2026-10-31",
-   "coordinateNote": "จุดสังเคราะห์สำหรับทดสอบ"
+   "coordinateNote": "จุดสังเคราะห์สำหรับทดสอบ",
+   "complexId": ""
   },
   {
    "id": "st-b0",
@@ -458,7 +506,8 @@
     }
    ],
    "checkedOn": "2026-10-31",
-   "coordinateNote": "จุดสังเคราะห์สำหรับทดสอบ"
+   "coordinateNote": "จุดสังเคราะห์สำหรับทดสอบ",
+   "complexId": ""
   },
   {
    "id": "st-b1",
@@ -499,7 +548,8 @@
     }
    ],
    "checkedOn": "2026-10-31",
-   "coordinateNote": "จุดสังเคราะห์สำหรับทดสอบ"
+   "coordinateNote": "จุดสังเคราะห์สำหรับทดสอบ",
+   "complexId": ""
   },
   {
    "id": "st-b2",
@@ -540,7 +590,8 @@
     }
    ],
    "checkedOn": "2026-10-31",
-   "coordinateNote": "จุดสังเคราะห์สำหรับทดสอบ"
+   "coordinateNote": "จุดสังเคราะห์สำหรับทดสอบ",
+   "complexId": ""
   },
   {
    "id": "st-b4",
@@ -581,7 +632,8 @@
     }
    ],
    "checkedOn": "2026-10-31",
-   "coordinateNote": "จุดสังเคราะห์สำหรับทดสอบ"
+   "coordinateNote": "จุดสังเคราะห์สำหรับทดสอบ",
+   "complexId": ""
   },
   {
    "id": "st-b5",
@@ -622,7 +674,8 @@
     }
    ],
    "checkedOn": "2026-10-31",
-   "coordinateNote": "จุดสังเคราะห์สำหรับทดสอบ"
+   "coordinateNote": "จุดสังเคราะห์สำหรับทดสอบ",
+   "complexId": ""
   },
   {
    "id": "st-b6",
@@ -663,7 +716,8 @@
     }
    ],
    "checkedOn": "2026-10-31",
-   "coordinateNote": "จุดสังเคราะห์สำหรับทดสอบ"
+   "coordinateNote": "จุดสังเคราะห์สำหรับทดสอบ",
+   "complexId": ""
   },
   {
    "id": "st-c0",
@@ -695,7 +749,8 @@
     }
    ],
    "checkedOn": "2026-10-31",
-   "coordinateNote": "จุดสังเคราะห์สำหรับทดสอบ"
+   "coordinateNote": "จุดสังเคราะห์สำหรับทดสอบ",
+   "complexId": ""
   },
   {
    "id": "st-c1",
@@ -727,7 +782,8 @@
     }
    ],
    "checkedOn": "2026-10-31",
-   "coordinateNote": "จุดสังเคราะห์สำหรับทดสอบ"
+   "coordinateNote": "จุดสังเคราะห์สำหรับทดสอบ",
+   "complexId": ""
   },
   {
    "id": "st-c2",
@@ -750,7 +806,9 @@
    "district": "เขตทดสอบ",
    "elevation": "underground",
    "bearing": 0,
-   "interchangeIds": [],
+   "interchangeIds": [
+    "ic-2"
+   ],
    "ridership": [],
    "sourceRefs": [
     {
@@ -759,7 +817,8 @@
     }
    ],
    "checkedOn": "2026-10-31",
-   "coordinateNote": "จุดสังเคราะห์สำหรับทดสอบ"
+   "coordinateNote": "จุดสังเคราะห์สำหรับทดสอบ",
+   "complexId": ""
   },
   {
    "id": "st-c3",
@@ -791,17 +850,55 @@
     }
    ],
    "checkedOn": "2026-10-31",
-   "coordinateNote": "จุดสังเคราะห์สำหรับทดสอบ"
+   "coordinateNote": "จุดสังเคราะห์สำหรับทดสอบ",
+   "complexId": ""
   }
  ],
  "interchanges": [
   {
    "id": "ic-1",
+   "scope": "current",
+   "name": "สถานีทดสอบ ก3 ↔ ข3",
    "stationIds": [
-    "st-a3"
+    "st-a3",
+    "st-b3"
    ],
+   "external": null,
    "pathwayLabel": "ทางเชื่อมทดสอบ",
-   "statusLabel": "ทดสอบ"
+   "statusLabel": "เชื่อมตามผังปัจจุบัน",
+   "stepFree": false,
+   "sourceUrl": ""
+  },
+  {
+   "id": "ic-2",
+   "scope": "future",
+   "name": "สถานีทดสอบ ค2 ↔ ก4",
+   "stationIds": [
+    "st-c2",
+    "st-a4"
+   ],
+   "external": null,
+   "pathwayLabel": "ทางเชื่อมในโครงการอนาคต ยังไม่เปิด",
+   "statusLabel": "อนาคต ยังไม่เปิด",
+   "stepFree": false,
+   "sourceUrl": ""
+  }
+ ],
+ "complexes": [
+  {
+   "id": "CX-test",
+   "name": "สถานีทดสอบ ก3–ข3",
+   "stationIds": [
+    "st-a3",
+    "st-b3"
+   ],
+   "lineIds": [
+    "test-blue",
+    "test-green"
+   ],
+   "reach": 15,
+   "lat": 13.745,
+   "lng": 100.535
   }
  ]
 }

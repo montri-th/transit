@@ -1,8 +1,9 @@
 import {test} from 'node:test';
 import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
-import {filterStations, summarize, isInterchange, hasPoint, STATUS_FILTERS} from '../js/model.js';
-import {computeInsight, rankLines, buildLineProfile} from '../js/profile-model.js';
+import {filterStations, summarize, isInterchange, hasPoint, STATUS_FILTERS, complexesInScope} from '../js/model.js';
+import {computeInsight, rankLines, buildLineProfile, buildStationDetail} from '../js/profile-model.js';
+import {decodePolyline} from '../js/polyline.js';
 import {buildBreadcrumb, renderBreadcrumb, breadcrumbText} from '../js/breadcrumb.js';
 import {resolveProvince, provinceByCode, PROVINCE_LIST, PRODUCTION_VERIFIED_CODES} from '../js/provinces-list.js';
 import {rampPath, ribbonWidth, metresPerPixel, RAMP_M} from '../js/scene.js';
@@ -23,21 +24,41 @@ test('search matches Thai and English names, codes, province and line names', ()
   const rows = fixture.stations;
   assert.equal(filterStations(rows, {search: 'ก3'}, fixture.lines).length, 1);
   assert.ok(filterStations(rows, {search: 'test line b'}, fixture.lines).length >= 7);
+  assert.equal(filterStations(rows, {search: 'ข3'}, fixture.lines)[0].id, 'st-b3');
   assert.equal(filterStations(rows, {search: 'กรุงเทพ'}, fixture.lines).length, filterStations(rows, {}, fixture.lines).length);
 });
 
-test('summary counts say what they count; an interchange is one record with two lines', () => {
-  const s = summarize(filterStations(fixture.stations, {}, fixture.lines), fixture.lines);
+test('records are never merged: an interchange is a complex of single-line records', () => {
+  const rows = filterStations(fixture.stations, {}, fixture.lines);
+  const s = summarize(rows, fixture.lines, fixture.complexes);
   assert.equal(s.stations, s.operating + s.construction);
-  assert.equal(s.interchanges, fixture.stations.filter(isInterchange).length);
+  assert.ok(fixture.stations.every(r => r.lineIds.length === 1));
+  assert.equal(s.interchanges, 1, 'one complex (two records) in scope');
+  assert.equal(s.interchangeRecords, 2);
   assert.ok(fixture.stations.every(hasPoint));
+  assert.equal(complexesInScope(rows.filter(r => r.id !== 'st-b3'), fixture.complexes).length, 0, 'a complex needs two of its lines in scope');
 });
 
-test('Aha: hubs ranked by lines served; construction counted separately', () => {
-  const insight = computeInsight(filterStations(fixture.stations, {}, fixture.lines));
-  assert.equal(insight.hubs[0].id, 'st-a3');
+test('Aha: hubs are complexes ranked by lines joined, then reach; construction counted separately', () => {
+  const insight = computeInsight(filterStations(fixture.stations, {}, fixture.lines), fixture.complexes);
+  assert.equal(insight.interchanges, 1);
+  assert.equal(insight.hubs[0].id, 'CX-test');
   assert.equal(insight.hubs[0].lines, 2);
+  assert.ok(['st-a3', 'st-b3'].includes(insight.hubs[0].stationId));
   assert.equal(insight.construction, fixture.stations.filter(s => s.status === 'construction').length);
+  assert.ok(isInterchange(fixture.stations.find(s => s.id === 'st-a3')));
+  assert.ok(!isInterchange(fixture.stations.find(s => s.id === 'st-c2')), 'a future relation does not make an interchange today');
+});
+
+test('station detail lists current partners first and keeps future relations labelled', () => {
+  const byId = new Map(fixture.stations.map(s => [s.id, s]));
+  const lineById = new Map(fixture.lines.map(l => [l.id, l]));
+  const d = buildStationDetail(byId.get('st-a3'), {stationById: byId, lineById, interchanges: fixture.interchanges, complexById: new Map(fixture.complexes.map(c => [c.id, c]))});
+  assert.equal(d.connections[0].id, 'st-b3');
+  assert.equal(d.connections[0].scope, 'current');
+  assert.equal(d.complex.id, 'CX-test');
+  const f = buildStationDetail(byId.get('st-a4'), {stationById: byId, lineById, interchanges: fixture.interchanges});
+  assert.equal(f.connections[0].scope, 'future');
 });
 
 test('line ranking uses the exact LDS count classes', () => {
@@ -112,4 +133,8 @@ test('LDS scales: exact 41-sample LUTs, class indices round(i×40/(n−1)), meas
   assert.equal(classify(0, m).state, 'measured_zero');
   assert.equal(classify(null, m).state, 'no_data');
   assert.equal(classify(27, m).fill, '#213E70');
+});
+
+test('encoded polylines decode to [lng, lat] (Google reference example, precision 5)', () => {
+  assert.deepEqual(decodePolyline('_p~iF~ps|U_ulLnnqC_mqNvxq`@'), [[-120.2, 38.5], [-120.95, 40.7], [-126.453, 43.252]]);
 });

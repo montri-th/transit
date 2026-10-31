@@ -1,18 +1,22 @@
 /**
  * Dataset vocabulary, shared filter and summary helpers for CityMETER Transit.
  *
- * Grain: one station record per rail station of a line or system (data/transit.json
- * `stations`), built by scripts/build-data.py from the research master's station
- * catalogue, construction-station register and interchange register. A station
- * served by several lines is ONE record with several lineIds when the research
- * master links the catalogue entries as the same place (accepted identity links);
- * otherwise each entry stays its own record and the interchange register says how
- * they connect. Nothing in this module mutates a record; filters return new arrays.
+ * Grain: one station record per station of ONE line (17_RAIL_CATALOG
+ * station_catalog_id) or of ONE construction project (23_CONSTRUCTION_STATIONS
+ * construction_station_id), built by scripts/build-data.py. Records are never
+ * merged across lines — the research master marks physical_entity_merge = FALSE
+ * on every interchange relation. A "complex" (data/transit.json `complexes`) is
+ * the presentation group of records joined by CURRENT interchange relations
+ * (31_INTERCHANGES, operator network map): one จุดเปลี่ยนสาย on screen, several
+ * records in the counts. Nothing in this module mutates a record; filters return
+ * new arrays.
  *
  * Status vocabulary (never upgraded on screen):
- *   operating     — source shows passenger service (catalogue service_status + basis)
- *   construction  — station of a project under construction; not in service
- *   unverified    — catalogue entry whose current service could not be confirmed
+ *   operating     — listed in the operator's current station roster (17 service_status;
+ *                   a published list, not a live status)
+ *   construction  — new station or halt of a project under construction; not in service
+ *   unverified    — an existing station or junction reference inside a project whose
+ *                   passenger role the sources do not confirm (never read as closed)
  */
 import {resolveProvince, provinceByCode, PROVINCE_LIST} from './provinces-list.js';
 
@@ -37,7 +41,17 @@ export {resolveProvince, provinceByCode, PROVINCE_LIST};
 /** A usable coordinate inside Thailand's bounding box. */
 export const hasPoint = r => Number.isFinite(r?.lat) && Number.isFinite(r?.lng) && r.lat >= 5 && r.lat <= 21 && r.lng >= 97 && r.lng <= 106;
 
-export const isInterchange = r => (r?.lineIds?.length || 0) > 1 || (r?.interchangeIds?.length || 0) > 0;
+/** A record that belongs to a current interchange complex (or, defensively, one record with several lines). */
+export const isInterchange = r => Boolean(r?.complexId) || (r?.lineIds?.length || 0) > 1;
+
+/**
+ * Complexes with at least two of their records (on two different lines) in the
+ * scope — the จุดเปลี่ยนสาย that a selection really contains.
+ */
+export function complexesInScope(stations, complexes = []) {
+  const byId = new Map(stations.map(s => [s.id, s]));
+  return complexes.filter(c => new Set(c.stationIds.map(id => byId.get(id)).filter(Boolean).flatMap(s => s.lineIds || [])).size >= 2);
+}
 
 const norm = v => String(v ?? '').normalize('NFKC').trim().toLocaleLowerCase('th-TH');
 
@@ -72,7 +86,7 @@ export function filterLines(lines, stations, f = {}) {
 }
 
 /** Counts for the selection — every count says what it counts. */
-export function summarize(stations, lines = []) {
+export function summarize(stations, lines = [], complexes = []) {
   const lineIds = new Set(stations.flatMap(s => s.lineIds || []));
   const byStatus = s => stations.filter(r => r.status === s).length;
   return {
@@ -80,7 +94,8 @@ export function summarize(stations, lines = []) {
     operating: byStatus('operating'),
     construction: byStatus('construction'),
     unverified: byStatus('unverified'),
-    interchanges: stations.filter(isInterchange).length,
+    interchanges: complexesInScope(stations, complexes).length,
+    interchangeRecords: stations.filter(isInterchange).length,
     lines: lines.filter(l => lineIds.has(l.id)).length,
     provinces: new Set(stations.map(s => s.provinceCode).filter(Boolean)).size,
     mapped: stations.filter(hasPoint).length,

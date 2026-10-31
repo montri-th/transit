@@ -64,14 +64,14 @@ export function renderOverview({insight, summary, lineRanking = [], provinces = 
     aha = `<section class="aha" aria-label="ข้อค้นพบ"><p class="eyebrow">ข้อค้นพบแรก</p><h2>ไม่พบสถานีตามตัวกรองนี้</h2>
       <div class="aha-actions"><button type="button" data-action="clear-filter" data-id="all" class="btn">ล้างตัวกรอง</button></div></section>`;
   } else if (insight?.hubs?.length) {
-    const names = insight.hubs.map(h => `<button type="button" class="link-button" data-action="select-station" data-id="${esc(h.id)}">${esc(h.name)}</button> <span class="data-number">${num(h.lines)}</span>`).join(' · ');
+    const names = insight.hubs.map(h => `<button type="button" class="link-button" data-action="select-station" data-id="${esc(h.stationId)}">${esc(h.name)}</button> <span class="data-number">${num(h.lines)}</span>&nbsp;สาย`).join(' · ');
     const toggle = focusMode === 'auto'
       ? `<button type="button" data-action="clear-focus" class="btn">ดูทั้งหมด</button>`
       : `<button type="button" data-action="explore-top" class="btn primary">โฟกัสจุดเปลี่ยนสาย</button>`;
     aha = `<section class="aha${focusMode === 'auto' ? ' is-auto' : ''}" aria-label="ข้อค้นพบ"><p class="eyebrow">ข้อค้นพบแรก${provinceName ? ` · ${esc(provinceName)}` : ''}</p>
-      <h2><span class="aha-number data-number">${num(insight.interchanges)}</span><span class="aha-headline">จุดเปลี่ยนสาย จาก ${num(insight.stations)} สถานีที่เปิดให้บริการ</span></h2>
-      <p class="aha-copy">เชื่อมได้หลายสายที่สุด: ${names}</p>
-      ${insight.construction ? `<p class="aha-secondary">กำลังก่อสร้างอีก <strong class="data-number">${num(insight.construction)}</strong> สถานี ใน ${num(insight.constructionLines)} สาย</p>` : ''}
+      <h2><span class="aha-number data-number">${num(insight.interchanges)}</span><span class="aha-headline">จุดเปลี่ยนสาย บนรถไฟฟ้า ${num(insight.lines)} สายที่เปิดให้บริการ</span></h2>
+      <p class="aha-copy">เชื่อมหลายสายที่สุด: ${names}</p>
+      ${insight.construction ? `<p class="aha-secondary">กำลังก่อสร้างอีก <strong class="data-number">${num(insight.construction)}</strong> สถานี ใน ${num(insight.constructionLines)} โครงการ</p>` : ''}
       <div class="aha-actions">${toggle}<button type="button" data-action="open-charts" class="btn quiet">เปรียบเทียบสาย</button></div></section>`;
   } else {
     aha = `<section class="aha" aria-label="ข้อค้นพบ"><p class="eyebrow">ข้อค้นพบแรก${provinceName ? ` · ${esc(provinceName)}` : ''}</p>
@@ -107,29 +107,41 @@ export function renderOverview({insight, summary, lineRanking = [], provinces = 
 export function renderLine(p) {
   if (!p) return '';
   const l = p.line;
+  const construction = l.status === 'construction';
   const stations = p.stations.map((s, i) => `<li><button type="button" class="station-row" data-action="select-station" data-id="${esc(s.id)}">
       <span class="station-seq" aria-hidden="true">${esc(s.code || String(i + 1))}</span>
-      <span class="station-text"><strong>${esc(s.name)}</strong><span>${esc(s.nameEn || '')}${s.otherLines ? ` · เปลี่ยนสาย ${esc(s.otherLines)}` : ''}</span></span>
+      <span class="station-text"><strong>${esc(s.name)}</strong><span>${esc(s.nameEn || '')}${s.otherLines ? `${s.nameEn ? ' · ' : ''}เปลี่ยนสาย ${esc(s.otherLines)}` : ''}</span></span>
       ${s.status !== 'operating' ? statusPill(s.status) : ''}</button></li>`).join('');
-  const progress = Number.isFinite(p.progressPercent) ? `<div class="panel-section"><div class="section-heading"><h3>ความคืบหน้าโครงการ</h3><span class="hint">${esc(p.progressMetric || '')}${p.progressPeriod ? ` · ${esc(thaiDate(p.progressPeriod))}` : ''}</span></div>
-      <div class="progress" role="img" aria-label="ความคืบหน้า ${dec(p.progressPercent)} เปอร์เซ็นต์"><span class="progress-track"><span class="progress-fill" style="width:${Math.max(1, Math.min(100, p.progressPercent))}%"></span></span><span class="progress-value">${dec(p.progressPercent)}%</span></div>
-      ${link(p.progressSource, 'รายงานความคืบหน้า')}</div>` : '';
+  const measures = (p.progressAll || []).filter(m => Number.isFinite(m.value));
+  const progress = measures.length ? `<section class="panel-section"><div class="section-heading"><h3>ความคืบหน้า</h3><span class="hint">ระดับโครงการ ไม่ใช่รายสถานี</span></div>
+      ${measures.map(m => `<div class="progress-item"><p class="progress-label">${esc(m.metric)}<span class="hint">${m.period ? ` · ${esc(thaiDate(m.period))}` : ''}${m.source ? ` · ${link(m.source, 'แหล่ง')}` : ''}</span></p>
+        <div class="progress" role="img" aria-label="${esc(m.metric)} ${dec(m.value)} เปอร์เซ็นต์"><span class="progress-track"><span class="progress-fill" style="width:${Math.max(1, Math.min(100, m.value))}%"></span></span><span class="progress-value">${dec(m.value)}%</span></div></div>`).join('')}
+    </section>` : '';
+  const facts = [
+    l.operator ? `<dt>ผู้ให้บริการ</dt><dd>${esc(l.operator)}<br><span class="hint">ตาม GTFS ของ สนข.</span></dd>` : '',
+    construction && p.stage ? `<dt>ขั้นงาน</dt><dd>${esc(p.stage)}</dd>` : '',
+    construction && p.target ? `<dt>เป้าหมาย</dt><dd>${esc(p.target)}<br><span class="hint">${esc(p.targetNote || 'เป้าหมายตามแหล่ง ไม่ใช่วันเปิดจริง')}</span></dd>` : '',
+    Number.isFinite(p.lengthKm) ? `<dt>แนวเส้น</dt><dd><span class="data-number">${dec(p.lengthKm)}</span> กม.<br><span class="hint">${esc(p.lengthSource || '')}</span></dd>` : '',
+    construction && p.alignmentNote ? `<dt>แนวเส้น</dt><dd><span class="hint">${esc(p.alignmentNote)}</span></dd>` : '',
+  ].join('');
   return `<section class="detail-head line">
       <button type="button" class="btn quiet back" data-action="back">กลับ</button>
       <p class="eyebrow">สาย${p.systemName ? ` · ${esc(p.systemName)}` : ''}</p>
-      <h2>${swatch(l, {construction: l.status === 'construction'})} ${esc(l.name)}</h2>
-      <p class="subtle">${esc([l.nameEn, l.operator].filter(Boolean).join(' · '))}</p>
-      <p class="store-status">${statusPill(l.status === 'construction' ? 'construction' : 'operating')}${l.elevation ? ` <span class="status-pill tone-neutral">${esc(ELEVATION_LABEL[l.elevation] || l.elevation)}</span>` : ''}</p>
-      <div class="metrics compact">${metricTile(p.operating, 'เปิดแล้ว', 'station')}${metricTile(p.construction, 'กำลังสร้าง', 'construction')}${metricTile(p.interchanges, 'เปลี่ยนสาย', 'interchange')}${metricTile(p.provinces, 'จังหวัด', 'province')}</div>
-      ${Number.isFinite(p.lengthKm) ? `<p class="hint">ความยาวแนวเส้นทาง ${dec(p.lengthKm)} กม. ตาม${esc(p.lengthSource || 'แหล่งข้อมูล')}</p>` : ''}
+      <h2>${swatch(l, {construction})} ${esc(l.name)}</h2>
+      <p class="subtle">${esc(l.nameEn || '')}</p>
+      <p class="store-status">${statusPill(construction ? 'construction' : 'operating')}${l.elevation ? ` <span class="status-pill tone-neutral">${esc(ELEVATION_LABEL[l.elevation] || l.elevation)}</span>` : ''}</p>
+      <div class="metrics compact">${construction ? metricTile(p.construction, 'สถานีใหม่', 'construction') : metricTile(p.operating, 'สถานี', 'station')}${construction ? metricTile(p.connections, 'เชื่อมสายอื่นในอนาคต', 'interchange') : metricTile(p.interchanges, 'จุดเปลี่ยนสาย', 'interchange')}${metricTile(p.provinces, 'จังหวัด', 'province')}</div>
+      ${facts ? `<dl class="facts">${facts}</dl>` : ''}
       <div class="detail-actions"><button type="button" class="btn" data-action="open-table">ดูสถานี</button><button type="button" class="btn quiet" data-action="open-charts">เปรียบเทียบสาย</button></div>
     </section>
     ${progress}
     <section class="panel-section"><div class="section-heading"><h3>สถานี</h3><span class="hint">${num(p.stations.length)}${p.ordered ? ' · เรียงตามแนวสาย' : ''}</span></div><ol class="outlet-list">${stations}</ol></section>
-    ${p.sources.length ? `<section class="panel-section"><div class="section-heading"><h3>แหล่งข้อมูล</h3></div><p class="links">${p.sources.map(s => link(s.url, s.title)).join(' ')}</p></section>` : ''}`;
+    ${p.sources.length ? `<section class="panel-section"><div class="section-heading"><h3>แหล่งข้อมูล</h3></div><p class="links">${p.sources.map(x => link(x.url, x.title)).join(' ')}</p></section>` : ''}`;
 }
 
 /* ---------- Station ---------- */
+
+const SCOPE_PILL = {current: 'เชื่อมตามผัง', branch: 'เปลี่ยนขบวน', future: 'อนาคต'};
 
 export function renderStation(d, {lineById}) {
   if (!d) return '';
@@ -137,29 +149,37 @@ export function renderStation(d, {lineById}) {
   const coords = hasPoint(s) ? `${s.lat.toFixed(6)}, ${s.lng.toFixed(6)}` : 'ยังไม่มีพิกัด';
   const province = provinceByCode(s.provinceCode);
   const lines = (s.lineIds || []).map(id => lineById.get(id)).filter(Boolean);
-  const lineChips = lines.map(l => `<li><button type="button" class="line-chip" data-action="select-line" data-id="${esc(l.id)}">${swatch(l, {construction: l.status === 'construction'})}<span>${esc(l.name)}${l.code ? ` <small class="data-number">${esc(l.code)}</small>` : ''}</span></button></li>`).join('');
-  const ridership = (d.ridership || []).map(r => `<dd><strong class="data-number">${num(r.value)}</strong> ${esc(r.unit)}<br><span class="hint">${esc(r.label)} · ${esc(r.period)}${r.source ? ` · ${link(r.source, 'แหล่ง')}` : ''}</span></dd>`).join('');
-  const work = d.construction ? `<dt>ก่อสร้าง</dt><dd>${esc(d.construction.stage || '')}${Number.isFinite(d.construction.percent) ? `<br><span class="progress" role="img" aria-label="ความคืบหน้าสถานี ${dec(d.construction.percent)} เปอร์เซ็นต์"><span class="progress-track"><span class="progress-fill" style="width:${Math.max(1, Math.min(100, d.construction.percent))}%"></span></span><span class="progress-value">${dec(d.construction.percent)}%</span></span>` : ''}${d.construction.period ? `<span class="hint">ณ ${esc(thaiDate(d.construction.period))}</span>` : ''}</dd>` : '';
+  const complexLines = (d.complex?.lineIds || []).map(id => lineById.get(id)).filter(l => l && !lines.includes(l));
+  const lineChips = [...lines, ...complexLines].map(l => `<li><button type="button" class="line-chip" data-action="select-line" data-id="${esc(l.id)}">${swatch(l, {construction: l.status === 'construction'})}<span>${esc(l.name)}${s.codes?.length && lines.includes(l) ? ` <small class="data-number">${esc(s.codes.join(' / '))}</small>` : ''}</span></button></li>`).join('');
+  const ridership = (d.ridership || []).map(r => `<dd><strong class="data-number">${num(r.value)}</strong> ${esc(r.unit)}<br><span class="hint">${esc(r.label)} · ${esc(r.period)}${r.source ? ` · ${link(r.source, r.dataset ? 'แหล่ง' : 'แหล่ง')}` : ''}</span></dd>`).join('');
+  const c = d.construction;
+  const work = c ? `<dt>ก่อสร้าง</dt><dd>${esc(c.stage || '')}${c.projectStage ? `<br><span class="hint">โครงการ: ${esc(c.projectStage)}</span>` : ''}${Number.isFinite(c.percent) ? `<br><span class="progress" role="img" aria-label="ความคืบหน้า${esc(c.percentScope || '')} ${dec(c.percent)} เปอร์เซ็นต์"><span class="progress-track"><span class="progress-fill" style="width:${Math.max(1, Math.min(100, c.percent))}%"></span></span><span class="progress-value">${dec(c.percent)}%</span></span><span class="hint">${esc(c.percentScope || '')}${c.period ? ` ณ ${esc(thaiDate(c.period))}` : ''}</span>` : ''}${!Number.isFinite(c.percent) && c.period ? `<br><span class="hint">หลักฐานล่าสุด ${esc(thaiDate(c.period))}</span>` : ''}</dd>
+      ${Number.isFinite(c.projectPercent) ? `<dt>ทั้งโครงการ</dt><dd><strong class="data-number">${dec(c.projectPercent)}%</strong><br><span class="hint">${esc(c.projectMetric || '')}${c.projectPeriod ? ` · ${esc(thaiDate(c.projectPeriod))}` : ''}${c.evidence ? ` · ${link(c.evidence, 'แหล่ง')}` : ''}</span></dd>` : ''}
+      ${c.target ? `<dt>เป้าหมาย</dt><dd>${esc(c.target)}<br><span class="hint">ตามแหล่ง ไม่ใช่วันเปิดจริง</span></dd>` : ''}` : '';
   const building = d.building ? `<dt>อาคาร</dt><dd>${esc(d.building.name || 'อาคารสถานี')}<br><span class="hint">OpenStreetMap ${link(d.building.url, d.building.osmRef)}${d.building.heightNote ? ` · ${esc(d.building.heightNote)}` : ''}</span></dd>` : '';
-  const connections = (d.connections || []).map(c => `<li><button type="button" class="station-row" data-action="select-station" data-id="${esc(c.id)}"><span class="station-seq" aria-hidden="true">↔</span><span class="station-text"><strong>${esc(c.name)}</strong><span>${esc(c.lineName || '')}${c.pathway ? ` · ${esc(c.pathway)}` : ''}</span></span>${c.status ? `<span class="status-pill tone-neutral">${esc(c.status)}</span>` : ''}</button></li>`).join('');
+  const connections = (d.connections || []).map(x => {
+    const body = `<span class="station-seq" aria-hidden="true">${x.scope === 'future' ? '…' : '↔'}</span><span class="station-text"><strong>${esc(x.name)}</strong><span>${esc(x.lineName || '')}${x.pathway ? ` · ${esc(x.pathway)}` : ''}</span></span><span class="status-pill tone-${x.scope === 'future' ? 'pending' : 'neutral'}">${esc(SCOPE_PILL[x.scope] || x.status || '')}</span>`;
+    return `<li>${x.id ? `<button type="button" class="station-row" data-action="select-station" data-id="${esc(x.id)}">${body}</button>` : `<div class="station-row is-static">${body}</div>`}</li>`;
+  }).join('');
   return `<section class="detail-head station">
       <button type="button" class="btn quiet back" data-action="back">กลับ</button>
-      <p class="eyebrow">สถานี${lines.length > 1 ? ' · จุดเปลี่ยนสาย' : ''}</p>
+      <p class="eyebrow">สถานี${d.complex ? ` · จุดเปลี่ยนสาย ${esc(d.complex.name)}` : ''}</p>
       <h2>${esc(s.name)}</h2>
       <p class="subtle">${esc([s.nameEn, (s.codes || []).join(' / ')].filter(Boolean).join(' · '))}</p>
-      <p class="store-status">${statusPill(s.status, s.statusBasis || '')}</p>
-      <ul class="chip-list" aria-label="สายที่ผ่านสถานีนี้">${lineChips}</ul>
+      <p class="store-status">${statusPill(s.status, s.statusBasis || '')}${s.elevation ? ` <span class="status-pill tone-neutral">${esc(ELEVATION_LABEL[s.elevation] || s.elevation)}</span>` : ''}</p>
+      <ul class="chip-list" aria-label="สายที่ผ่านหรือเปลี่ยนได้ที่สถานีนี้">${lineChips}</ul>
       <dl class="facts">
         <dt>จังหวัด</dt><dd>${province ? `<button type="button" class="link-button" data-action="select-province" data-id="${esc(province.code)}">${esc(province.th)}</button>` : 'ไม่ระบุ'}${s.district ? ` · ${esc(s.district)}` : ''}</dd>
         <dt>พิกัด</dt><dd><span class="data-number">${esc(coords)}</span><br><span class="hint">${esc(d.coordinateNote || '')}</span></dd>
         ${ridership ? `<dt>ผู้โดยสาร</dt>${ridership}` : ''}
         ${work}
         ${building}
+        <dt>สถานะ</dt><dd>${esc(s.statusBasis || STATUS[s.status]?.label || '')}</dd>
         <dt>ตรวจเมื่อ</dt><dd>${esc(thaiDate(s.checkedOn)) || '—'}</dd>
       </dl>
       <p class="links">${(d.sources || []).map(x => link(x.url, x.label)).join(' ')}</p>
     </section>
-    ${connections ? `<section class="panel-section"><div class="section-heading"><h3>เปลี่ยนสายที่นี่</h3><span class="hint">${num(d.connections.length)}</span></div><ul class="outlet-list">${connections}</ul></section>` : ''}`;
+    ${connections ? `<section class="panel-section"><div class="section-heading"><h3>การเชื่อมต่อ</h3><span class="hint">${num(d.connections.length)}</span></div><ul class="outlet-list">${connections}</ul></section>` : ''}`;
 }
 
 /* ---------- Active filter chips ---------- */
