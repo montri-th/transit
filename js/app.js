@@ -532,7 +532,7 @@ function updateSpatialLayers() {
     state.scene.setLines(sceneLines(focus));
     state.scene.setStations(sceneStations(focus));
     const shown = new Set(state.scopeStations.map(s => s.id));
-    state.scene.setBuildings((state.buildingGeo?.features || []).filter(f => shown.has(f.properties?.stationId)));
+    state.scene.setBuildings((state.buildingGeo?.features || []).filter(f => (f.properties?.stationIds || [f.properties?.stationId]).some(id => shown.has(id))));
     state.scene.setSelected(state.pinAlias.get(state.selectedStationId) || state.selectedStationId);
     state.scene.setScale({zoom: map.getZoom(), latitude: map.getCenter().lat});
   }
@@ -820,10 +820,10 @@ function indexData() {
   state.sourcesById = new Map((d.meta?.sources || []).map(s => [s.id, s]));
   state.buildingsByStation = new Map();
   for (const f of state.buildingGeo?.features || []) {
-    const id = f.properties?.stationId;
-    if (!id) continue;
-    if (!state.buildingsByStation.has(id)) state.buildingsByStation.set(id, {features: [], name: f.properties.name || '', osmRef: f.properties.osm_ref || '', url: f.properties.osm_url || '', heightNote: f.properties.height_note || ''});
-    state.buildingsByStation.get(id).features.push(f);
+    for (const id of f.properties?.stationIds || [f.properties?.stationId].filter(Boolean)) {
+      if (!state.buildingsByStation.has(id)) state.buildingsByStation.set(id, {features: [], name: f.properties.name || '', osmRef: f.properties.osm_ref || '', url: f.properties.osm_url || '', heightNote: f.properties.height_note || ''});
+      state.buildingsByStation.get(id).features.push(f);
+    }
   }
   resolveLineColors();
 }

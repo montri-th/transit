@@ -30,6 +30,7 @@ import math
 import re
 
 LEVEL_ORDER = ('underground', 'surface', 'elevated')
+WAY_LABEL_TAGS = ('name', 'name:en', 'name:th', 'alt_name', 'alt_name:en', 'official_name', 'ref', 'network')
 ROUTE_KEYS = {
     'BTS_SUKHUMVIT': [r'sukhumvit', r'สุขุมวิท'],
     'BTS_SILOM': [r'silom', r'สีลม'],
@@ -38,7 +39,7 @@ ROUTE_KEYS = {
     'MRT_PURPLE': [r'purple line', r'สีม่วง', r'ฉลองรัชธรรม'],
     'MRT_PINK': [r'pink line', r'สีชมพู'],
     'MRT_YELLOW': [r'yellow line', r'สีเหลือง'],
-    'ARL_CITY': [r'airport rail link', r'แอร์พอร์ต', r'city line'],
+    'ARL_CITY': [r'airport rail link', r'แอร์พอร์ต', r'city line', r'\barl\b', r'aera1', r'เอราวัน'],
     'SRT_RED_NORTH': [r'dark red', r'แดงเข้ม'],
     'SRT_RED_WEST': [r'light red', r'แดงอ่อน'],
     'MRT_ORANGE_WEST': [r'orange line', r'สีส้ม'],
@@ -260,7 +261,7 @@ def enrich(osm_path, lines, stations, line_features, report):
     # ---- railway ways → elevation grids (one per line from its route members, one for all ways)
     rail_grid = Grid(30.0)
     line_grids = collections.defaultdict(lambda: Grid(40.0))
-    named_ways = collections.Counter()   # lines without a route relation: railway ways whose own name says the line
+    named_ways = collections.Counter()   # railway ways whose own name / ref / network says the line (adds to the route members)
     construction = []
     for e in elements:
         t = e.get('tags', {})
@@ -278,10 +279,10 @@ def enrich(osm_path, lines, stations, line_features, report):
                 if e['id'] in ids:
                     for p in dense:
                         line_grids[lid].add(p, level)
-            way_label = ' '.join(t.get(k, '') for k in ('name', 'name:en', 'name:th', 'ref')).lower()
+            way_label = ' '.join(t.get(k, '') for k in WAY_LABEL_TAGS).lower()
             if way_label.strip():
                 for lid, keys in ROUTE_KEYS.items():
-                    if lid not in members and any(re.search(k, way_label) for k in keys):
+                    if any(re.search(k, way_label) for k in keys) and e['id'] not in members.get(lid, ()):
                         named_ways[lid] += 1
                         for p in dense:
                             line_grids[lid].add(p, level)
@@ -397,7 +398,7 @@ def enrich(osm_path, lines, stations, line_features, report):
         if t.get('building') and element_rings(e):
             rings = element_rings(e)
             buildings.append((e, [[xy(*q) for q in r] for r in rings]))
-    features, used = [], set()
+    features, by_ref = [], {}
     for s in stations:
         if s['lat'] is None or not (BBOX[0] <= s['lat'] <= BBOX[2] and BBOX[1] <= s['lng'] <= BBOX[3]):
             continue
@@ -421,12 +422,17 @@ def enrich(osm_path, lines, stations, line_features, report):
         anchor = best[2] if best else p
         chosen = None
         for e, rings in buildings:
-            if e['id'] in used:
-                continue
             t = e.get('tags', {})
+            station_tagged = t.get('building') in ('train_station', 'transportation') or t.get('railway') == 'station' or t.get('public_transport') == 'station'
+            # A named building must carry the station's own name: MRT Bang Sue is not the Krung Thep Aphiwat hall it sits beside.
+            bnames = {norm_name(t.get(k)) for k in ('name', 'name:th', 'name:en')} - {''}
+            if bnames and not any(a in b or b in a for a in names for b in bnames):
+                continue
+            # An underground station never takes a generic building above it (a mall is not the station).
+            if not station_tagged and s.get('elevation') == 'underground':
+                continue
             inside = any(ring_contains(r, anchor) for r in rings)
             near = min(math.hypot(anchor[0] - v[0], anchor[1] - v[1]) for r in rings for v in r)
-            station_tagged = t.get('building') in ('train_station', 'transportation') or t.get('railway') == 'station' or t.get('public_transport') == 'station'
             if inside and (station_tagged or best):
                 rank = (0, near)
             elif station_tagged and near <= 80:
@@ -438,7 +444,11 @@ def enrich(osm_path, lines, stations, line_features, report):
         if not chosen:
             continue
         rank, e, rings = chosen
-        used.add(e['id'])
+        ref = f'{e["type"]}/{e["id"]}'
+        s.setdefault('buildingIds', []).append(ref)
+        if ref in by_ref:  # one hall shared by several records (e.g. both Red lines at Krung Thep Aphiwat): drawn once
+            by_ref[ref]['properties']['stationIds'].append(s['id'])
+            continue
         t = e.get('tags', {})
         height = num(t.get('height'))
         levels = num(t.get('building:levels'))
@@ -449,11 +459,10 @@ def enrich(osm_path, lines, stations, line_features, report):
             height = levels * 3.5 if levels else (22.0 if s.get('elevation') == 'elevated' else 8.0)
         if base is None:
             base = min_level * 3.5 if min_level else 0.0
-        ref = f'{e["type"]}/{e["id"]}'
-        features.append({
+        feature = {
             'type': 'Feature', 'id': ref,
             'properties': {
-                'stationId': s['id'], 'name': t.get('name:th') or t.get('name') or '', 'osm_ref': ref, 'osm_url': f'https://www.openstreetmap.org/{ref}',
+                'stationId': s['id'], 'stationIds': [s['id']], 'name': t.get('name:th') or t.get('name') or '', 'osm_ref': ref, 'osm_url': f'https://www.openstreetmap.org/{ref}',
                 'height': round(height, 1), 'base': round(base, 1), 'height_basis': basis,
                 'height_note': {'osm_height': 'ความสูงจากแท็ก height ใน OSM', 'osm_levels': 'ความสูงประมาณจากจำนวนชั้นใน OSM × 3.5 ม.',
                                 'display_default': 'ไม่มีความสูงใน OSM ใช้ค่าตั้งต้นเพื่อการแสดงผลเท่านั้น'}[basis],
@@ -461,8 +470,9 @@ def enrich(osm_path, lines, stations, line_features, report):
                 'osm_station': f'{best[1]["type"]}/{best[1]["id"]}' if best else '',
             },
             'geometry': {'type': 'Polygon', 'coordinates': [[[round(v, 6) for v in ll(*q)] for q in simplify(r, 1.0)] for r in rings[:1]]},
-        })
-        s.setdefault('buildingIds', []).append(ref)
+        }
+        by_ref[ref] = feature
+        features.append(feature)
     meta['buildings'] = len(features)
     report['osm'] = {'buildings': len(features), 'colours': meta['colours'], 'unmatchedParts': len(report.get('osmUnmatchedParts', []))}
     fc = {'type': 'FeatureCollection', 'metadata': {'source': 'OpenStreetMap (Overpass API)', 'licence': meta['licence'], 'sha256': meta['sha256'],
