@@ -1,0 +1,43 @@
+{
+  "artifact": "CityMETER Transit — 3D-first, rail-first map of lines, stations and interchanges",
+  "productVersion": "0.1.0",
+  "updatedOn": "2026-10-31",
+  "ldsVersion": "0.9.7",
+  "release": "v0.9.7-owner.1",
+  "revision": "standalone-0.9.7-r1",
+  "colorSetId": "color-srgb-10",
+  "baseDocumentSha256": "d3085cbc0a50195f1cbf0c77b1d77c0d19b84364daf2948eb367348d65432d96",
+  "layoutReference": "https://montri-th.github.io/luxurybrands/ (CityMETER map layout: header 48 px, full map, right panel, collapsible chart tray, mobile bottom sheet)",
+  "styleReference": "pmndrs raycast-cycling example (https://pmndrs.github.io/examples/raycast-cycling/): translucent white solids, soft baked shadow, hover pulse, cycling of stacked hits with status dots",
+  "fontRoles": {
+    "body": "Bai Jamjuree 400/600",
+    "thaiHeadings": "IBM Plex Sans Thai Looped 700",
+    "latinHeadings": "Arvo 700",
+    "dataAndMetrics": "JetBrains Mono 400; tabular numerals"
+  },
+  "colors": {
+    "applied": "assets/theme.css — foundation pairs, map roles, data states, categorical series 1–10 (fill and ink), count classes; --basemap-* and --scene-* are context tokens declared once, never data",
+    "analytical": "js/scales.js — count and activity families, exact 41-sample LUTs, identical HEX on both themes; classes round(i×40/(n−1))",
+    "lineIdentity": {
+      "rule": "line colours are third-party identity (the colour in the line's own name) with a source per line",
+      "primary": "OpenStreetMap route relation `colour` (colorBasis osm_route_colour)",
+      "fallback": "LDS categorical token nearest to the named colour family (colorBasis lds-series-fallback, resolved per theme)",
+      "status": "exception to the LDS categorical palette reported to the owner (DATA_METHOD.md §7); pending approval"
+    }
+  },
+  "firstAha": "number of interchange complexes (records joined by current relations of 31_INTERCHANGES) on the operating network, the hubs that join the most lines (ties by reach), and the stations under construction; the first paint frames those hubs in the 3D city preset",
+  "grainContract": "one record = one station–line (17_RAIL_CATALOG) or one station–project (23_CONSTRUCTION_STATIONS); never merged across lines; complexes group records for pins and plates only",
+  "statusContract": "operator roster listed → เปิดให้บริการ; project membership → กำลังก่อสร้าง; existing/junction project members → ยังยืนยันไม่ได้; target dates are targets; project progress is not station progress",
+  "mapContract": {
+    "scene": "js/scene.js — one MapLibre custom layer (three.js 0.186.1): ribbons per line and level (elevated 12 m, surface 0.6 m, underground 0.3 m, ramps of 200 m), instanced piers from zoom 14.5, station plates by role (hub/station) striped with the lines that meet, OSM station buildings, focus massing; depth cleared before the scene so data never hides behind basemap massing",
+    "lines2d": "js/map-layers.js — 2D lines below zoom 10 or with 3D off; construction dashed; quiet grey outside the focus",
+    "pins": "js/pins.js — HTML buttons for keyboard and screen readers; one pin per complex within 150 m",
+    "elevation": "from OpenStreetMap ways of the same line (route relation members); unknown when unmatched",
+    "optionalLayers": "bus corridors (width by GTFS route count class, one quiet token) and boat routes, off by default, lazy-loaded",
+    "camera": "plan / city (56/28) / model (60, FOV 14) / eye (75, FOV 24) with pitch ≤ 90 − fov/2 − 3"
+  },
+  "chartContract": "lines: stations per line (count classes); status: operating vs construction with shape cues; ridership: one comparable series at a time (metric + unit + period + aggregation), switchable, activity LUT; every mark is a button",
+  "copy": "short natural Thai; units สถานี (station–line record) / สาย / จุดเปลี่ยนสาย; provenance short and factual (period · source link · coordinate role); methodology in DATA_METHOD.md",
+  "accessibility": "keyboard reachable pins, charts and panel; visible focus; reduced motion honoured; Thai and English checked at 390 px and desktop in light and dark",
+  "publication": "no Google Drive/Docs links, local paths or credentials in published files (build guard + tests); release on main after the gate; npm run verify:live before claiming a release"
+}

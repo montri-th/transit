@@ -260,6 +260,7 @@ def enrich(osm_path, lines, stations, line_features, report):
     # ---- railway ways → elevation grids (one per line from its route members, one for all ways)
     rail_grid = Grid(30.0)
     line_grids = collections.defaultdict(lambda: Grid(40.0))
+    named_ways = collections.Counter()   # lines without a route relation: railway ways whose own name says the line
     construction = []
     for e in elements:
         t = e.get('tags', {})
@@ -277,9 +278,17 @@ def enrich(osm_path, lines, stations, line_features, report):
                 if e['id'] in ids:
                     for p in dense:
                         line_grids[lid].add(p, level)
+            way_label = ' '.join(t.get(k, '') for k in ('name', 'name:en', 'name:th', 'ref')).lower()
+            if way_label.strip():
+                for lid, keys in ROUTE_KEYS.items():
+                    if lid not in members and any(re.search(k, way_label) for k in keys):
+                        named_ways[lid] += 1
+                        for p in dense:
+                            line_grids[lid].add(p, level)
         elif t.get('railway') == 'construction':
             construction.append((e, pts, way_level(t)))
     meta['routeMembership'] = {lid: len(ids) for lid, ids in sorted(members.items())}
+    meta['namedWays'] = dict(sorted(named_ways.items()))
 
     def grid_for(line_id):
         return (line_grids[line_id], 40.0) if line_id in line_grids else (rail_grid, 30.0)
@@ -348,26 +357,35 @@ def enrich(osm_path, lines, stations, line_features, report):
             s['elevation'] = hit
             s['elevationSource'] = 'osm_line_at_station'
     # ---- 3. colours from route relations
-    seen = collections.defaultdict(collections.Counter)
+    seen = collections.defaultdict(collections.Counter)   # colour → member ways carrying it (a branch weighs less than the main line)
     refs = collections.defaultdict(list)
     for e in elements:
         t = e.get('tags', {})
         if e['type'] != 'relation' or t.get('route') not in ('subway', 'light_rail', 'monorail', 'train') or not re.fullmatch(r'#[0-9A-Fa-f]{6}', t.get('colour', '')):
             continue
-        label = ' '.join(t.get(k, '') for k in ('name', 'name:en', 'name:th', 'ref')).lower()
-        for lid, keys in ROUTE_KEYS.items():
-            if any(re.search(k, label) for k in keys):
-                seen[lid][t['colour'].upper()] += 1
-                refs[lid].append(f'relation/{e["id"]}')
+        weight = max(1, sum(1 for m in e.get('members', []) if m.get('type') == 'way'))
+        for lid in line_of_relation(t):
+            seen[lid][t['colour'].upper()] += weight
+            refs[lid].append(f'relation/{e["id"]}')
     for l in lines:
         if seen.get(l['id']):
             colour, n = seen[l['id']].most_common(1)[0]
             l['color'] = colour
             l['colorBasis'] = 'osm_route_colour'
-            l['colorSource'] = {'osm': refs[l['id']][:6], 'agreeing': n, 'variants': dict(seen[l['id']])}
+            l['colorSource'] = {'osm': refs[l['id']][:6], 'memberWays': n, 'variants': dict(seen[l['id']])}
             meta['colours'][l['id']] = colour
             if len(seen[l['id']]) > 1:
-                report['holds'].append(f'{l["id"]}: OSM route colours disagree {dict(seen[l["id"]])}; used the most frequent')
+                report['holds'].append(f'{l["id"]}: OSM route colours differ {dict(seen[l["id"]])}; used the colour of the most member ways')
+    # extensions under construction carry the colour of their own line family (same colour word in the name)
+    for l in lines:
+        if l.get('colorBasis') == 'osm_route_colour' or not l.get('colourWord'):
+            continue
+        parent = next((x for x in lines if x is not l and x.get('colorBasis') == 'osm_route_colour' and x.get('colourWord') == l['colourWord']), None)
+        if parent:
+            l['color'] = parent['color']
+            l['colorBasis'] = 'osm_route_colour_of_line_family'
+            l['colorSource'] = {'family': parent['id'], 'osm': parent['colorSource']['osm']}
+            meta['colours'][l['id']] = parent['color']
     # ---- 4. buildings
     osm_stations, buildings = [], []
     for e in elements:

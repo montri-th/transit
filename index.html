@@ -23,30 +23,49 @@
     .launch-card :focus-visible{outline:3px solid var(--interaction-focus-ring,#1D4497);outline-offset:3px}
     @media(max-width:420px){#launch-status{padding:16px}.launch-card{padding:20px}.launch-card h1{font-size:21px}}
   </style>
-  <script src="js/launch.js?v=20261031-r1"></script>
-  <link rel="icon" href="assets/icons/icon-portfolio-32.png" sizes="32x32">
-  <link rel="icon" href="assets/icons/icon-portfolio-16.png" sizes="16x16">
-  <link rel="icon" href="assets/icons/icon-portfolio-48.png" sizes="48x48">
-  <link rel="apple-touch-icon" href="assets/icons/icon-portfolio-180.png">
+  <script src="js/launch.js?v=20261031-r2"></script>
+  <link rel="icon" href="assets/icons/icon-portfolio-32.png?v=20261031-r2" sizes="32x32">
+  <link rel="icon" href="assets/icons/icon-portfolio-16.png?v=20261031-r2" sizes="16x16">
+  <link rel="icon" href="assets/icons/icon-portfolio-48.png?v=20261031-r2" sizes="48x48">
+  <link rel="apple-touch-icon" href="assets/icons/icon-portfolio-180.png?v=20261031-r2">
   <link rel="manifest" href="site.webmanifest">
-  <link rel="stylesheet" href="assets/lds/build-kit/fonts.css?v=20261031-r1">
-  <link rel="stylesheet" href="assets/theme.css?v=20261031-r1">
-  <link rel="stylesheet" href="styles.css?v=20261031-r1">
-  <link rel="stylesheet" href="navigation.css?v=20261031-r1">
+  <link rel="stylesheet" href="assets/lds/build-kit/fonts.css?v=20261031-r2">
+  <link rel="stylesheet" href="assets/theme.css?v=20261031-r2">
+  <link rel="stylesheet" href="styles.css?v=20261031-r2">
+  <link rel="stylesheet" href="navigation.css?v=20261031-r2">
   <script type="importmap">
     {"imports": {
-      "./js/app.js": "./js/app.js?v=20261031-r1"
+      "./js/app.js": "./js/app.js?v=20261031-r2",
+      "./js/breadcrumb.js": "./js/breadcrumb.js?v=20261031-r2",
+      "./js/camera.js": "./js/camera.js?v=20261031-r2",
+      "./js/charts.js": "./js/charts.js?v=20261031-r2",
+      "./js/geometry.js": "./js/geometry.js?v=20261031-r2",
+      "./js/map-layers.js": "./js/map-layers.js?v=20261031-r2",
+      "./js/map-style.js": "./js/map-style.js?v=20261031-r2",
+      "./js/massing.js": "./js/massing.js?v=20261031-r2",
+      "./js/model.js": "./js/model.js?v=20261031-r2",
+      "./js/mvt.js": "./js/mvt.js?v=20261031-r2",
+      "./js/navigation.js": "./js/navigation.js?v=20261031-r2",
+      "./js/panel.js": "./js/panel.js?v=20261031-r2",
+      "./js/pins.js": "./js/pins.js?v=20261031-r2",
+      "./js/polyline.js": "./js/polyline.js?v=20261031-r2",
+      "./js/profile-model.js": "./js/profile-model.js?v=20261031-r2",
+      "./js/provinces-list.js": "./js/provinces-list.js?v=20261031-r2",
+      "./js/provinces.js": "./js/provinces.js?v=20261031-r2",
+      "./js/scales.js": "./js/scales.js?v=20261031-r2",
+      "./js/scene.js": "./js/scene.js?v=20261031-r2",
+      "./js/vendors.js": "./js/vendors.js?v=20261031-r2"
     }}
   </script>
-  <script type="module" src="js/app.js?v=20261031-r1"></script>
-  <script type="module" src="js/navigation.js?v=20261031-r1"></script>
+  <script type="module" src="js/app.js?v=20261031-r2"></script>
+  <script type="module" src="js/navigation.js?v=20261031-r2"></script>
 </head>
 <body>
 <a class="skip" href="#panel">ข้ามไปแผงข้อมูล</a>
 
 <header class="topbar">
   <a class="brand" href="https://landometer.com/v3/citymeter" aria-label="CityMETER production">
-    <img src="assets/icons/icon-portfolio-32.png" alt="" width="24" height="24"><span>CityMETER</span>
+    <img src="assets/icons/icon-portfolio-32.png?v=20261031-r2" alt="" width="24" height="24"><span>CityMETER</span>
   </a>
   <span class="brand-divider" aria-hidden="true">/</span>
   <span class="product-name">Transit</span>
@@ -99,7 +118,7 @@
           <span><i class="legend-ribbon is-construction" aria-hidden="true"></i>กำลังก่อสร้าง</span>
           <span><i class="legend-pin" aria-hidden="true"></i>1 หมุด = 1 สถานี</span>
           <span class="legend-building-item"><i class="legend-building" aria-hidden="true"></i>อาคารสถานี (OSM)</span>
-          <span class="legend-bus-item" hidden><i class="legend-bus" aria-hidden="true"></i>สายรถเมล์</span>
+          <span class="legend-bus-item" hidden><i class="legend-bus" aria-hidden="true"></i>รถเมล์ (เส้นหนา = หลายเส้นทาง)</span>
           <details id="line-key"><summary>สีของสาย</summary><div id="line-items"></div></details>
         </div>
       </div>
@@ -181,10 +200,11 @@
   <ol class="help-steps">
     <li><strong>ข้อค้นพบแรก</strong><p>แผงขวาบอกภาพรวมของระบบรางตามตัวกรอง แผนที่โฟกัสจุดเปลี่ยนสายที่เชื่อมหลายสายที่สุดให้แล้ว · “ดูทั้งหมด” เปิดทุกสายเท่ากัน</p></li>
     <li><strong>เส้นทาง</strong><p>ประเทศไทย › จังหวัด › สาย › สถานี — กดระดับใดก็ได้เพื่อย้อนกลับ</p></li>
-    <li><strong>แนวเส้นทาง</strong><p>ริบบอนคือแนวสายราง สีตามชื่อสาย (เช่น สายสีม่วง) ยกสูงตามประเภททาง: ยกระดับ ระดับพื้น ใต้ดิน · สายที่กำลังก่อสร้างโปร่งกว่า · รถเมล์และเรือเป็นชั้นเสริม เปิดได้จากแถบเครื่องมือ</p></li>
-    <li><strong>สถานีและอาคาร</strong><p>แผ่นขาวคือสถานี แถบสีบนแผ่นคือสายที่ผ่าน · สถานีใหญ่ที่จับคู่กับอาคารใน OpenStreetMap ได้จะแสดงตัวอาคาร · “มุมสถาปนิก” คือมุมมองระดับสถานี</p></li>
+    <li><strong>แนวเส้นทาง</strong><p>ริบบอนคือแนวสายรางตาม GTFS ของ สนข. สีตามชื่อสาย ยกสูงตามระดับทางจาก OpenStreetMap: ยกระดับ ระดับพื้น ใต้ดิน · สายที่กำลังก่อสร้างโปร่งและเป็นเส้นประ · รถเมล์และเรือเป็นชั้นเสริม เปิดได้จากแถบเครื่องมือ (เส้นรถเมล์ยิ่งหนา ยิ่งมีหลายเส้นทางผ่าน)</p></li>
+    <li><strong>สถานีและอาคาร</strong><p>แผ่นขาวคือสถานี แถบสีบนแผ่นคือสายที่มาบรรจบ · จุดเปลี่ยนสายแสดงเป็นหมุดเดียว แต่นับแยกตามสาย · สถานีที่จับคู่กับอาคารใน OpenStreetMap ได้จะแสดงตัวอาคาร · “มุมสถาปนิก” คือมุมมองระดับสถานี</p></li>
     <li><strong>วัตถุซ้อนกัน</strong><p>ชี้เมาส์บนแผนที่ จุดด้านล่างบอกว่ามีวัตถุซ้อนกันกี่ชิ้น กดซ้ำที่เดิมเพื่อสลับไปชิ้นถัดไป (เช่น สถานียกระดับที่อยู่เหนือสถานีใต้ดิน)</p></li>
-    <li><strong>กราฟและตาราง</strong><p>“เปิดกราฟ” เทียบสาย (จำนวนสถานี · เปิดแล้ว/กำลังสร้าง · ผู้โดยสารที่แหล่งรายงาน) · “รายการ” เปิดตารางสถานี</p></li>
+    <li><strong>กราฟและตาราง</strong><p>“เปิดกราฟ” เทียบสาย (จำนวนสถานี · เปิดแล้ว/กำลังสร้าง · ผู้โดยสารที่แหล่งรายงาน แยกชุดไม่เทียบข้ามกัน) · “รายการ” เปิดตารางสถานี</p></li>
+    <li><strong>สถานะ</strong><p>เปิดให้บริการ = อยู่ในรายชื่อสถานีปัจจุบันของผู้ให้บริการ · กำลังก่อสร้าง = สถานีใหม่ในโครงการ ความก้าวหน้าเป็นระดับโครงการ และวันเปิดเป็นเป้าหมายตามแหล่ง</p></li>
   </ol>
   <p class="help-keyboard"><strong>คีย์บอร์ด:</strong> Tab ไปยังปุ่ม · ลูกศรเลื่อนระหว่างหมุด · Enter เลือก · Escape ปิด</p>
   <p class="help-links"><a href="https://montri-th.github.io/transit/" id="help-public-site">เว็บ Transit</a> · <a href="https://github.com/montri-th/transit" target="_blank" rel="noopener">ที่มาใน GitHub</a> · <a href="DATA_METHOD.md" target="_blank" rel="noopener">วิธีจัดทำข้อมูล</a></p>

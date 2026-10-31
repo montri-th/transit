@@ -135,7 +135,13 @@ export function fitPitched(map, bounds, {preset = 'city', padding = {top: 24, bo
 export function framePoint(map, lngLat, {preset = 'model', zoom = 16, offset = [0, 0], animate = true, duration = 650} = {}) {
   const p = CAMERA[preset] || CAMERA.plan;
   setFov(map, p.fov);
-  const options = {center: lngLat, zoom: Math.max(map.getZoom(), zoom), pitch: p.pitch, bearing: p.bearing, padding: shiftPadding(map, p.shift || 0), offset};
+  // jumpTo has no `offset`, so a screen offset is expressed as padding: shifting the padded centre by
+  // (dx, dy) needs 2·|dx| / 2·|dy| of padding on the opposite side. Same result for flyTo and jumpTo.
+  const padding = shiftPadding(map, p.shift || 0);
+  const [dx, dy] = offset || [0, 0];
+  if (dy < 0) padding.bottom += Math.round(-2 * dy); else padding.top += Math.round(2 * dy);
+  if (dx < 0) padding.right += Math.round(-2 * dx); else padding.left += Math.round(2 * dx);
+  const options = {center: lngLat, zoom: Math.max(map.getZoom(), zoom), pitch: p.pitch, bearing: p.bearing, padding};
   if (animate) map.flyTo({...options, duration}); else map.jumpTo(options);
   return options;
 }

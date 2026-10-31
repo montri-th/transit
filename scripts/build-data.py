@@ -390,7 +390,7 @@ SYSTEMS = {
     'MRT_PURPLE': {'name': 'MRT สายสีม่วง', 'short': 'ม่วง', 'nameEn': 'MRT Purple Line', 'gtfs': '4', 'mode': 'urban_rail', 'colourWord': 'ม่วง'},
     'MRT_PINK': {'name': 'สายสีชมพู', 'short': 'ชมพู', 'nameEn': 'Pink Line', 'gtfs': '2436', 'mode': 'urban_rail', 'colourWord': 'ชมพู'},
     'MRT_YELLOW': {'name': 'สายสีเหลือง', 'short': 'เหลือง', 'nameEn': 'Yellow Line', 'gtfs': '2224', 'mode': 'urban_rail', 'colourWord': 'เหลือง'},
-    'ARL_CITY': {'name': 'แอร์พอร์ต เรล ลิงก์', 'short': 'ARL', 'nameEn': 'Airport Rail Link', 'gtfs': '5', 'mode': 'airport_rail', 'colourWord': ''},
+    'ARL_CITY': {'name': 'แอร์พอร์ต เรล ลิงก์', 'short': 'ARL', 'nameEn': 'Airport Rail Link', 'gtfs': '5', 'mode': 'airport_rail', 'colourWord': 'ARL'},
     'SRT_RED_NORTH': {'name': 'สายสีแดงเข้ม', 'short': 'แดงเข้ม', 'nameEn': 'SRT Dark Red Line', 'gtfs': '2026', 'mode': 'commuter_rail', 'colourWord': 'แดงเข้ม'},
     'SRT_RED_WEST': {'name': 'สายสีแดงอ่อน', 'short': 'แดงอ่อน', 'nameEn': 'SRT Light Red Line', 'gtfs': '2027', 'mode': 'commuter_rail', 'colourWord': 'แดงอ่อน'},
 }
@@ -399,10 +399,10 @@ PROJECTS = {
     'MRT_ORANGE_WEST': {'name': 'สายสีส้ม ช่วงตะวันตก', 'short': 'ส้ม (ตก)', 'nameEn': 'Orange Line (West) — under construction', 'mode': 'urban_rail', 'colourWord': 'ส้ม', 'system': 'MRT_ORANGE'},
     'MRT_ORANGE_EAST': {'name': 'สายสีส้ม ช่วงตะวันออก', 'short': 'ส้ม (ออก)', 'nameEn': 'Orange Line (East) — under construction', 'mode': 'urban_rail', 'colourWord': 'ส้ม', 'system': 'MRT_ORANGE'},
     'MRT_PURPLE_SOUTH': {'name': 'สายสีม่วง ช่วงใต้', 'short': 'ม่วง (ใต้)', 'nameEn': 'Purple Line (South) — under construction', 'mode': 'urban_rail', 'colourWord': 'ม่วง', 'system': 'MRT_PURPLE'},
-    'THAI_CHINA_HSR_PHASE1': {'name': 'รถไฟความเร็วสูงไทย–จีน ระยะที่ 1', 'short': 'HSR 1', 'nameEn': 'Thai–Chinese HSR Phase 1 — under construction', 'mode': 'high_speed_rail', 'colourWord': '', 'system': 'THAI_CHINA_HSR'},
-    'SRT_DENCHAI_CHIANGRAI_CHIANGKHONG': {'name': 'รถไฟสายใหม่ เด่นชัย–เชียงราย–เชียงของ', 'short': 'เด่นชัย–เชียงของ', 'nameEn': 'Den Chai–Chiang Rai–Chiang Khong new line — under construction', 'mode': 'conventional_rail', 'colourWord': '', 'system': 'SRT_NEW_LINES'},
-    'SRT_BANPHAI_NAKHONPHANOM': {'name': 'รถไฟสายใหม่ บ้านไผ่–นครพนม', 'short': 'บ้านไผ่–นครพนม', 'nameEn': 'Ban Phai–Nakhon Phanom new line — under construction', 'mode': 'conventional_rail', 'colourWord': '', 'system': 'SRT_NEW_LINES'},
-    'SRT_MAPKABAO_CHIRA': {'name': 'รถไฟทางคู่ มาบกะเบา–ชุมทางถนนจิระ', 'short': 'มาบกะเบา–จิระ', 'nameEn': 'Map Kabao–Thanon Chira double track — under construction', 'mode': 'conventional_rail', 'colourWord': '', 'system': 'SRT_DOUBLE_TRACK'},
+    'THAI_CHINA_HSR_PHASE1': {'name': 'รถไฟความเร็วสูงไทย–จีน ระยะที่ 1', 'short': 'HSR 1', 'nameEn': 'Thai–Chinese HSR Phase 1 — under construction', 'mode': 'high_speed_rail', 'colourWord': 'HSR', 'system': 'THAI_CHINA_HSR'},
+    'SRT_DENCHAI_CHIANGRAI_CHIANGKHONG': {'name': 'รถไฟสายใหม่ เด่นชัย–เชียงราย–เชียงของ', 'short': 'เด่นชัย–เชียงของ', 'nameEn': 'Den Chai–Chiang Rai–Chiang Khong new line — under construction', 'mode': 'conventional_rail', 'colourWord': 'SRT', 'system': 'SRT_NEW_LINES'},
+    'SRT_BANPHAI_NAKHONPHANOM': {'name': 'รถไฟสายใหม่ บ้านไผ่–นครพนม', 'short': 'บ้านไผ่–นครพนม', 'nameEn': 'Ban Phai–Nakhon Phanom new line — under construction', 'mode': 'conventional_rail', 'colourWord': 'SRT', 'system': 'SRT_NEW_LINES'},
+    'SRT_MAPKABAO_CHIRA': {'name': 'รถไฟทางคู่ มาบกะเบา–ชุมทางถนนจิระ', 'short': 'มาบกะเบา–จิระ', 'nameEn': 'Map Kabao–Thanon Chira double track — under construction', 'mode': 'conventional_rail', 'colourWord': 'SRT', 'system': 'SRT_DOUBLE_TRACK'},
 }
 SYSTEM_GROUPS = {
     'MRT_ORANGE': 'MRT สายสีส้ม (ก่อสร้าง)', 'THAI_CHINA_HSR': 'รถไฟความเร็วสูง (ก่อสร้าง)',
@@ -412,9 +412,10 @@ SYSTEM_GROUPS = {
 # the page per theme). Lines whose name carries a colour wait for a sourced HEX
 # (OpenStreetMap route relation `colour`); until then they also use the token
 # nearest to the named colour family, flagged colorBasis = 'lds-series-fallback'.
-COLOUR_TOKEN = {
-    'เขียวอ่อน': 'series-4', 'เขียวแก่': 'series-10', 'ทอง': 'series-3', 'น้ำเงิน': 'series-8', 'ม่วง': 'series-9',
-    'ชมพู': 'series-1', 'เหลือง': 'series-3', 'แดงเข้ม': 'series-1', 'แดงอ่อน': 'series-2', 'ส้ม': 'series-2', '': 'series-7',
+COLOUR_TOKEN = {  # LDS series token (CSS custom property without --) nearest to the colour named in the line's name
+    'เขียวอ่อน': 'series-4-fill', 'เขียวแก่': 'series-10-ink', 'ทอง': 'series-3-fill', 'น้ำเงิน': 'series-8-ink', 'ม่วง': 'series-9-ink',
+    'ชมพู': 'series-1-fill', 'เหลือง': 'series-3-fill', 'แดงเข้ม': 'series-1-ink', 'แดงอ่อน': 'series-2-fill', 'ส้ม': 'series-2-fill',
+    'ARL': 'series-6-fill', 'HSR': 'series-7-fill', 'SRT': 'series-5-fill',
 }
 STATUS_BASIS_TH = {
     'operator_roster_listed': 'อยู่ในรายชื่อสถานีปัจจุบันของผู้ให้บริการ · ตรวจ {d}',
@@ -652,6 +653,9 @@ def build(ex, frames, resolve_province, report):
             'sources': [x for x in [{'title': 'หน้าโครงการ', 'url': public_url(p['source_url'])}, {'title': 'รายชื่อสถานีโครงการ', 'url': public_url(p['roster_url'])}] if x['url']],
             'geometryIds': gids,
         }
+        for m in measures:
+            if m.get('source_id'):
+                used_sources[m['source_id']] += 1
         if line['progressPercent'] is None:
             report['holds'].append(f'{pid}: no project-level progress value in the sheet')
         lines.append(line)
@@ -710,6 +714,8 @@ def build(ex, frames, resolve_province, report):
                 'canonicalStopId': r['canonical_stop_id'], 'observationId': r['observation_id'],
             }
             used_sources[r['source_id']] += 1
+            if r['construction_status_source_id']:
+                used_sources[r['construction_status_source_id']] += 1
             stations.append(st)
             station_by_id[st['id']] = st
 
@@ -861,8 +867,8 @@ def build_ridership(ex, stations, station_by_id, sources, used_sources, report):
         complete = len(v['months']) == 12
         st['ridership'].append({
             'metric': 'bts_outgoing_trips_2564', 'value': round(v['sum']), 'unit': 'เที่ยวคน',
-            'label': 'ผู้โดยสารขาออก รวมทั้งปี',
-            'period': 'ปี 2564' + ('' if complete else f' · {len(v["months"])} จาก 12 เดือน'), 'aggregation': 'sum_of_monthly_totals' if complete else 'sum_of_available_months',
+            'label': 'ผู้โดยสารขาออก รวมทั้งปี' if complete else f'ผู้โดยสารขาออก รวม {len(v["months"])} เดือนที่มีข้อมูล',
+            'period': 'ปี 2564', 'aggregation': 'sum_of_monthly_totals' if complete else 'sum_of_available_months',
             'months': len(v['months']), 'source': bts_src, 'dataset': 'สถิติกรุงเทพมหานคร: ผู้โดยสาร BTS ขาออกรายสถานี รายเดือน',
             'note': 'ปี 2564 อยู่ในช่วงมาตรการโควิด-19 ใช้เทียบระหว่างสถานีในปีเดียวกันเท่านั้น', 'seriesKey': f'BTS2564:{obs}',
         })

@@ -64,15 +64,16 @@ function statusStacked(element, rows, select, selectedId) {
  * Ridership: `metrics` = [{key, label, unit, period, aggregation, values: [{stationId, name, value, lineIds}]}]
  * pre-grouped so each group is internally comparable. The largest group is drawn.
  */
-function ridership(element, metrics, select, selectedId, lineById) {
+function ridership(element, metrics, select, selectedId, lineById, groupKey = '') {
   const groups = (metrics || []).filter(g => g.values?.length);
   if (!groups.length) { empty(element, 'แหล่งข้อมูลยังไม่รายงานผู้โดยสารรายสถานีที่เทียบกันได้ในตัวกรองนี้'); return; }
-  const g = groups[0];
+  const g = groups.find(x => x.key === groupKey) || groups[0];
   const rows = [...g.values].sort((a, b) => b.value - a.value).slice(0, 20);
   const fam = FAMILIES.activity;
   const max = Math.max(1, ...rows.map(r => r.value));
   const lut = fam.lut;
-  element.innerHTML = `<p class="chart-caption">${esc(g.label)} · ${esc(g.unit)} · ${esc(g.period)} · ${num(g.values.length)} สถานีที่แหล่งรายงาน${groups.length > 1 ? ` · ตัวชี้วัดอื่น: ${groups.slice(1).map(x => esc(x.label)).join(', ')}` : ''}</p>
+  const switcher = groups.length > 1 ? `<div class="metric-switch" role="group" aria-label="เลือกชุดข้อมูลผู้โดยสาร">${groups.map(x => `<button type="button" class="chip-button" data-metric="${esc(x.key)}" aria-pressed="${x === g}">${esc(x.label)} · ${esc(x.period)}</button>`).join('')}</div>` : '';
+  element.innerHTML = `${switcher}<p class="chart-caption">${esc(g.label)} · ${esc(g.unit)} · ${esc(g.period)} · ${num(g.values.length)} สถานี${g.dataset ? ` · ${esc(g.dataset)}` : ''}${g.source ? ` · <a class="source-link" href="${esc(g.source)}" target="_blank" rel="noopener">แหล่ง</a>` : ''}</p>
     <ol class="chart-bars">${rows.map((r, i) => {
       const pressed = r.stationId === selectedId;
       const fill = lut[Math.round((r.value / max) * 40)];
@@ -84,12 +85,13 @@ function ridership(element, metrics, select, selectedId, lineById) {
         <span class="bar-track" aria-hidden="true"><span class="bar-fill" style="width:${Math.max(2, Math.round((r.value / max) * 100))}%;background:${fill}"></span></span>
         <span class="bar-value" aria-hidden="true"><b class="data-number">${num(r.value)}</b><small>${esc(g.unit)}</small></span></button></li>`;
     }).join('')}</ol>
-    <p class="chart-legend">สีตามค่า (LDS activity, ค่าสูงสุดในกราฟ = สีเข้มสุด)</p>`;
+    <p class="chart-legend">สีตามค่า (LDS activity, ค่าสูงสุดในกราฟ = สีเข้มสุด)${g.note ? ` · ${esc(g.note)}` : ''}</p>`;
   element.querySelectorAll('[data-station]').forEach(b => b.addEventListener('click', () => select({type: 'station', id: b.dataset.station})));
+  element.querySelectorAll('[data-metric]').forEach(b => b.addEventListener('click', () => select({type: 'metric', id: b.dataset.metric})));
 }
 
 /** Render one view into #elementId. Returns an idempotent disposer. */
-export function renderInsightChart({elementId, view = 'lines', lineRows = [], ridershipMetrics = [], selectedLineId = '', selectedStationId = '', lineById = new Map(), theme} = {}, onSelect = () => {}) {
+export function renderInsightChart({elementId, view = 'lines', lineRows = [], ridershipMetrics = [], ridershipGroup = '', selectedLineId = '', selectedStationId = '', lineById = new Map(), theme} = {}, onSelect = () => {}) {
   const element = document.getElementById(elementId);
   if (!element) return () => {};
   const select = typeof onSelect === 'function' ? onSelect : () => {};
@@ -98,7 +100,7 @@ export function renderInsightChart({elementId, view = 'lines', lineRows = [], ri
   const labels = {lines: 'สายเรียงตามจำนวนสถานี', status: 'สถานีเปิดให้บริการและกำลังก่อสร้างต่อสาย', ridership: 'สถานีเรียงตามผู้โดยสารที่แหล่งรายงาน'};
   element.setAttribute('aria-label', labels[view] || labels.lines);
   try {
-    if (view === 'ridership') ridership(element, ridershipMetrics, select, selectedStationId, lineById);
+    if (view === 'ridership') ridership(element, ridershipMetrics, select, selectedStationId, lineById, ridershipGroup);
     else if (!lineRows.length) empty(element, 'ไม่พบสายตามตัวกรอง');
     else if (view === 'status') statusStacked(element, lineRows, select, selectedLineId);
     else lineRanking(element, lineRows, select, selectedLineId);

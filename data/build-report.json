@@ -3,8 +3,8 @@
  "files": [
   {
    "path": "data/transit.json",
-   "bytes": 562833,
-   "sha256": "3dc8b1ec737b220ef3153641a3a09c57bc38eaeb1fde2d914e3053849999f801"
+   "bytes": 566286,
+   "sha256": "5c9c88486edddbf21aba26270217415669c6311dcd9ec7f0dae51671cc613f15"
   },
   {
    "path": "data/rail-lines.geojson",

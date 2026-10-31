@@ -57,7 +57,7 @@ const state = {
   map: null, loaded: false, mapTheme: '', initialCameraDone: false, tileTemplate: '', lastPreset: '',
   view3d: true, twoPoint: true, layers: {bus: false, boat: false},
   pins: null, rail: null, optional: null, provinceLayers: null, provinceLabels: null, provinceModel: null, massing: null, scene: null, THREE: null,
-  ray: {objects: [], cycle: 0}, pinAlias: new Map(), ready: false,
+  ray: {objects: [], cycle: 0}, pinAlias: new Map(), ready: false, ridershipGroup: '',
 };
 
 /* ---------- helpers ---------- */
@@ -364,7 +364,7 @@ function ridershipMetrics() {
     const complex = r.shared ? state.complexById.get(s.complexId) : null;
     g.values.push({stationId: s.id, name: complex ? `${complex.name} (รวม ${num(complex.lineIds.length)} สาย)` : s.name, value: r.value, lineIds: complex ? complex.lineIds : s.lineIds});
   }
-  return [...groups.values()].sort((a, b) => b.values.length - a.values.length);
+  return [...groups.values()].filter(g => g.aggregation !== 'sum_of_available_months').sort((a, b) => b.values.length - a.values.length);
 }
 function drawChart() {
   if (!state.data) return;
@@ -374,9 +374,10 @@ function drawChart() {
   $('chart-scope').textContent = `${num(state.scopeStations.length)} สถานีในตัวกรอง`;
   if ($('insight-content').hidden) return;
   const rows = rankLines(state.scopeStations, state.data.lines, state.data.systems).rows;
-  chartDispose = renderInsightChart({elementId: 'chart', view: state.view, lineRows: rows, ridershipMetrics: ridershipMetrics(), selectedLineId: $('line').value, selectedStationId: state.selectedStationId, lineById: state.lineById, theme: theme()}, selection => {
+  chartDispose = renderInsightChart({elementId: 'chart', view: state.view, lineRows: rows, ridershipMetrics: ridershipMetrics(), ridershipGroup: state.ridershipGroup, selectedLineId: $('line').value, selectedStationId: state.selectedStationId, lineById: state.lineById, theme: theme()}, selection => {
     if (selection.type === 'line') selectLine(selection.id, {fromMap: true});
     if (selection.type === 'station') selectStation(selection.id, {fromMap: true});
+    if (selection.type === 'metric') { state.ridershipGroup = selection.id; drawChart(); }
   });
 }
 function openInsights(open) {
@@ -804,7 +805,8 @@ function resolveLineColors() {
   if (!state.data) return;
   for (const l of state.data.lines) {
     if (!('colorSourced' in l)) l.colorSourced = l.color || null;
-    l.color = l.colorSourced || cssVar(`--${l.colorToken || 'series-9'}-fill`, '#8AA4AA');
+    const token = /-(fill|ink)$/.test(l.colorToken || '') ? l.colorToken : `${l.colorToken || 'series-9'}-fill`;
+    l.color = l.colorSourced || cssVar(`--${token}`, '#8AA4AA');
   }
   for (const f of state.railGeo?.features || []) f.properties.color = state.lineById.get(f.properties.lineId)?.color || null;
 }
