@@ -45,6 +45,7 @@ import re
 import sys
 
 csv.field_size_limit(1 << 30)
+sys.dont_write_bytecode = True  # the OSM stage is imported from this folder; keep the repo free of .pyc
 HERE = os.path.dirname(os.path.abspath(__file__))
 REPO = os.path.dirname(HERE)
 
