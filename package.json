@@ -1,0 +1,17 @@
+{
+  "name": "citymeter-transit",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "CityMETER · Transit — rail-first 3D map of Thailand's public transport: lines, stations, interchanges and the buildings around large stations, with evidence per record",
+  "engines": {
+    "node": ">=20.0.0"
+  },
+  "scripts": {
+    "test": "node --test tests/*.test.js",
+    "start": "python3 -m http.server 4173 --bind 127.0.0.1",
+    "build:data": "python3 -I scripts/build-data.py",
+    "handoff:manifest": "node scripts/build-handoff.mjs",
+    "verify:live": "node scripts/verify-live.mjs"
+  }
+}

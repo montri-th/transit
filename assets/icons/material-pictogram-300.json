@@ -1,0 +1,50 @@
+{
+  "family": "LDS Material Symbols Rounded Pictogram",
+  "file": "material-pictogram-300.woff2",
+  "bytes": 1732,
+  "sha256": "33d9084bbd26b976d5c42002a0c669618573c21123567247816e9e694671c7b0",
+  "source": "google/material-design-icons variablefont/MaterialSymbolsRounded[FILL,GRAD,opsz,wght].ttf",
+  "sourceSha256": "32e4011709e055596eb8d2dd0f7cb547b47c1d40ac9ecb8fad54f7f7eac202e7",
+  "license": "Apache-2.0 (assets/icons/material-symbols-Apache-2.0.txt)",
+  "axes": {
+    "FILL": 0,
+    "wght": 300,
+    "GRAD": 0,
+    "opsz": 24
+  },
+  "glyphs": {
+    "brand": {
+      "name": "diamond",
+      "codepoint": "U+EAD5"
+    },
+    "store": {
+      "name": "storefront",
+      "codepoint": "U+EA12"
+    },
+    "venue": {
+      "name": "local_mall",
+      "codepoint": "U+E54C"
+    },
+    "area": {
+      "name": "map",
+      "codepoint": "U+E55B"
+    },
+    "province": {
+      "name": "location_city",
+      "codepoint": "U+E7F1"
+    },
+    "exclusive": {
+      "name": "star",
+      "codepoint": "U+F09A"
+    },
+    "gla": {
+      "name": "square_foot",
+      "codepoint": "U+EA49"
+    },
+    "segment": {
+      "name": "category",
+      "codepoint": "U+E72C"
+    }
+  },
+  "status": "test exception to LDS nav-7 (owner 2026-10-22); nav-7 subset unchanged"
+}

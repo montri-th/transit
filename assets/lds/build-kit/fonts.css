@@ -1,0 +1,10 @@
+/* Exact inherited web-font bytes. Non-web applications require the governed platform mapping. */
+@font-face{font-family:"Arvo";src:url("assets/arvo-latin-700-normal.woff2") format("woff2");font-weight:700;font-style:normal;font-display:swap;}
+@font-face{font-family:"IBM Plex Sans Thai Looped";src:url("assets/ibm-plex-sans-thai-looped-thai-700-normal.woff2") format("woff2");font-weight:700;font-style:normal;font-display:swap;unicode-range:U+0E00-0E7F;}
+@font-face{font-family:"IBM Plex Sans Thai Looped";src:url("assets/ibm-plex-sans-thai-looped-latin-700-normal.woff2") format("woff2");font-weight:700;font-style:normal;font-display:swap;unicode-range:U+0000-00FF;}
+@font-face{font-family:"Bai Jamjuree";src:url("assets/bai-jamjuree-thai-400-normal.woff2") format("woff2");font-weight:400;font-style:normal;font-display:swap;unicode-range:U+0E00-0E7F;}
+@font-face{font-family:"Bai Jamjuree";src:url("assets/bai-jamjuree-latin-400-normal.woff2") format("woff2");font-weight:400;font-style:normal;font-display:swap;unicode-range:U+0000-00FF;}
+@font-face{font-family:"Bai Jamjuree";src:url("assets/bai-jamjuree-thai-600-normal.woff2") format("woff2");font-weight:600;font-style:normal;font-display:swap;unicode-range:U+0E00-0E7F;}
+@font-face{font-family:"Bai Jamjuree";src:url("assets/bai-jamjuree-latin-600-normal.woff2") format("woff2");font-weight:600;font-style:normal;font-display:swap;unicode-range:U+0000-00FF;}
+@font-face{font-family:"JetBrains Mono";src:url("assets/jetbrains-mono-latin-400-normal.woff2") format("woff2");font-weight:400;font-style:normal;font-display:swap;}
+@font-face{font-family:"IBM Plex Sans Thai";src:url("assets/ibm-plex-sans-thai-thai-400-normal.woff2") format("woff2");font-weight:400;font-style:normal;font-display:swap;unicode-range:U+0E00-0E7F;}

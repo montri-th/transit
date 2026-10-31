@@ -1,0 +1,226 @@
+/* Applied LDS 0.9.7 values used by this demo (release v0.9.7-owner.1, color-srgb-10).
+   Every value below is copied exactly from machine.tokens / machine.analyticalScales
+   of Landometer-Design-System-v0.9.7.md (SHA-256 d3085cbc…96). No derived colours.
+   Scope: UI foundation pairs, categorical series 1–10, map/data-state roles and the
+   five-class projection of the `count` sequential family. The full LDS library and
+   the remaining analytical scales are intentionally not distributed here. */
+
+:root {
+  /* Foundation — light */
+  --surface-canvas: #F6F7F3;
+  --surface-alt: #EEF1EE;
+  --surface-card: #FCFCFA;
+  --surface-raised: #FFFFFF;
+  --surface-soft: #E5E9E6;
+  --surface-blue-tint: #E2E9ED;
+  --surface-beige-tint: #F2F1DF;
+  --text-primary: #182327;
+  --text-secondary: #5F635A;
+  --text-metadata: #5C6A61;
+  --text-muted: #7B877D;
+  --text-disabled: #A7B3A9;
+  --border-hairline: #DCE1DD;
+  --border-default: #C9D0CB;
+  --border-emphasis: #7D877F;
+  --interaction-accent: #176B82;
+  --interaction-focus-ring: #176B82;
+
+  /* Brand identity (portfolio) */
+  --brand-blue: #1D4497;
+  --brand-beige: #F2F1DF;
+
+  /* Semantic states — light (surface / content) */
+  --state-info-surface: #E8EEF0;
+  --state-info-content: #176B82;
+  --state-pending-surface: #F3EEDB;
+  --state-pending-content: #5C6A61;
+  --state-neutral-surface: #ECE4D2;
+  --state-neutral-content: #5F635A;
+  --state-warning-surface: #FFF1D1;
+  --state-warning-content: #A64A00;
+  --state-danger-surface: #FCE5DF;
+  --state-danger-content: #B43A3A;
+  --state-success-surface: #E2F4E5;
+  --state-success-content: #126B49;
+
+  /* Map roles — light */
+  --map-active-layer: #347DA8;
+  --map-hover-stroke: #347DA8;
+  --map-selected-stroke: #176B82;
+  --map-focus-stroke: #176B82;
+  --map-marker-halo: #FFFFFF;
+  --map-marker-stroke: #182327;
+
+  /* Data-state roles — light */
+  --data-no-data: #D5DAD6;
+  --data-zero-outline: #7D877F;
+
+  /* Categorical series landometer-series-10-v8 — light soft fill / ink */
+  --series-1-fill: #D88381;
+  --series-1-ink: #963538;
+  --series-2-fill: #E39B6E;
+  --series-2-ink: #182327;
+  --series-3-fill: #EAC578;
+  --series-3-ink: #182327;
+  --series-4-fill: #BECE7E;
+  --series-4-ink: #606E00;
+  --series-5-fill: #7BD0A3;
+  --series-5-ink: #007047;
+  --series-6-fill: #6ACCF0;
+  --series-6-ink: #006580;
+  --series-7-fill: #49C0BC;
+  --series-7-ink: #006967;
+  --series-8-fill: #6196D1;
+  --series-8-ink: #0E599D;
+  --series-9-fill: #8AA4AA;
+  --series-9-ink: #355F6A;
+  --series-10-fill: #82AC79;
+  --series-10-ink: #34622A;
+  --chart-on-fill: #182327;
+
+  /* Sequential family `count` (totals, unit = brands) — five classes, same on both themes */
+  --scale-count-1: #F4F0E7;
+  --scale-count-2: #BAD5D4;
+  --scale-count-3: #7DBAC0;
+  --scale-count-4: #4C7A98;
+  --scale-count-5: #213E70;
+  --scale-count-ink-on-1: #182327;
+  --scale-count-ink-on-2: #182327;
+  --scale-count-ink-on-3: #182327;
+  --scale-count-ink-on-4: #FFFFFF;
+  --scale-count-ink-on-5: #FFFFFF;
+
+  /* Basemap-only tokens (release 0.3) — foundation values for the generated "paper"
+     basemap (js/map-style.js). Where an LDS foundation token fits it is reused
+     (ground = surface.alt, water = surface.blue-tint, casings = borders, labels =
+     text roles, halo/sky = surface.canvas). Land cover, buildings and massing have
+     no LDS token and are declared here once so no value is approximated in code.
+     These are never data colours and carry no meaning in legends. */
+  --basemap-ground: #EEF1EE;
+  --basemap-water: #E2E9ED;
+  --basemap-water-line: #CBD9E1;
+  --basemap-park: #DCE6D4;
+  --basemap-wood: #D2DFC8;
+  --basemap-grass: #E3EBDA;
+  --basemap-sand: #F0EEE4;
+  --basemap-aeroway: #E9EBE7;
+  --basemap-building: #DFE2DD;
+  --basemap-building-line: #CDD2CD;
+  --basemap-massing-quiet: #ECEDE8;
+  --basemap-massing-focus: #D9D7CD;
+  --basemap-road: #FFFFFF;
+  --basemap-road-casing: #DCE1DD;
+  --basemap-motorway-casing: #C9D0CB;
+  --basemap-tunnel: #F4F6F3;
+  --basemap-rail: #C9D0CB;
+  --basemap-transit: #B4BDB7;
+  --basemap-path: #FFFFFF;
+  --basemap-label: #5F635A;
+  --basemap-label-quiet: #7B877D;
+  --basemap-halo: #F6F7F3;
+  --basemap-sky: #F6F7F3;
+  --basemap-horizon: #DCE1DD;
+  --basemap-fog: #EEF1EE;
+  /* Neighborhood (ย่าน) label chip — ink chip so it never reads as a brand logo box */
+  --area-label-bg: #182327;
+  --area-label-ink: #F6F7F3;
+  --area-label-border: #182327;
+}
+
+:root[data-theme="dark"] {
+  --surface-canvas: #11191D;
+  --surface-alt: #172126;
+  --surface-card: #20292D;
+  --surface-raised: #293337;
+  --surface-soft: #2B3534;
+  --surface-blue-tint: #18333E;
+  --surface-beige-tint: #2C2A22;
+  --text-primary: #F1F4EF;
+  --text-secondary: #C4CECA;
+  --text-metadata: #A6B5B1;
+  --text-muted: #8D9D99;
+  --text-disabled: #71817D;
+  --border-hairline: #33403D;
+  --border-default: #46524F;
+  --border-emphasis: #7C8A84;
+  --interaction-accent: #68C4E2;
+  --interaction-focus-ring: #68C4E2;
+
+  --state-info-surface: #18333E;
+  --state-info-content: #68C4E2;
+  --state-pending-surface: #2C2A22;
+  --state-pending-content: #D8CFB2;
+  --state-neutral-surface: #2B3534;
+  --state-neutral-content: #C4CECA;
+  --state-warning-surface: #3B2E16;
+  --state-warning-content: #F5C15C;
+  --state-danger-surface: #3A1F21;
+  --state-danger-content: #FF7C72;
+  --state-success-surface: #17362D;
+  --state-success-content: #72E8C4;
+
+  --map-active-layer: #65B6DB;
+  --map-hover-stroke: #65B6DB;
+  --map-selected-stroke: #68C4E2;
+  --map-focus-stroke: #68C4E2;
+  --map-marker-halo: #101318;
+  --map-marker-stroke: #F1F4EF;
+
+  --data-no-data: #404844;
+  --data-zero-outline: #93A398;
+
+  --series-1-fill: #E37A84;
+  --series-1-ink: #FF4F6D;
+  --series-2-fill: #F59B62;
+  --series-2-ink: #FF8A37;
+  --series-3-fill: #ECCB67;
+  --series-3-ink: #FFD242;
+  --series-4-fill: #A9C065;
+  --series-4-ink: #A9CB00;
+  --series-5-fill: #6EC69D;
+  --series-5-ink: #00E39D;
+  --series-6-fill: #62BEE6;
+  --series-6-ink: #54CDFF;
+  --series-7-fill: #2DA096;
+  --series-7-ink: #00B6AB;
+  --series-8-fill: #5A8CDA;
+  --series-8-ink: #5396FF;
+  --series-9-fill: #BFD4E7;
+  --series-9-ink: #C0DBF4;
+  --series-10-fill: #5B9455;
+  --series-10-ink: #3CA633;
+  --chart-on-fill: #182327;
+
+  /* DATAVIZ-03: analytical values keep the approved light HEX on dark surfaces. */
+
+  /* Basemap-only tokens — dark theme (ground = surface.canvas, water = surface.blue-tint,
+     roads = surface.raised/card, casings = borders, labels = text roles). */
+  --basemap-ground: #11191D;
+  --basemap-water: #18333E;
+  --basemap-water-line: #1F3F4C;
+  --basemap-park: #16251F;
+  --basemap-wood: #14211C;
+  --basemap-grass: #172620;
+  --basemap-sand: #1C2328;
+  --basemap-aeroway: #172126;
+  --basemap-building: #1C262B;
+  --basemap-building-line: #2A3539;
+  --basemap-massing-quiet: #2A343A;
+  --basemap-massing-focus: #4A5760;
+  --basemap-road: #293337;
+  --basemap-road-casing: #33403D;
+  --basemap-motorway-casing: #46524F;
+  --basemap-tunnel: #1A2327;
+  --basemap-rail: #46524F;
+  --basemap-transit: #5E6B67;
+  --basemap-path: #293337;
+  --basemap-label: #A6B5B1;
+  --basemap-label-quiet: #8D9D99;
+  --basemap-halo: #11191D;
+  --basemap-sky: #0D1418;
+  --basemap-horizon: #172126;
+  --basemap-fog: #11191D;
+  --area-label-bg: #182327;
+  --area-label-ink: #F6F7F3;
+  --area-label-border: #8D9D99;
+}

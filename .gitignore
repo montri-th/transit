@@ -1,0 +1,8 @@
+
+.DS_Store
+.handoff-stage/
+.qa-*.html
+dist/
+evidence/
+handoff/handoff-manifest.json
+node_modules/
