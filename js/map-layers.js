@@ -280,7 +280,7 @@ export function installAreaLabels(map, container, {onSelect, reservedBottom = ()
   function layout() {
     const width = container.clientWidth, height = container.clientHeight - reservedBottom();
     const panel = container.closest('.map-panel'), rect = container.getBoundingClientRect();
-    const chrome = panel ? [...panel.querySelectorAll('.map-toolbar, .mode-chips, .mode-menu, .map-legend, .map-status, .map-aha, .ray-status, .maplibregl-ctrl-top-right')]
+    const chrome = panel ? [...panel.querySelectorAll('.map-toolbar, .mode-bar, .mode-menu, .map-legend, .map-status, .map-aha, .ray-status, .maplibregl-ctrl-top-right')]
       .filter(e => e.offsetWidth && e.offsetHeight)
       .map(e => { const b = e.getBoundingClientRect(); return {left: b.left - rect.left - 4, right: b.right - rect.left + 4, top: b.top - rect.top - 4, bottom: b.bottom - rect.top + 4}; }) : [];
     const placed = [];

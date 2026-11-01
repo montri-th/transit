@@ -192,9 +192,9 @@ function updatePins() {
   if (!state.pins) return;
   const focus = focusLineIds();
   state.pinAlias = new Map();
-  const rows = groupComplexPins(focus ? state.scopeStations.filter(s => (s.lineIds || []).some(id => focus.has(id))) : state.baseStations, state.pinAlias);
+  const rows = groupComplexPins((focus ? state.scopeStations.filter(s => (s.lineIds || []).some(id => focus.has(id))) : state.baseStations).map(asDrawn), state.pinAlias);
   const ids = new Set(rows.flatMap(r => (r.pinMembers || [r]).map(m => m.id)));
-  state.pins.update(rows, {contextRows: groupComplexPins(state.scopeStations.filter(r => !ids.has(r.id)), state.pinAlias)});
+  state.pins.update(rows, {contextRows: groupComplexPins(state.scopeStations.filter(r => !ids.has(r.id)).map(asDrawn), state.pinAlias)});
   if (state.selectedStationId) state.pins.select(state.pinAlias.get(state.selectedStationId) || state.selectedStationId);
 }
 
@@ -217,7 +217,12 @@ function renderPanel() {
   syncEyeToggle();
   let html = '';
   if (mode === 'line') html = renderLine(buildLineProfile(selectedLine(), state.scopeStations, {stationById: state.stationById, lineById: state.lineById, complexById: state.complexById, systems: state.data.systems}));
-  else if (mode === 'station') html = renderStation(buildStationDetail(currentStation(), {stationById: state.stationById, lineById: state.lineById, interchanges: state.data.interchanges || [], complexById: state.complexById, buildingsByStation: state.buildingsByStation, sourcesById: state.sourcesById}), {lineById: state.lineById});
+  else if (mode === 'station') {
+    const st = currentStation(), detail = buildStationDetail(st, {stationById: state.stationById, lineById: state.lineById, interchanges: state.data.interchanges || [], complexById: state.complexById, buildingsByStation: state.buildingsByStation, sourcesById: state.sourcesById});
+    const drawn = displayPoint(st), off = drawn && hasPoint(st) ? metresBetween({lng: drawn[0], lat: drawn[1]}, st) : 0;
+    if (detail && off >= 20) detail.displayNote = `บนแผนที่วางสถานีที่อาคารสถานีจาก OpenStreetMap ห่างจุดอ้างอิงนี้ ${num(Math.round(off / 10) * 10)} ม.`;
+    html = renderStation(detail, {lineById: state.lineById});
+  }
   if (!html) {
     const insight = computeInsight(state.scopeStations, state.data.complexes || []);
     const ranking = rankLines(state.scopeStations, state.data.lines, state.data.systems).rows;
@@ -420,11 +425,11 @@ function renderTable() {
 }
 
 /* ---------- map ---------- */
-/** Bottom edge of the top map chrome: the toolbar, or the row of active-mode chips under it. */
+/** Bottom edge of the top map chrome: the toolbar and the mode row under it. */
 function topChrome() {
   const toolbar = document.querySelector('.map-toolbar').getBoundingClientRect();
-  const chips = $('mode-chips');
-  return {bottom: !chips.hidden && chips.offsetHeight ? Math.max(toolbar.bottom, chips.getBoundingClientRect().bottom) : toolbar.bottom};
+  const bar = $('mode-bar');
+  return {bottom: bar && bar.offsetHeight ? Math.max(toolbar.bottom, bar.getBoundingClientRect().bottom) : toolbar.bottom};
 }
 function cameraPadding() {
   const height = $('map').clientHeight, panel = $('insights').getBoundingClientRect().height;
@@ -452,7 +457,7 @@ function circleRing([lng, lat], radius = FOCUS_RADIUS_M, steps = 24) {
 /** Points that define the camera focus of the current state. */
 function focusPoints() {
   const st = currentStation();
-  if (st && hasPoint(st)) return [[st.lng, st.lat]];
+  if (st && hasPoint(st)) return [displayPoint(st)];
   const line = selectedLine();
   if (line) return state.scopeStations.filter(s => (s.lineIds || []).includes(line.id) && hasPoint(s)).map(s => [s.lng, s.lat]);
   if (state.focusMode === 'auto') {
@@ -496,9 +501,10 @@ function regionRoof([lng, lat], radius = STATION_RADIUS_M) {
 function frameStation(st, {instant = false, roof = null, duration = 650} = {}) {
   if (!state.loaded || !hasPoint(st)) return;
   const map = state.map, preset = cameraPreset();
-  const ring = circleRing([st.lng, st.lat], STATION_RADIUS_M, 32);
+  const centre = displayPoint(st);
+  const ring = circleRing(centre, STATION_RADIUS_M, 32);
   const own = Math.max(0, ...(state.buildingsByStation.get(st.id)?.features || []).map(f => Number(f.properties?.height) || 0));
-  const around = roof ?? regionRoof([st.lng, st.lat]);
+  const around = roof ?? regionRoof(centre);
   const top = Math.max(own, around ?? DEFAULT_ROOF_M);
   const points = preset === 'plan' ? ring : [...ring.map(([x, y]) => [x, y, 0]), ...ring.map(([x, y]) => [x, y, top])];
   const bounds = ring.reduce((acc, p) => acc.extend(p), new maplibregl.LngLatBounds(ring[0], ring[0]));
@@ -511,7 +517,7 @@ function frameStation(st, {instant = false, roof = null, duration = 650} = {}) {
 function refitStationRoof() {
   const f = state.stationFrame, st = currentStation();
   if (!f || f.moved || !st || st.id !== f.id || state.panel.mode !== 'station' || cameraPreset() === 'plan') return;
-  const roof = regionRoof([st.lng, st.lat]);
+  const roof = regionRoof(displayPoint(st));
   if (roof == null || (f.measured && roof <= f.roof + 1) || (!f.measured && Math.abs(roof - f.roof) < 12)) { if (roof != null) f.measured = true; return; }
   frameStation(st, {roof, duration: 450});
 }
@@ -540,7 +546,8 @@ function sceneLines(focus) {
 
 function sceneStations(focus) {
   // Same grouping as the pins: one plate per interchange complex, striped with every line that meets there.
-  return groupComplexPins(state.scopeStations.filter(hasPoint)).map(s => {
+  // A station whose hall OSM maps is drawn as that hall only (no plate beside it).
+  return groupComplexPins(state.scopeStations.filter(hasPoint).map(asDrawn)).filter(s => !(s.pinMembers || [s]).some(m => state.buildingsByStation.has(m.id))).map(s => {
     const members = s.pinMembers || [s];
     return {
       id: s.id, lng: s.lng, lat: s.lat, status: s.status, bearing: s.bearing || 0,
@@ -678,13 +685,9 @@ async function toggleLayer(kind, on = !state.layers[kind]) {
 const layerNote = c => [c.count != null ? `${num(c.count)} ${c.unit}` : '', c.source, c.period, c.boundary].filter(Boolean).join(' · ');
 function renderModeMenu() {
   const summary = state.data?.meta?.contextLayers || {};
-  const on = MODE_LAYERS.filter(k => state.layers[k]);
-  // Active layers stay in sight on every screen: one chip per layer under the toolbar (symbol + name, tap to hide).
-  $('mode-chips').innerHTML = on.filter(k => summary[k]).map(k => `<button type="button" class="mode-chip" data-layer="${k}" title="${esc(layerNote(summary[k]))}" aria-label="ซ่อนชั้น${esc(summary[k].label)}"><i class="mode-sym is-${k}" aria-hidden="true"></i><span>${esc(summary[k].short || summary[k].label)}</span><span class="chip-x" aria-hidden="true">×</span></button>`).join('');
-  $('mode-chips').hidden = !on.length || !$('mode-menu').hidden;
-  $('mode-active-count').textContent = on.length ? num(on.length) : '';
-  $('mode-active-count').hidden = !on.length;
-  $('toggle-modes').setAttribute('aria-label', on.length ? `ขนส่งอื่น เปิดอยู่ ${on.length} ชั้น` : 'ขนส่งอื่น');
+  // Every mode has its own toggle in one row under the toolbar, on every screen (owner 2026-11-01: the menu
+  // button was not found); off by default, pressed = shown on the map.
+  $('mode-chips').innerHTML = MODE_LAYERS.filter(k => summary[k]).map(k => `<button type="button" class="mode-chip" data-layer="${k}" aria-pressed="${state.layers[k]}" title="${esc(layerNote(summary[k]))}"><i class="mode-sym is-${k}" aria-hidden="true"></i><span>${esc(summary[k].short || summary[k].label)}</span></button>`).join('');
   $('mode-list').innerHTML = MODE_LAYERS.filter(k => summary[k]).map(k => {
     const c = summary[k];
     return `<li><button type="button" class="mode-item" data-layer="${k}" aria-pressed="${state.layers[k]}"><i class="mode-sym is-${k}" aria-hidden="true"></i><span class="mode-text"><strong>${esc(c.label)}</strong><small>${esc(layerNote(c))}</small></span><span class="mode-state" aria-hidden="true">${state.layers[k] ? 'เปิด' : 'ปิด'}</span></button></li>`;
@@ -750,7 +753,7 @@ function initMap() {
   state.provinceLabels = installAreaLabels(state.map, $('map'), {className: 'province-label', hostId: 'province-labels', hostLabel: 'จังหวัดบนแผนที่', minZoom: 0, maxZoom: PROVINCE_LABEL_MAX_ZOOM, verb: 'กดเพื่อดูจังหวัด', unit: 'สถานี', onSelect: code => selectProvince(code), reservedBottom: () => $('insights').getBoundingClientRect().height + 12});
   state.pins = installStationPins(state.map, $('map'), {
     reservedBottom: () => $('insights').getBoundingClientRect().height + 12,
-    altitude: row => (state.view3d && state.scene && row.elevation === 'elevated' ? ELEVATION.elevated + 3 : 0),
+    altitude: row => (!state.view3d || !state.scene ? 0 : Math.max(row.elevation === 'elevated' ? ELEVATION.elevated + 3 : 0, Number.isFinite(row.buildingTop) ? row.buildingTop + 2 : 0)),
     describe: row => {
       const members = row.pinMembers || [row];
       const lines = [...new Set(members.flatMap(linesOf))];
@@ -906,9 +909,9 @@ function wireEvents() {
   $('toggle-modes').onclick = () => setModeMenu($('mode-menu').hidden);
   $('close-modes').onclick = () => setModeMenu(false, {focus: true});
   $('mode-list').addEventListener('click', e => { const b = e.target.closest('[data-layer]'); if (b) toggleLayer(b.dataset.layer); });
-  $('mode-chips').addEventListener('click', e => { const b = e.target.closest('[data-layer]'); if (b) toggleLayer(b.dataset.layer, false); });
+  $('mode-chips').addEventListener('click', e => { const b = e.target.closest('[data-layer]'); if (b) toggleLayer(b.dataset.layer); });
   document.addEventListener('keydown', e => { if (e.key === 'Escape' && !$('mode-menu').hidden) setModeMenu(false, {focus: true}); });
-  document.addEventListener('pointerdown', e => { if (!$('mode-menu').hidden && !e.target.closest('#mode-menu, #toggle-modes')) setModeMenu(false); });
+  document.addEventListener('pointerdown', e => { if (!$('mode-menu').hidden && !e.target.closest('#mode-menu, #toggle-modes, #mode-chips')) setModeMenu(false); });
   $('mobile-panel').onclick = () => { $('panel').classList.contains('is-open') ? closeMobilePanel() : openMobilePanel(); };
   $('close-mobile-panel').onclick = closeMobilePanel;
   document.querySelector('.skip').onclick = () => { openMobilePanel(); $('dataset-title').focus(); };
@@ -937,6 +940,26 @@ function resolveLineColors() {
   for (const f of state.railGeo?.features || []) f.properties.color = state.lineById.get(f.properties.lineId)?.color || null;
 }
 
+/** Centre and roof of an OSM station building: where the station is drawn when OSM maps its hall. */
+function buildingAnchor(f) {
+  const ring = outerRings(f)[0] || [];
+  const pts = ring.length > 1 && ring[0][0] === ring.at(-1)[0] && ring[0][1] === ring.at(-1)[1] ? ring.slice(0, -1) : ring;
+  if (!pts.length) return null;
+  return {lng: pts.reduce((a, q) => a + q[0], 0) / pts.length, lat: pts.reduce((a, q) => a + q[1], 0) / pts.length, top: (Number(f.properties?.base) || 0) + (Number(f.properties?.height) || 0)};
+}
+
+/**
+ * Where a station is drawn (pin, 3D, camera). One station, one 3D form (owner 2026-11-01: the plate at the
+ * reference point and the OSM hall elsewhere read as two stations): when OSM maps the station's hall, the
+ * pin sits on that hall and the hall is the station's 3D form; otherwise the plate at the reference point.
+ * The panel keeps the reference coordinate and says how far the drawn position is from it.
+ */
+function displayPoint(st) {
+  const a = state.buildingsByStation.get(st?.id)?.anchor;
+  return a ? [a.lng, a.lat] : hasPoint(st) ? [st.lng, st.lat] : null;
+}
+const asDrawn = s => { const a = state.buildingsByStation.get(s.id)?.anchor; return a ? {...s, lng: a.lng, lat: a.lat, buildingTop: a.top} : s; };
+
 function indexData() {
   const d = state.data;
   state.lineById = new Map(d.lines.map(l => [l.id, l]));
@@ -947,7 +970,7 @@ function indexData() {
   state.buildingsByStation = new Map();
   for (const f of state.buildingGeo?.features || []) {
     for (const id of f.properties?.stationIds || [f.properties?.stationId].filter(Boolean)) {
-      if (!state.buildingsByStation.has(id)) state.buildingsByStation.set(id, {features: [], name: f.properties.name || '', osmRef: f.properties.osm_ref || '', url: f.properties.osm_url || '', heightNote: f.properties.height_note || ''});
+      if (!state.buildingsByStation.has(id)) state.buildingsByStation.set(id, {features: [], name: f.properties.name || '', osmRef: f.properties.osm_ref || '', url: f.properties.osm_url || '', heightNote: f.properties.height_note || '', anchor: buildingAnchor(f)});
       state.buildingsByStation.get(id).features.push(f);
     }
   }

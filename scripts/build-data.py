@@ -1194,12 +1194,12 @@ def context_summary(bus, boat, context):
         'stops': {'label': 'ป้ายรถเมล์ · สถานี BRT', 'short': 'ป้ายรถเมล์', 'count': bus['meta']['stops'] + len(bus['brt']['stations']), 'unit': 'จุด',
                   'kinds': ['ป้ายรถเมล์ใน GTFS (ระเบียนจุดจอด)', 'สถานี BRT'], 'kindCounts': [bus['meta']['stops'], len(bus['brt']['stations'])],
                   'boundary': 'กรุงเทพฯ และปริมณฑล', 'frame': BUS_FRAME, 'source': 'GTFS ของ สนข.', 'period': 'ตาราง 30 ต.ค. 2569'},
-        'boat': {'label': 'เรือโดยสาร', 'short': 'เรือโดยสาร', 'count': len(boat['stops']['features']), 'unit': 'ท่า', 'routes': len(boat['routes']['features']),
+        'boat': {'label': 'เรือโดยสาร', 'short': 'เรือ', 'count': len(boat['stops']['features']), 'unit': 'ท่า', 'routes': len(boat['routes']['features']),
                  'boundary': 'กรุงเทพฯ และปริมณฑล', 'frame': BOAT_FRAME, 'source': 'GTFS ของ สนข. และรายชื่อท่าของผู้ให้บริการ', 'period': 'ตาราง 30 ต.ค. 2569'},
     }
     period = {'moto': 'แก้ไขล่าสุด ก.ย.–ธ.ค. 2566', 'intercity': 'คค. พ.ค. 2569 · บขส. ปรับปรุง มิ.ย. 2564', 'air': 'eAIP มีผล 29 ต.ค. 2569', 'srt': 'ตาราง 30 ต.ค. 2569'}
     short = {'moto': 'ข้อมูลเปิด กทม.', 'intercity': 'กระทรวงคมนาคม และ บขส.', 'air': 'กพท. (eAIP)', 'srt': 'GTFS ของ สนข.'}
-    legend = {'moto': 'วินมอเตอร์ไซค์', 'intercity': 'สถานีขนส่ง · บขส.', 'air': 'ท่าอากาศยาน', 'srt': 'รถไฟทางไกล'}
+    legend = {'moto': 'วินมอไซค์', 'intercity': 'บขส./ขนส่ง', 'air': 'สนามบิน', 'srt': 'รถไฟทางไกล'}   # short names for the mode row
     for k, v in context.items():
         m = v['meta']
         out[k] = {'label': m['label'], 'short': legend[k], 'count': m['count'], 'unit': m['unit'], 'boundary': m['boundary'], 'frame': m['frame'],

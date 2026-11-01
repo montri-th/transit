@@ -170,7 +170,7 @@ export function renderStation(d, {lineById}) {
       <ul class="chip-list" aria-label="สายที่ผ่านหรือเปลี่ยนได้ที่สถานีนี้">${lineChips}</ul>
       <dl class="facts">
         <dt>จังหวัด</dt><dd>${province ? `<button type="button" class="link-button" data-action="select-province" data-id="${esc(province.code)}">${esc(province.th)}</button>` : 'ไม่ระบุ'}${s.district ? ` · ${esc(s.district)}` : ''}</dd>
-        <dt>พิกัด</dt><dd><span class="data-number">${esc(coords)}</span><br><span class="hint">${esc(d.coordinateNote || '')}</span></dd>
+        <dt>พิกัด</dt><dd><span class="data-number">${esc(coords)}</span><br><span class="hint">${esc(d.coordinateNote || '')}${d.displayNote ? `<br>${esc(d.displayNote)}` : ''}</span></dd>
         ${ridership ? `<dt>ผู้โดยสาร</dt>${ridership}` : ''}
         ${work}
         ${building}
