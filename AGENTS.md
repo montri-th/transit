@@ -17,3 +17,8 @@ Carried from the Luxury Brands demo (owner, 2026-10-22) and set for Transit on 2
 - Publication: no Google Drive/Docs links, local paths or credentials in any published file (`scripts/build-data.py` guard + `tests/data.test.js`). Work on `release/*`; `main` only after the release gate; verify the live URL (`npm run verify:live`) before saying a release is done.
 - Breadcrumb is ประเทศไทย › จังหวัด › สาย › สถานี with the production province codes; a line crumb appears only when the station was reached through that line.
 - No decorative brackets or coloured left rails on menus, tabs, cards or callouts; keep visible keyboard focus. Review real Thai and English at narrow and desktop widths in light and dark themes before claiming a change is done.
+
+## Discovery and dataset group (owner decision 2026-11-08)
+
+- Every page carries `<meta name="robots" content="noindex, nofollow">`. The owner does not want search engines to index the demos while developers keep building on them: “ไม่ต้องการให้เสิช engine เข้ามาดูเดโม แต่อยากให้ dev นำ demo บน github ไป vibe coding ต่อได้ง่าย คือ SEO อันไหนจัดการได้จัดการไปเลย แต่ยังไม่ต้องให้ crawler เข้ามา index”. Keep the rest of the SEO metadata ready for production, do not block crawlers in a robots.txt (they must be able to read the noindex), add no sitemap, and never point `rel="canonical"` at landometer.com from a noindex page. `tests/discovery-and-group.test.js` guards this.
+- The panel eyebrow `CITYMETER · LIVING` follows the dataset registry (`R01_DATASETS.dataset_group`; owner: “ใช้ตามทะเบียนทั้งหมด”). This dataset is LIVING in the registry read on 2026-11-08; change the label only when the registry changes.
