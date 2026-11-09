@@ -16,58 +16,75 @@
     #launch-status{position:fixed;inset:48px 0 0;z-index:30;display:grid;place-items:center;padding:20px;background:var(--surface-canvas,#F6F7F3);color:var(--text-primary,#182327);overflow:auto;font:400 14px/1.65 "Bai Jamjuree",sans-serif}
     #launch-status[hidden]{display:none!important}
     .launch-card{width:min(560px,100%);padding:24px;background:var(--surface-card,#FCFCFA);border:1px solid var(--border-default,#C9D0CB);border-radius:16px}
-    .launch-card h1{font-size:24px;line-height:1.4;margin:0 0 12px}.launch-card p{margin:12px 0}
+    .launch-card h2{font-size:24px;line-height:1.4;margin:0 0 12px}.launch-card p{margin:12px 0}
     .launch-card a{color:inherit;overflow-wrap:anywhere;text-underline-offset:3px}
     .launch-actions{display:flex;align-items:center;gap:14px;flex-wrap:wrap}.launch-card button{min-height:44px;padding:8px 16px;font:inherit}
     .launch-card details{margin-top:16px;font-size:12px}.launch-card summary{cursor:pointer;min-height:44px;display:flex;align-items:center}
     .launch-card pre{white-space:pre-wrap;overflow-wrap:anywhere;font:400 12px/1.6 "JetBrains Mono",monospace}
     .launch-card :focus-visible{outline:3px solid var(--interaction-focus-ring,#1D4497);outline-offset:3px}
-    @media(max-width:420px){#launch-status{padding:16px}.launch-card{padding:20px}.launch-card h1{font-size:21px}}
+    @media(max-width:420px){#launch-status{padding:16px}.launch-card{padding:20px}.launch-card h2{font-size:21px}}
   </style>
-  <script src="js/launch.js?v=20261101-r1"></script>
-  <link rel="icon" href="assets/icons/icon-portfolio-32.png?v=20261101-r1" sizes="32x32">
-  <link rel="icon" href="assets/icons/icon-portfolio-16.png?v=20261101-r1" sizes="16x16">
-  <link rel="icon" href="assets/icons/icon-portfolio-48.png?v=20261101-r1" sizes="48x48">
-  <link rel="apple-touch-icon" href="assets/icons/icon-portfolio-180.png?v=20261101-r1">
+  <script src="js/shell/launch.js?v=20261109-r1" data-public="https://montri-th.github.io/transit/" data-name="Transit" data-reading="สาย สถานี อาคาร" data-boundary="จังหวัด"></script>
+  <link rel="icon" href="assets/icons/icon-portfolio-32.png?v=20261109-r1" sizes="32x32">
+  <link rel="icon" href="assets/icons/icon-portfolio-16.png?v=20261109-r1" sizes="16x16">
+  <link rel="icon" href="assets/icons/icon-portfolio-48.png?v=20261109-r1" sizes="48x48">
+  <link rel="apple-touch-icon" href="assets/icons/icon-portfolio-180.png?v=20261109-r1">
   <link rel="manifest" href="site.webmanifest">
-  <link rel="stylesheet" href="assets/lds/build-kit/fonts.css?v=20261101-r1">
-  <link rel="stylesheet" href="assets/theme.css?v=20261101-r1">
-  <link rel="stylesheet" href="styles.css?v=20261101-r1">
-  <link rel="stylesheet" href="navigation.css?v=20261101-r1">
+  <link rel="stylesheet" href="assets/lds/build-kit/fonts.css?v=20261109-r1">
+  <link rel="stylesheet" href="assets/theme.css?v=20261109-r1">
+  <link rel="stylesheet" href="styles.css?v=20261109-r1">
+  <link rel="stylesheet" href="navigation.css?v=20261109-r1">
   <script type="importmap">
     {"imports": {
-      "./js/app.js": "./js/app.js?v=20261101-r1",
-      "./js/breadcrumb.js": "./js/breadcrumb.js?v=20261101-r1",
-      "./js/camera.js": "./js/camera.js?v=20261101-r1",
-      "./js/charts.js": "./js/charts.js?v=20261101-r1",
-      "./js/geometry.js": "./js/geometry.js?v=20261101-r1",
-      "./js/map-layers.js": "./js/map-layers.js?v=20261101-r1",
-      "./js/map-style.js": "./js/map-style.js?v=20261101-r1",
-      "./js/massing.js": "./js/massing.js?v=20261101-r1",
-      "./js/model.js": "./js/model.js?v=20261101-r1",
-      "./js/mvt.js": "./js/mvt.js?v=20261101-r1",
-      "./js/navigation.js": "./js/navigation.js?v=20261101-r1",
-      "./js/nearby.js": "./js/nearby.js?v=20261101-r1",
-      "./js/panel.js": "./js/panel.js?v=20261101-r1",
-      "./js/pins.js": "./js/pins.js?v=20261101-r1",
-      "./js/polyline.js": "./js/polyline.js?v=20261101-r1",
-      "./js/profile-model.js": "./js/profile-model.js?v=20261101-r1",
-      "./js/provinces-list.js": "./js/provinces-list.js?v=20261101-r1",
-      "./js/provinces.js": "./js/provinces.js?v=20261101-r1",
-      "./js/scales.js": "./js/scales.js?v=20261101-r1",
-      "./js/scene.js": "./js/scene.js?v=20261101-r1",
-      "./js/vendors.js": "./js/vendors.js?v=20261101-r1"
+      "./js/app.js": "./js/app.js?v=20261109-r1",
+      "./js/breadcrumb.js": "./js/breadcrumb.js?v=20261109-r1",
+      "./js/camera.js": "./js/camera.js?v=20261109-r1",
+      "./js/charts.js": "./js/charts.js?v=20261109-r1",
+      "./js/geometry.js": "./js/geometry.js?v=20261109-r1",
+      "./js/map-layers.js": "./js/map-layers.js?v=20261109-r1",
+      "./js/map-style.js": "./js/map-style.js?v=20261109-r1",
+      "./js/massing.js": "./js/massing.js?v=20261109-r1",
+      "./js/model.js": "./js/model.js?v=20261109-r1",
+      "./js/mvt.js": "./js/mvt.js?v=20261109-r1",
+      "./js/navigation.js": "./js/navigation.js?v=20261109-r1",
+      "./js/nearby.js": "./js/nearby.js?v=20261109-r1",
+      "./js/panel.js": "./js/panel.js?v=20261109-r1",
+      "./js/pins.js": "./js/pins.js?v=20261109-r1",
+      "./js/polyline.js": "./js/polyline.js?v=20261109-r1",
+      "./js/profile-model.js": "./js/profile-model.js?v=20261109-r1",
+      "./js/provinces-list.js": "./js/provinces-list.js?v=20261109-r1",
+      "./js/provinces.js": "./js/provinces.js?v=20261109-r1",
+      "./js/scales.js": "./js/scales.js?v=20261109-r1",
+      "./js/scene.js": "./js/scene.js?v=20261109-r1",
+      "./js/vendors.js": "./js/vendors.js?v=20261109-r1",
+      "./js/shell/area-path.js": "./js/shell/area-path.js?v=20261109-r1",
+      "./js/shell/breadcrumb.js": "./js/shell/breadcrumb.js?v=20261109-r1",
+      "./js/shell/building-join.js": "./js/shell/building-join.js?v=20261109-r1",
+      "./js/shell/building-units.js": "./js/shell/building-units.js?v=20261109-r1",
+      "./js/shell/camera.js": "./js/shell/camera.js?v=20261109-r1",
+      "./js/shell/datasets.js": "./js/shell/datasets.js?v=20261109-r1",
+      "./js/shell/geometry.js": "./js/shell/geometry.js?v=20261109-r1",
+      "./js/shell/header.js": "./js/shell/header.js?v=20261109-r1",
+      "./js/shell/map-style.js": "./js/shell/map-style.js?v=20261109-r1",
+      "./js/shell/maplibre-guard.js": "./js/shell/maplibre-guard.js?v=20261109-r1",
+      "./js/shell/mvt.js": "./js/shell/mvt.js?v=20261109-r1",
+      "./js/shell/navigation.js": "./js/shell/navigation.js?v=20261109-r1",
+      "./js/shell/terrain.js": "./js/shell/terrain.js?v=20261109-r1",
+      "./js/shell/title.js": "./js/shell/title.js?v=20261109-r1",
+      "./js/shell/url.js": "./js/shell/url.js?v=20261109-r1",
+      "./js/shell/vendors.js": "./js/shell/vendors.js?v=20261109-r1",
+      "./js/shell/venue-xray.js": "./js/shell/venue-xray.js?v=20261109-r1"
     }}
   </script>
-  <script type="module" src="js/app.js?v=20261101-r1"></script>
-  <script type="module" src="js/navigation.js?v=20261101-r1"></script>
+  <script type="module" src="js/app.js?v=20261109-r1"></script>
+  <script type="module" src="js/navigation.js?v=20261109-r1"></script>
 </head>
 <body>
 <a class="skip" href="#panel">ข้ามไปแผงข้อมูล</a>
 
 <header class="topbar">
   <a class="brand" href="https://landometer.com/v3/citymeter" aria-label="CityMETER production">
-    <img src="assets/icons/icon-portfolio-32.png?v=20261101-r1" alt="" width="24" height="24"><span>CityMETER</span>
+    <img src="assets/icons/icon-portfolio-32.png?v=20261109-r1" alt="" width="24" height="24"><span>CityMETER</span>
   </a>
   <span class="brand-divider" aria-hidden="true">/</span>
   <span class="product-name">Transit</span>
@@ -84,7 +101,7 @@
 <section id="launch-status" role="status" aria-live="polite" aria-busy="true" aria-labelledby="launch-title">
   <div class="launch-card">
     <p class="eyebrow">CITYMETER TRANSIT</p>
-    <h1 id="launch-title">กำลังโหลดข้อมูล</h1>
+    <h2 id="launch-title">กำลังโหลดข้อมูล</h2>
     <p id="launch-message">กำลังอ่านข้อมูลสาย สถานี และอาคาร หากรอนาน เปิดเว็บสาธารณะได้จากลิงก์นี้</p>
     <p><a id="launch-public" href="https://montri-th.github.io/transit/">https://montri-th.github.io/transit/</a></p>
     <div class="launch-actions"><button id="launch-retry" type="button" hidden>ลองโหลดใหม่</button><a href="https://github.com/montri-th/transit" target="_blank" rel="noopener">ดูที่มาใน GitHub</a></div>
