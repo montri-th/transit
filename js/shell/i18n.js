@@ -59,24 +59,34 @@ const norm = text => String(text ?? '').replace(/\s+/g, ' ').trim();
 
 /**
  * Add translations: {exact: {thai: english}, patterns: [[/^…$/, 'english $1' | (match, tools) => english | null]],
- * contexts: [[selector, {thai: english | (element, tools) => english | null}]]}. A context entry wins for a text node
- * whose element matches its selector, so one Thai word can read two ways: จังหวัด is “Province” on a filter and
- * “77 provinces” under a tile's number (the function gets the element: its number is a sibling).
+ * contexts: [[selector, {thai: english | (element, tools) => english | null}, patterns?]]}. A context entry wins for a
+ * text node whose element matches its selector, so one Thai word can read two ways: จังหวัด is “Province” on a filter
+ * and “77 provinces” under a tile's number (the function gets the element: its number is a sibling). A context's own
+ * patterns (0.5.2) read a text with a number there: “41 แห่ง” is “41 learning centres” under a learning heading and
+ * “41 schools” elsewhere (the function gets the match, the tools and the element).
  */
 export function registerDictionary({exact: entries = {}, patterns: list = [], contexts: scoped = []} = {}) {
   for (const [th, en] of Object.entries(entries)) exact.set(norm(th), en);
   patterns.push(...list);
-  for (const [selector, map] of scoped) contexts.unshift([selector, new Map(Object.entries(map).map(([th, en]) => [norm(th), en]))]);
+  for (const [selector, map = {}, own = []] of scoped) contexts.unshift([selector, new Map(Object.entries(map).map(([th, en]) => [norm(th), en])), own]);
 }
 
 /** English for a text in its element's context, or null when no context entry applies. */
 function inContext(element, text) {
   const s = norm(text);
-  for (const [selector, map] of contexts) {
-    if (!map.has(s) || !element.matches?.(selector)) continue;
-    const en = map.get(s);
-    const r = typeof en === 'function' ? en(element, tools) : en;
-    if (r != null) return r;
+  for (const [selector, map, own] of contexts) {
+    if ((!map.has(s) && !own.length) || !element.matches?.(selector)) continue;
+    if (map.has(s)) {
+      const en = map.get(s);
+      const r = typeof en === 'function' ? en(element, tools) : en;
+      if (r != null) return r;
+    }
+    for (const [re, out] of own) {
+      const m = re.exec(s);
+      if (!m || m[0] !== s) continue;
+      const r = typeof out === 'function' ? out(m, tools, element) : out.replace(/\$(\d)/g, (_, i) => m[+i] ?? '');
+      if (r != null) return r;
+    }
   }
   return null;
 }
@@ -137,6 +147,8 @@ const tools = {
   date: englishDate,
   /** Translate a part (a phrase inside a pattern); null when it has no English. */
   part: text => (THAI.test(norm(text)) ? whole(norm(text)) : norm(text)),
+  /** Translate a longer piece the way a text node is (split on the separators too); null when it has no English (0.5.2). */
+  text: text => (THAI.test(norm(text)) ? translate(text) : norm(text)),
   /** 1 → 'office', otherwise 'offices' (numbers arrive as written, "1,234"). */
   plural: (count, one, many) => (String(count).replace(/,/g, '') === '1' ? one : many),
 };
@@ -181,6 +193,16 @@ export const translateIn = (element, text) => (element ? inContext(element, text
 let started = false;
 const written = new WeakMap(); // node → the value this module wrote, so its own change is not translated again
 
+const markedThai = new WeakSet(); // elements this module marked lang="th" (a name that stays Thai is all they hold)
+/** A name that stays Thai and is the whole of its element is marked lang="th" for screen readers (0.5.2). */
+function markLanguage(parent, thai) {
+  if (thai) {
+    if (parent.childNodes.length === 1 && !parent.hasAttribute('lang')) { parent.setAttribute('lang', 'th'); markedThai.add(parent); }
+  } else if (markedThai.has(parent)) {
+    parent.removeAttribute('lang'); markedThai.delete(parent);
+  }
+}
+
 function translateText(node) {
   const value = node.nodeValue;
   if (!value || written.get(node) === value || !THAI.test(value)) return;
@@ -189,16 +211,31 @@ function translateText(node) {
   if (parent.tagName === 'TITLE') return translateTitle(node);
   const en = translateIn(parent, value);
   if (en == null) { report.missing.add(norm(value)); return; }
+  markLanguage(parent, en === norm(value) && keep.has(en));
   const next = value.match(/^\s*/)[0] + en + value.match(/\s*$/)[0];
   written.set(node, next);
   if (next !== value) node.nodeValue = next;
+}
+
+/**
+ * A page part pageTitle cut to fit 60 characters (“โรงเรียนสาธิต… ประสาน…”): the name it begins with, in English, or the
+ * cut text itself when that name stays Thai; null when no registered name begins with it. Pure once the names are in.
+ */
+export function cutName(page) {
+  const s = norm(page);
+  if (!s.endsWith('…')) return null;
+  const head = s.slice(0, -1).trimEnd();
+  if (!head || !THAI.test(head)) return null;
+  for (const [th, en] of names) if (th.startsWith(head)) return en;
+  for (const th of keep) if (th.startsWith(head)) { report.thaiNames.add(th); return s; }
+  return null;
 }
 
 function translateTitle(node) {
   const value = norm(node.nodeValue);
   const tail = ` · ${PRODUCT}`;
   const page = value.endsWith(tail) ? value.slice(0, -tail.length) : value;
-  const en = translate(page);
+  const en = translate(page) ?? cutName(page);
   if (en == null) { report.missing.add(page); return; }
   const next = page === value ? en : pageTitle(en);
   written.set(node, next);
