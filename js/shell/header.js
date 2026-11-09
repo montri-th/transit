@@ -55,9 +55,11 @@ export function pickerList({pathname = '', search = '', place = '', lang = 'th'}
     const id = `dataset-group-${group.toLowerCase()}`;
     const items = DEMOS.filter(d => d.group === group).map(d => {
       const current = here?.path === d.path;
-      const note = d.at || current ? '' : '<span class="dataset-note">หน้าแรก</span>';
-      return `<li><a class="dataset-link" href="${esc(demoHref(d, search, lang))}"${current ? ' aria-current="page"' : ''}>`
-        + `<span>${esc(d.name)}</span>${note}</a></li>`;
+      // From an English page a demo that is Thai only says so (it opens in Thai).
+      const notes = [d.at || current ? '' : 'หน้าแรก', lang === 'en' && !d.en && !current ? 'ภาษาไทย' : ''].filter(Boolean);
+      const note = notes.length ? `<span class="dataset-note">${notes.join(' · ')}</span>` : '';
+      return `<li><a class="dataset-link" href="${esc(demoHref(d, search, lang))}"${current ? ' aria-current="page"' : ''}`
+        + `${lang === 'en' && !d.en ? ' hreflang="th"' : ''}><span>${esc(d.name)}</span>${note}</a></li>`;
     }).join('');
     return `<div class="dataset-group"><p class="dataset-group-label" id="${id}">${esc(group.toUpperCase())}</p>`
       + `<ul aria-labelledby="${id}">${items}</ul></div>`;

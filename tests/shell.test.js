@@ -1,7 +1,7 @@
 /**
  * citymeter-shell — the shared code of the CityMETER demos (js/shell/): navigation (0.1.0), the map modules (0.2.0),
  * the header (0.3.0), the subdistrict, local-unit and locale levels (0.4.0, 0.4.1), a zone a dataset defines itself
- * (0.4.2), networks (0.4.3) and the page language (0.5.0). This file is the same in every repository that carries the shell: the files must match
+ * (0.4.2), networks (0.4.3) and the page language (0.5.0, words in context 0.5.1). This file is the same in every repository that carries the shell: the files must match
  * js/shell/manifest.json byte for byte (and so must the files it lists under `shared`), and the navigation modules
  * must keep the contract of demo-platform-review §5.2–5.3 (address grammar, history, breadcrumb, tab title). The map
  * modules keep their own tests in each repository (tests/camera.test.js, tests/terrain.test.js …); the launch card
@@ -18,7 +18,7 @@ import {pageTitle, TITLE_MAX} from '../js/shell/title.js';
 import {terrainChips} from '../js/shell/terrain.js';
 import {DEMOS, GROUPS, demoUrl, hubUrl} from '../js/shell/datasets.js';
 import {demoHref, currentDemo, pickerList, placeLevel, hubHref, languageLink} from '../js/shell/header.js';
-import {pageLanguage, languageHref, translate, registerDictionary, registerNames, keepThai, englishDate, LANG} from '../js/shell/i18n.js';
+import {pageLanguage, languageHref, translate, translateIn, registerDictionary, registerNames, keepThai, englishDate, LANG} from '../js/shell/i18n.js';
 
 const SHELL = new URL('../js/shell/', import.meta.url);
 const sha256 = buf => createHash('sha256').update(buf).digest('hex');
@@ -395,10 +395,34 @@ test('header: the list ends with all demos on the showcase, in the page language
   assert.equal(hubHref('?d=office', 'en'), 'https://montri-th.github.io/CityMETER/en/demos/');
   const html = pickerList({pathname: '/hotel/', search: '?at=BKK/D/1039'});
   assert.match(html, /<p class="dataset-hub"><a class="dataset-link" href="https:\/\/montri-th\.github\.io\/CityMETER\/demos\/\?at=BKK\/D\/1039">ดูเดโมทั้งหมด<\/a><\/p>$/);
-  const office = DEMOS.find(d => d.path === 'office'), hotel = DEMOS.find(d => d.path === 'hotel');
+  const office = DEMOS.find(d => d.path === 'office'), thai = DEMOS.find(d => !d.en);
   assert.equal(office.en, true, 'Office declares English (0.5.0)');
+  assert.deepEqual(DEMOS.filter(d => d.en).map(d => d.path).sort(), ['hospital', 'hotel', 'office'], 'Hotel and Hospital declare English (0.5.1)');
   assert.equal(demoHref(office, '?at=BKK/D/1039&lang=en', 'en'), 'https://montri-th.github.io/office/?at=BKK/D/1039&lang=en');
-  assert.equal(demoHref(hotel, '?at=BKK/D/1039&lang=en', 'en'), 'https://montri-th.github.io/hotel/?at=BKK/D/1039', 'a demo without English opens in Thai');
+  assert.equal(demoHref(thai, '?at=BKK/D/1039&lang=en', 'en'), `https://montri-th.github.io/${thai.path}/?at=BKK/D/1039`, 'a demo without English opens in Thai');
   assert.equal(demoHref(office, '', 'en'), 'https://montri-th.github.io/office/?lang=en');
   assert.match(pickerList({pathname: '/hotel/', search: '?at=BKK&lang=en', lang: 'en'}), /CityMETER\/en\/demos\/\?at=BKK"/);
+});
+
+test('language: one Thai word can read two ways by its element — a tile label under its number, a filter label (0.5.1)', () => {
+  registerDictionary({exact: {'จังหวัด': 'Province'},
+    contexts: [['.metric > span', {'จังหวัด': (el, t) => t.plural(el.previousElementSibling?.textContent, 'province', 'provinces')}]]});
+  const tile = n => ({matches: s => s === '.metric > span', previousElementSibling: {textContent: n}});
+  const filter = {matches: () => false};
+  assert.equal(translateIn(tile('77'), 'จังหวัด'), 'provinces');
+  assert.equal(translateIn(tile('1'), 'จังหวัด'), 'province');
+  assert.equal(translateIn(filter, 'จังหวัด'), 'Province');
+  assert.equal(translateIn(null, 'จังหวัด'), 'Province');
+  assert.equal(translate('จังหวัด'), 'Province', 'translate() alone never reads a context');
+});
+
+test('header: from an English page a Thai-only demo says so and opens in Thai (0.5.1)', () => {
+  const html = pickerList({pathname: '/office/', search: '?at=BKK&lang=en', lang: 'en'});
+  const thaiOnly = DEMOS.filter(d => !d.en);
+  assert.ok(thaiOnly.length > 0);
+  for (const d of thaiOnly) {
+    assert.ok(html.includes(`href="${demoHref(d, '?at=BKK', 'en').replace(/&/g, '&amp;')}" hreflang="th"><span>${d.name}</span><span class="dataset-note">ภาษาไทย</span>`), d.name);
+  }
+  assert.doesNotMatch(pickerList({pathname: '/office/', search: '?at=BKK'}), /ภาษาไทย|hreflang/, 'a Thai page names no language');
+  assert.equal(translate('ภาษาไทย'), 'in Thai');
 });
