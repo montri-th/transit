@@ -5,7 +5,8 @@
  * Factory's demo address was added to the registry that day. `at: true` marks a demo on citymeter-shell: it opens
  * the area of `?at=` (a production path such as BKK/D/1039 or BKK/S/103902; a demo opens the deepest level it
  * carries). The others open their own start page until they move onto the shell (since 0.4.3 every demo is on it).
- * `en: true` marks a demo whose pages declare English (0.5.0): from an English page its link carries lang=en.
+ * `en: true` marks a demo whose pages declare English (0.5.0: Office; 0.5.1: Hotel, Hospital): from an English page its
+ * link carries lang=en.
  * Names are the English names the demos show in their header (live 2026-11-08), except Shopping Center, whose header
  * reads ศูนย์การค้า. Change this list only when the registry or a demo changes, in every
  * repository at once.
@@ -17,14 +18,14 @@ export const DEMO_ORIGIN = 'https://montri-th.github.io';
 export const GROUPS = Object.freeze(['Land', 'Location', 'Living']);
 
 export const DEMOS = Object.freeze([
-  {path: 'hotel', name: 'Hotel', group: 'Land', at: true},
+  {path: 'hotel', name: 'Hotel', group: 'Land', at: true, en: true},
   {path: 'office', name: 'Office', group: 'Land', at: true, en: true},
   {path: 'shoppingcenter', name: 'Shopping Center', group: 'Land', at: true},
   {path: 'camera', name: 'Camera Shops', group: 'Location', at: true},
   {path: 'factory', name: 'Factory', group: 'Location', at: true},
   {path: 'fitness', name: 'Fitness', group: 'Location', at: true},
   {path: 'grocery', name: 'Grocery', group: 'Location', at: true},
-  {path: 'hospital', name: 'Hospital', group: 'Location', at: true},
+  {path: 'hospital', name: 'Hospital', group: 'Location', at: true, en: true},
   {path: 'luxurybrands', name: 'Luxury Brands', group: 'Location', at: true},
   {path: 'pharmacy', name: 'Pharmacy', group: 'Location', at: true},
   {path: 'restaurant', name: 'Restaurants', group: 'Location', at: true},

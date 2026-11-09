@@ -52,14 +52,33 @@ export function languageHref(pathname = '/', search = '', lang = 'en') {
 
 const exact = new Map();
 const patterns = [];
+const contexts = []; // [selector, Map(thai → english | (element, tools) => english | null)], the latest first
 const names = new Map();
 const keep = new Set(); // names with no English source: they stay Thai and count as done
 const norm = text => String(text ?? '').replace(/\s+/g, ' ').trim();
 
-/** Add translations: {exact: {thai: english}, patterns: [[/^…$/, 'english $1' | (match, tools) => english | null]]}. */
-export function registerDictionary({exact: entries = {}, patterns: list = []} = {}) {
+/**
+ * Add translations: {exact: {thai: english}, patterns: [[/^…$/, 'english $1' | (match, tools) => english | null]],
+ * contexts: [[selector, {thai: english | (element, tools) => english | null}]]}. A context entry wins for a text node
+ * whose element matches its selector, so one Thai word can read two ways: จังหวัด is “Province” on a filter and
+ * “77 provinces” under a tile's number (the function gets the element: its number is a sibling).
+ */
+export function registerDictionary({exact: entries = {}, patterns: list = [], contexts: scoped = []} = {}) {
   for (const [th, en] of Object.entries(entries)) exact.set(norm(th), en);
   patterns.push(...list);
+  for (const [selector, map] of scoped) contexts.unshift([selector, new Map(Object.entries(map).map(([th, en]) => [norm(th), en]))]);
+}
+
+/** English for a text in its element's context, or null when no context entry applies. */
+function inContext(element, text) {
+  const s = norm(text);
+  for (const [selector, map] of contexts) {
+    if (!map.has(s) || !element.matches?.(selector)) continue;
+    const en = map.get(s);
+    const r = typeof en === 'function' ? en(element, tools) : en;
+    if (r != null) return r;
+  }
+  return null;
 }
 
 /** Add place names a demo's own sources give in English: [[thai, english], …]. A later call re-translates the page. */
@@ -156,6 +175,9 @@ export function translate(text) {
   return null;
 }
 
+/** English for a text inside an element: its context entry, else translate(). Pure once the dictionaries are registered. */
+export const translateIn = (element, text) => (element ? inContext(element, text) : null) ?? translate(text);
+
 let started = false;
 const written = new WeakMap(); // node → the value this module wrote, so its own change is not translated again
 
@@ -165,7 +187,7 @@ function translateText(node) {
   const parent = node.parentElement;
   if (!parent || parent.closest(SKIP)) return;
   if (parent.tagName === 'TITLE') return translateTitle(node);
-  const en = translate(value);
+  const en = translateIn(parent, value);
   if (en == null) { report.missing.add(norm(value)); return; }
   const next = value.match(/^\s*/)[0] + en + value.match(/\s*$/)[0];
   written.set(node, next);
@@ -263,6 +285,7 @@ export const SHELL_EN = Object.freeze({
     'รายละเอียดเพื่อแจ้งปัญหา': 'Details for reporting a problem',
     'ที่มาใน GitHub': 'Source on GitHub',
     'วิธีจัดทำข้อมูล': 'How the data was prepared',
+    'ภาษาไทย': 'in Thai',
   },
   patterns: [
     [DATE_PATTERN, m => englishDate(m[0])],
