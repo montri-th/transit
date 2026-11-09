@@ -4,7 +4,7 @@
    with state; selection is shown by surface, text and outline instead. */
 @font-face {
   font-family: "LDS Material Symbols Rounded Nav";
-  src: url("assets/icons/material-nav-300.woff2") format("woff2");
+  src: url("assets/icons/material-nav-300.woff2?v=d7e28310") format("woff2");
   font-style: normal; font-weight: 300; font-display: block;
   unicode-range: U+E518, U+E51C, U+E5CD, U+E5D2, U+E89E, U+EB37, U+F233;
 }
@@ -55,4 +55,30 @@ a.nav-decorated .nav-icon { flex-basis: 16px; width: 16px; height: 16px; font-si
 }
 @media (prefers-reduced-motion: reduce) {
   .usage-dialog, .nav-icon { animation: none !important; transition: none !important; scroll-behavior: auto !important; }
+}
+
+/* Dataset picker in the header (citymeter-shell 0.3.0, js/shell/header.js; this file is checked as shared bytes
+   by js/shell/manifest.json). A disclosure of links; the current demo reads bold on the quiet surface. */
+.dataset-switch { position: relative; display: flex; align-items: center; min-width: 0; }
+.dataset-picker { display: inline-flex; align-items: center; gap: 4px; min-width: 44px; min-height: 44px; margin-left: -6px; padding: 0 8px 0 6px; border: 0; border-radius: 8px; background: none; color: var(--text-primary); font: inherit; cursor: pointer; }
+.dataset-picker:hover, .dataset-picker[aria-expanded="true"] { background: var(--surface-alt); }
+.picker-caret { font-size: 11px; line-height: 1; color: var(--text-secondary); }
+.dataset-menu { position: absolute; top: calc(100% + 2px); left: -6px; z-index: 40; width: 300px; max-height: calc(100dvh - 64px); overflow: auto; overscroll-behavior: contain; padding: 10px; background: var(--surface-card); color: var(--text-primary); border: 1px solid var(--border-default); border-radius: 12px; font-size: 13px; line-height: 1.5; }
+.dataset-lead { margin: 2px 8px 8px; font-size: 12px; color: var(--text-secondary); }
+.dataset-group + .dataset-group { margin-top: 6px; padding-top: 6px; border-top: 1px solid var(--border-hairline); }
+.dataset-group-label { margin: 4px 8px 0; font-size: 11px; font-weight: 600; letter-spacing: .06em; color: var(--text-secondary); }
+.dataset-group ul { margin: 0; padding: 0; list-style: none; }
+.dataset-link { display: flex; align-items: center; justify-content: space-between; gap: 8px; min-height: 44px; padding: 0 8px; border-radius: 8px; color: var(--text-primary); text-decoration: none; }
+.dataset-link:hover { background: var(--surface-alt); }
+.dataset-link[aria-current="page"] { font-weight: 600; background: var(--surface-alt); }
+.dataset-note { font-size: 11px; font-weight: 400; color: var(--text-secondary); }
+.dataset-utility { margin-bottom: 6px; padding: 2px 8px 8px; border-bottom: 1px solid var(--border-hairline); }
+.dataset-utility:empty { display: none; }
+/* Every header control is a 44 px target (LDS NAV-01), the Product statement link included. */
+.top-actions a.text-link { min-height: 44px; }
+@media (max-width: 760px) and (orientation: portrait) {
+  .dataset-menu { position: fixed; top: 52px; left: 10px; right: 10px; width: auto; }
+  .dataset-utility .theme-control { min-height: 44px; justify-content: flex-start; gap: 6px; }
+  .dataset-utility .theme-visible-label { position: static; width: auto; height: auto; overflow: visible; clip-path: none; }
+  .dataset-utility .theme-control select { width: auto; }
 }

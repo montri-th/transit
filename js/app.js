@@ -23,7 +23,10 @@
  * plus one three.js custom layer (js/scene.js) for the rail model: ribbons,
  * piers, station plates, OSM station buildings and the focus massing, with a
  * soft ground shadow and raycast cycling of stacked objects.
- * URL state: filters, line, station, focus, view, view3d, cam, bus, boat.
+ * URL state (own names, inside): filters, line, station, focus, view, view3d, cam, layers (and the 0.1 bus, boat) —
+ * written in the shared grammar d · at · e · n · f.* · focus · view · v3d · cam by citymeter-shell (js/shell/url.js):
+ * a line is `n=line:<id>`, a station `e=station:<id>`, one browser history entry per level (the back button goes up
+ * a level).
  */
 import {STATUS, hasPoint, isInterchange, filterStations, summarize, provinceByCode, PROVINCE_LIST} from './model.js';
 import {decodePolyline, decodePoints} from './polyline.js';
@@ -40,6 +43,8 @@ import {nearbyModes, distanceLabel, NEARBY_RADIUS_M} from './nearby.js';
 import {installScene, ELEVATION} from './scene.js';
 import {presetFor, applyPreset, fitPitched} from './camera.js';
 import {buildBreadcrumb, renderBreadcrumb, breadcrumbText} from './breadcrumb.js';
+import {createCodec, createNavigator} from './shell/url.js';
+import {pageTitle} from './shell/title.js';
 
 const $ = id => document.getElementById(id);
 const FIELDS = ['search', 'status', 'system', 'line', 'province'];
@@ -81,6 +86,21 @@ const currentStation = () => (state.panel.mode === 'station' ? state.stationById
 const linesOf = s => (s?.lineIds || []).map(id => state.lineById.get(id)).filter(Boolean);
 const cssVar = (name, fallback) => getComputedStyle(document.documentElement).getPropertyValue(name).trim() || fallback;
 
+/* ---------- address (citymeter-shell, js/shell/url.js) ---------- */
+// The page keeps its own parameter names inside (saveURL / restoreFromURL); the shell writes them in the shared
+// grammar d · at · e · n · f.* · focus · view · v3d · cam, and opening a line or a station adds one browser history
+// entry, so the back button goes up a level. A line is a network (`n=line:<id>`), a station the thing open
+// (`e=station:<id>`, the id this dataset owns and the other demos link with, e.g. RAILCAT:BTS_SUKHUMVIT:E4); a
+// province is `at=BKK`. The filters are `f.q`, `f.status`, `f.system`, `f.layers`. Old links (?province=, ?line=,
+// ?station= — the Hotel family links here with it — ?q=, ?status=, ?system=, ?layers=, ?focus=all, ?view3d=, the 0.1
+// ?bus=1 / ?boat=1) still open and are rewritten. `transit` is the code in the dataset registry; production has not
+// been checked for it, so the crumbs' production links carry no `d`.
+const nav = createNavigator(createCodec({
+  dataset: 'transit', levels: ['P'], place: {province: 'province'},
+  items: {station: 'station'}, networks: {line: 'line'}, filters: ['q', 'status', 'system', 'layers'],
+  rename: {focus: 'focus', view: 'view', view3d: 'v3d', cam: 'cam'},
+}), {onPop: restoreFromHistory});
+
 function saveURL() {
   const f = values(), p = new URLSearchParams();
   if (f.search) p.set('q', f.search);
@@ -95,7 +115,7 @@ function saveURL() {
   if (!state.twoPoint) p.set('cam', 'model');
   const on = MODE_LAYERS.filter(k => state.layers[k]);
   if (on.length) p.set('layers', on.join(','));
-  history.replaceState(null, '', location.pathname + (p.size ? '?' + p : ''));
+  nav.commit(p);
 }
 
 /* ---------- theme ---------- */
@@ -205,7 +225,9 @@ function renderCrumbs() {
   const provinceCode = station?.provinceCode || $('province').value || '';
   const crumbs = buildBreadcrumb({provinceCode, line: line ? {id: line.id, name: line.name} : null, station: station ? {id: station.id, name: station.name} : null});
   $('crumbs').innerHTML = renderBreadcrumb(crumbs);
-  document.title = `${breadcrumbText(crumbs)} · Transit · CityMETER`;
+  // Tab title: what the view shows, then the product, ≤ 60 characters (LDS FAVICON-01, js/shell/title.js).
+  document.title = pageTitle(station ? `สถานี${station.name}` : state.panel.mode === 'line' && line ? line.name
+    : `ระบบราง ${crumbs[crumbs.length - 1].label}`);
   return crumbs;
 }
 
@@ -253,6 +275,8 @@ function renderMapAha(insight) {
 function pushHistory() { state.history.push({...state.panel, line: $('line').value}); if (state.history.length > 20) state.history.shift(); }
 
 function goBack() {
+  // Every level is a browser history entry (citymeter-shell): go up the way the browser's button does.
+  if (nav.canGoBack()) { nav.back(); return; }
   const previous = state.history.pop();
   if (!previous || previous.mode === 'overview') { $('line').value = previous?.line || ''; state.panel = {mode: 'overview', id: ''}; state.via = ''; update({fit: true}); return; }
   $('line').value = previous.line || '';
@@ -334,8 +358,8 @@ function onPanelAction(event) {
     case 'toggle-layer': toggleLayer(id).then(() => renderStationModes()); break;
     case 'crumb-country': $('province').value = ''; $('line').value = ''; resetToOverview(); break;
     case 'crumb-province': $('province').value = id; $('line').value = ''; resetToOverview(); break;
-    case 'crumb-line': selectLine(id); break;
-    case 'crumb-station': selectStation(id); break;
+    case 'crumb-network': selectLine(id); break;
+    case 'crumb-site': selectStation(id); break;
     case 'crumb-expand': { const ol = target.closest('.crumbs'); ol.classList.add('is-expanded'); target.setAttribute('aria-expanded', 'true'); ol.querySelector('.crumb:not(.crumb-more)')?.focus({preventScroll: true}); break; }
     default: break;
   }
@@ -862,7 +886,7 @@ function fillOptions() {
 }
 
 function restoreFromURL() {
-  const p = new URLSearchParams(location.search);
+  const p = nav.read();
   const set = (id, v) => { if (v != null && [...$(id).querySelectorAll('option')].some(o => o.value === v)) $(id).value = v; };
   $('search').value = p.get('q') || '';
   set('status', p.get('status')); if (!$('status').value) $('status').value = 'current';
@@ -877,6 +901,20 @@ function restoreFromURL() {
   for (const k of MODE_LAYERS) state.layers[k] = listed.includes(k) || p.get(k) === '1';   // bus=1 / boat=1 links of 0.1 still work
   if ($('line').value) { state.panel = {mode: 'line', id: $('line').value}; state.via = $('line').value; }
   if (p.get('station') && state.stationById.has(p.get('station'))) state.panel = {mode: 'station', id: p.get('station')};
+}
+
+/** Browser back / forward (citymeter-shell): show the level the restored address names; the context layers follow. */
+function restoreFromHistory() {
+  const shown = {...state.layers};
+  for (const f of FIELDS) $(f).value = '';
+  $('status').value = 'current';
+  Object.assign(state, {view: 'lines', focusMode: 'auto', panel: {mode: 'overview', id: ''}, history: [], via: ''});
+  restoreFromURL();
+  $('toggle-3d').setAttribute('aria-pressed', String(state.view3d));
+  syncEyeToggle();
+  renderModeMenu();
+  update({fit: true});
+  for (const k of MODE_LAYERS) if (shown[k] !== state.layers[k]) toggleLayer(k, state.layers[k]);
 }
 
 function wireEvents() {
