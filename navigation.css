@@ -72,13 +72,23 @@ a.nav-decorated .nav-icon { flex-basis: 16px; width: 16px; height: 16px; font-si
 .dataset-link:hover { background: var(--surface-alt); }
 .dataset-link[aria-current="page"] { font-weight: 600; background: var(--surface-alt); }
 .dataset-note { font-size: 11px; font-weight: 400; color: var(--text-secondary); }
-.dataset-utility { margin-bottom: 6px; padding: 2px 8px 8px; border-bottom: 1px solid var(--border-hairline); }
+.dataset-utility { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 16px; margin-bottom: 6px; padding: 2px 8px 8px; border-bottom: 1px solid var(--border-hairline); }
 .dataset-utility:empty { display: none; }
-/* Every header control is a 44 px target (LDS NAV-01), the Product statement link included. */
+/* The theme control lives at the top of the list on every width (0.5.0). */
+.dataset-utility .theme-control { min-height: 44px; justify-content: flex-start; gap: 6px; }
+.dataset-utility .theme-visible-label { position: static; width: auto; height: auto; overflow: visible; clip-path: none; }
+.dataset-utility .theme-control select { width: auto; }
+.dataset-hub { margin: 6px 0 0; padding-top: 6px; border-top: 1px solid var(--border-hairline); }
+.dataset-hub .dataset-link { font-weight: 600; }
+/* Every header control is a 44 × 44 px target (LDS NAV-01), the Product statement and language links included. */
 .top-actions a.text-link { min-height: 44px; }
+a.lang-link { display: inline-flex; align-items: center; justify-content: center; min-width: 44px; min-height: 44px; padding: 0 8px; border-radius: 8px; color: var(--text-primary); font-weight: 600; text-underline-offset: 3px; }
+a.lang-link:hover { background: var(--surface-alt); }
+.dataset-utility a.lang-link { justify-content: flex-start; padding: 0; }
 @media (max-width: 760px) and (orientation: portrait) {
   .dataset-menu { position: fixed; top: 52px; left: 10px; right: 10px; width: auto; }
-  .dataset-utility .theme-control { min-height: 44px; justify-content: flex-start; gap: 6px; }
-  .dataset-utility .theme-visible-label { position: static; width: auto; height: auto; overflow: visible; clip-path: none; }
-  .dataset-utility .theme-control select { width: auto; }
 }
+/* English pages stay hidden until js/shell/i18n.js has done its first pass; the launch card stays readable
+   (launch.js sets the mark and lifts it after a few seconds whatever happens). */
+html[data-i18n="pending"] body { visibility: hidden; }
+html[data-i18n="pending"] #launch-status { visibility: visible; }

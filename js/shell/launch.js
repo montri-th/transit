@@ -3,6 +3,10 @@
  *   <script src="js/shell/launch.js?v=…" data-public="https://montri-th.github.io/hotel/" data-name="Hotel"
  *     data-reading="ที่พัก"></script>
  * data-boundary names the areas the page reads (default เขต/อำเภอ; e.g. แขวง/ตำบล, shell 0.4.0).
+ * English (shell 0.5.0): on a page that declares English (<meta name="citymeter:languages" content="th en">, placed
+ * before this script) and is opened with ?lang=en, the card speaks English — data-reading-en and data-boundary-en give
+ * the demo's words — the page is marked lang="en", and it stays hidden (html[data-i18n="pending"], navigation.css)
+ * until js/shell/i18n.js has translated it, or 4 seconds have passed, or the card shows an error.
  * The file bridge always targets that one public origin and preserves only query/hash state.
  * It does not read local data or change browser security settings.
  * App contract: window events citymeter:ready, citymeter:load-error and citymeter:progress (a longer load, e.g. a
@@ -22,6 +26,15 @@
  const NAME=cfg.name||'CityMETER';
  const READING=cfg.reading||'';
  const BOUNDARY=cfg.boundary||'เขต/อำเภอ';
+ const EN=new URLSearchParams(window.location.search).get('lang')==='en'&&/(^|[\s,])en([\s,]|$)/.test(document.querySelector('meta[name="citymeter:languages"]')?.getAttribute('content')||'');
+ const L=(th,en)=>EN?en:th;
+ const READING_EN=cfg.readingEn||'data';
+ const BOUNDARY_EN=cfg.boundaryEn||'district boundaries';
+ if(EN){
+  document.documentElement.lang='en';
+  document.documentElement.dataset.i18n='pending';
+  window.setTimeout(()=>{delete document.documentElement.dataset.i18n;},4000);
+ }
  const RETRY_KEY='citymeter-launch-retry:'+window.location.pathname;
  const RETRY_WINDOW_MS=120000;
  const publicTarget=new URL(PUBLIC_URL);
@@ -46,20 +59,23 @@
   e.public.href=publicTarget.href;
   e.public.textContent=publicTarget.href;
   if(phase==='file'){
-   e.title.textContent='กำลังเปิดเว็บ '+NAME;
-   e.message.textContent='หน้านี้เปิดจากไฟล์ในเครื่อง กำลังพาไปเว็บสาธารณะเพื่อโหลดข้อมูลและแผนที่ หากหน้าไม่เปลี่ยน ให้กดลิงก์ด้านล่าง';
+   e.title.textContent=L('กำลังเปิดเว็บ ','Opening ')+NAME;
+   e.message.textContent=L('หน้านี้เปิดจากไฟล์ในเครื่อง กำลังพาไปเว็บสาธารณะเพื่อโหลดข้อมูลและแผนที่ หากหน้าไม่เปลี่ยน ให้กดลิงก์ด้านล่าง','This page was opened from a file on this computer. Taking you to the public site to load the data and the map; if nothing changes, use the link below.');
   }else if(phase==='error'){
-   e.title.textContent='ยังโหลดข้อมูลไม่สำเร็จ';
-   e.message.textContent=text(failure?.message)||'ไม่สามารถเริ่มหน้าจอได้ ลองโหลดใหม่ หรือเปิดเว็บสาธารณะจากลิงก์ด้านล่าง';
+   delete document.documentElement.dataset.i18n;
+   e.title.textContent=L('ยังโหลดข้อมูลไม่สำเร็จ','The data has not loaded');
+   e.message.textContent=text(failure?.message)||L('ไม่สามารถเริ่มหน้าจอได้ ลองโหลดใหม่ หรือเปิดเว็บสาธารณะจากลิงก์ด้านล่าง','The page could not start. Reload, or open the public site from the link below.');
   }else if(phase==='retry'){
-   e.title.textContent='กำลังลองโหลดอีกครั้ง';
-   e.message.textContent='มีไฟล์โหลดไม่สำเร็จ กำลังโหลดหน้านี้ใหม่ให้อัตโนมัติ';
+   e.title.textContent=L('กำลังลองโหลดอีกครั้ง','Trying again');
+   e.message.textContent=L('มีไฟล์โหลดไม่สำเร็จ กำลังโหลดหน้านี้ใหม่ให้อัตโนมัติ','A file did not load. Reloading this page automatically.');
   }else if(phase==='slow'){
-   e.title.textContent='กำลังรอข้อมูล';
-   e.message.textContent='การโหลดใช้เวลานานกว่าปกติ คุณสามารถรอต่อ ลองโหลดใหม่ หรือเปิดเว็บสาธารณะจากลิงก์ด้านล่าง';
+   e.title.textContent=L('กำลังรอข้อมูล','Waiting for the data');
+   e.message.textContent=L('การโหลดใช้เวลานานกว่าปกติ คุณสามารถรอต่อ ลองโหลดใหม่ หรือเปิดเว็บสาธารณะจากลิงก์ด้านล่าง','Loading is taking longer than usual. You can keep waiting, reload, or open the public site from the link below.');
   }else if(phase==='loading'){
-   e.title.textContent='กำลังโหลดข้อมูล';
-   e.message.textContent=warning?'กำลังอ่านข้อมูล'+READING+' บางส่วนของแผนที่หรือกราฟยังโหลดไม่ครบ':progress?progress+' หากรอนาน สามารถเปิดเว็บสาธารณะได้จากลิงก์นี้':'กำลังอ่านข้อมูล'+READING+'และขอบเขต'+BOUNDARY+' หากรอนาน สามารถเปิดเว็บสาธารณะได้จากลิงก์นี้';
+   e.title.textContent=L('กำลังโหลดข้อมูล','Loading the data');
+   e.message.textContent=EN
+    ?(warning?'Reading the '+READING_EN+'. Part of the map or charts has not loaded.':progress?progress+' If this takes long, the public site opens from this link.':'Reading the '+READING_EN+' and '+BOUNDARY_EN+'. If this takes long, the public site opens from this link.')
+    :(warning?'กำลังอ่านข้อมูล'+READING+' บางส่วนของแผนที่หรือกราฟยังโหลดไม่ครบ':progress?progress+' หากรอนาน สามารถเปิดเว็บสาธารณะได้จากลิงก์นี้':'กำลังอ่านข้อมูล'+READING+'และขอบเขต'+BOUNDARY+' หากรอนาน สามารถเปิดเว็บสาธารณะได้จากลิงก์นี้');
   }
   const detail=diagnostics();e.debug.hidden=!detail;e.diagnostics.textContent=detail;
  }
@@ -91,7 +107,7 @@
  }
  function dependencyWarning(resource){
   if(isFile||phase==='ready')return;
-  warning='โหลดส่วนประกอบไม่สำเร็จ: '+text(resource);render();
+  warning=L('โหลดส่วนประกอบไม่สำเร็จ: ','A component did not load: ')+text(resource);render();
  }
  function bind(){
   if(elements)return true;
@@ -101,32 +117,32 @@
   if(isFile){
    redirectTimer=window.setTimeout(()=>{
     try{window.location.replace(publicTarget.href);}catch{
-     elements.title.textContent='เปิดเว็บ '+NAME;
-     elements.message.textContent='ไม่สามารถเปลี่ยนหน้าอัตโนมัติได้ กรุณากดลิงก์เว็บสาธารณะด้านล่าง';
+     elements.title.textContent=L('เปิดเว็บ ','Open ')+NAME;
+     elements.message.textContent=L('ไม่สามารถเปลี่ยนหน้าอัตโนมัติได้ กรุณากดลิงก์เว็บสาธารณะด้านล่าง','The page could not move by itself. Please use the public site link below.');
     }
    },800);
   }else if(phase==='loading'){
    slowTimer=window.setTimeout(()=>{if(phase==='loading'){phase='slow';render();}},15000);
-   failTimer=window.setTimeout(()=>fail({message:'ยังเริ่มหน้าจอไม่สำเร็จ อาจมีไฟล์ข้อมูลหรือส่วนประกอบโหลดไม่ครบ ลองโหลดใหม่ หรือเปิดเว็บสาธารณะด้านล่าง',phase:'startup-timeout',diagnostic:warning||'No citymeter:ready event received within 60 seconds.'}),60000);
+   failTimer=window.setTimeout(()=>fail({message:L('ยังเริ่มหน้าจอไม่สำเร็จ อาจมีไฟล์ข้อมูลหรือส่วนประกอบโหลดไม่ครบ ลองโหลดใหม่ หรือเปิดเว็บสาธารณะด้านล่าง','The page has not started; a data file or a component may not have loaded. Reload, or open the public site below.'),phase:'startup-timeout',diagnostic:warning||'No citymeter:ready event received within 60 seconds.'}),60000);
   }
   return true;
  }
  window.addEventListener('citymeter:ready',ready);
- window.addEventListener('citymeter:progress',event=>{if(isFile||phase==='ready')return;progress=text(event.detail?.message);window.clearTimeout(failTimer);failTimer=window.setTimeout(()=>fail({message:'ยังเริ่มหน้าจอไม่สำเร็จ ลองโหลดใหม่ หรือเปิดเว็บสาธารณะด้านล่าง',phase:'startup-timeout',diagnostic:'No citymeter:ready event received within 180 seconds of '+progress}),180000);render();});
+ window.addEventListener('citymeter:progress',event=>{if(isFile||phase==='ready')return;progress=text(event.detail?.message);window.clearTimeout(failTimer);failTimer=window.setTimeout(()=>fail({message:L('ยังเริ่มหน้าจอไม่สำเร็จ ลองโหลดใหม่ หรือเปิดเว็บสาธารณะด้านล่าง','The page has not started. Reload, or open the public site below.'),phase:'startup-timeout',diagnostic:'No citymeter:ready event received within 180 seconds of '+progress}),180000);render();});
  window.addEventListener('citymeter:load-error',event=>fail(event.detail));
  window.addEventListener('error',event=>{
   const target=event.target;
   if(target?.tagName==='SCRIPT'){
    const resource=target.src||target.getAttribute('src')||'';
-   if(/\/js\/app\.js(?:[?#]|$)/.test(resource))fail({message:'โหลดส่วนแสดงข้อมูลไม่สำเร็จ ลองโหลดใหม่ หรือเปิดเว็บสาธารณะด้านล่าง',resource,phase:'module-load'});
+   if(/\/js\/app\.js(?:[?#]|$)/.test(resource))fail({message:L('โหลดส่วนแสดงข้อมูลไม่สำเร็จ ลองโหลดใหม่ หรือเปิดเว็บสาธารณะด้านล่าง','The data view did not load. Reload, or open the public site below.'),resource,phase:'module-load'});
    else dependencyWarning(resource);
   }else if(event.message){
-   fail({message:'เริ่มหน้าจอไม่สำเร็จ ลองโหลดใหม่ หรือเปิดเว็บสาธารณะด้านล่าง',resource:event.filename,phase:'script-error',diagnostic:event.message});
+   fail({message:L('เริ่มหน้าจอไม่สำเร็จ ลองโหลดใหม่ หรือเปิดเว็บสาธารณะด้านล่าง','The page failed to start. Reload, or open the public site below.'),resource:event.filename,phase:'script-error',diagnostic:event.message});
   }
  },true);
  window.addEventListener('unhandledrejection',event=>{
   const reason=event.reason;
-  fail({message:'การโหลดหน้าจอหยุดก่อนข้อมูลพร้อม ลองโหลดใหม่ หรือเปิดเว็บสาธารณะด้านล่าง',phase:'unhandled-rejection',diagnostic:reason?.message||text(reason)});
+  fail({message:L('การโหลดหน้าจอหยุดก่อนข้อมูลพร้อม ลองโหลดใหม่ หรือเปิดเว็บสาธารณะด้านล่าง','Loading stopped before the data was ready. Reload, or open the public site below.'),phase:'unhandled-rejection',diagnostic:reason?.message||text(reason)});
  });
  window.addEventListener('pagehide',()=>{clearTimers();window.clearTimeout(redirectTimer);});
  if(!bind()){
