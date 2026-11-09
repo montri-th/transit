@@ -6,7 +6,7 @@
  * the area of `?at=` (a production path such as BKK/D/1039 or BKK/S/103902; a demo opens the deepest level it
  * carries). The others open their own start page until they move onto the shell (since 0.4.3 every demo is on it).
  * `en: true` marks a demo whose pages declare English (0.5.0: Office; 0.5.1: Hotel, Hospital; 0.5.2: School, Government
- * Office, Factory): from an English page its
+ * Office, Factory; 0.5.3: Pharmacy, Restaurants): from an English page its
  * link carries lang=en.
  * Names are the English names the demos show in their header (live 2026-11-08), except Shopping Center, whose header
  * reads ศูนย์การค้า. Change this list only when the registry or a demo changes, in every
@@ -28,8 +28,8 @@ export const DEMOS = Object.freeze([
   {path: 'grocery', name: 'Grocery', group: 'Location', at: true},
   {path: 'hospital', name: 'Hospital', group: 'Location', at: true, en: true},
   {path: 'luxurybrands', name: 'Luxury Brands', group: 'Location', at: true},
-  {path: 'pharmacy', name: 'Pharmacy', group: 'Location', at: true},
-  {path: 'restaurant', name: 'Restaurants', group: 'Location', at: true},
+  {path: 'pharmacy', name: 'Pharmacy', group: 'Location', at: true, en: true},
+  {path: 'restaurant', name: 'Restaurants', group: 'Location', at: true, en: true},
   {path: 'school', name: 'School', group: 'Location', at: true, en: true},
   {path: 'governmentoffice', name: 'Government Office', group: 'Living', at: true, en: true},
   {path: 'transit', name: 'Transit', group: 'Living', at: true},
