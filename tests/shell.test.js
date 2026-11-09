@@ -1,7 +1,7 @@
 /**
  * citymeter-shell — the shared code of the CityMETER demos (js/shell/): navigation (0.1.0), the map modules (0.2.0),
  * the header (0.3.0), the subdistrict, local-unit and locale levels (0.4.0, 0.4.1), a zone a dataset defines itself
- * (0.4.2) and networks (0.4.3). This file is the same in every repository that carries the shell: the files must match
+ * (0.4.2), networks (0.4.3) and the page language (0.5.0). This file is the same in every repository that carries the shell: the files must match
  * js/shell/manifest.json byte for byte (and so must the files it lists under `shared`), and the navigation modules
  * must keep the contract of demo-platform-review §5.2–5.3 (address grammar, history, breadcrumb, tab title). The map
  * modules keep their own tests in each repository (tests/camera.test.js, tests/terrain.test.js …); the launch card
@@ -16,8 +16,9 @@ import {splitRef, joinRef, serialize, createCodec, createNavigator, LEVEL_KEYS} 
 import {buildBreadcrumb, renderBreadcrumb, breadcrumbText, deepestHref} from '../js/shell/breadcrumb.js';
 import {pageTitle, TITLE_MAX} from '../js/shell/title.js';
 import {terrainChips} from '../js/shell/terrain.js';
-import {DEMOS, GROUPS, demoUrl} from '../js/shell/datasets.js';
-import {demoHref, currentDemo, pickerList, placeLevel} from '../js/shell/header.js';
+import {DEMOS, GROUPS, demoUrl, hubUrl} from '../js/shell/datasets.js';
+import {demoHref, currentDemo, pickerList, placeLevel, hubHref, languageLink} from '../js/shell/header.js';
+import {pageLanguage, languageHref, translate, registerDictionary, registerNames, keepThai, englishDate, LANG} from '../js/shell/i18n.js';
 
 const SHELL = new URL('../js/shell/', import.meta.url);
 const sha256 = buf => createHash('sha256').update(buf).digest('hex');
@@ -342,4 +343,62 @@ test('a network the reader came through gets a crumb without a production link; 
   assert.equal(nav.commit(new URLSearchParams('area=1039&store=FIT-1')), true, 'opening an item still pushes');
   assert.deepEqual(w.entries(), ['/hotel/?at=BKK/D/1039', '/hotel/?at=BKK/D/1039&e=store:FIT-1']);
   for (const path of ['shoppingcenter', 'fitness', 'transit']) assert.equal(DEMOS.find(d => d.path === path).at, true, path);
+});
+
+test('language: ?lang=en as production writes it; Thai otherwise; the link keeps every parameter (0.5.0)', () => {
+  assert.equal(pageLanguage('?d=office&lang=en'), 'en');
+  assert.equal(pageLanguage('?d=office&lang=EN'), 'th', 'only the production value');
+  assert.equal(pageLanguage(''), 'th');
+  assert.equal(LANG, 'th', 'no page, no English');
+  assert.equal(languageHref('/office/', '?d=office&at=BKK/D/1039&e=office:OFF-1', 'en'), '/office/?d=office&at=BKK/D/1039&e=office:OFF-1&lang=en');
+  assert.equal(languageHref('/office/', '?d=office&at=BKK/D/1039&lang=en', 'th'), '/office/?d=office&at=BKK/D/1039');
+  assert.equal(languageHref('/office/', '?lang=en', 'th'), '/office/');
+  assert.equal(languageHref('/transit/', '?e=station:RAILCAT:BTS_SUKHUMVIT:E4', 'en'), '/transit/?e=station:RAILCAT:BTS_SUKHUMVIT:E4&lang=en', '":" stays readable');
+  const th = languageLink('/office/', '?at=BKK', 'th'), en = languageLink('/office/', '?at=BKK&lang=en', 'en');
+  assert.deepEqual([th.label, th.lang, th.href], ['EN', 'en', '/office/?at=BKK&lang=en']);
+  assert.match(th.title, /draft/);
+  assert.deepEqual([en.label, en.lang, en.href], ['ไทย', 'th', '/office/?at=BKK']);
+});
+
+test('language: dictionaries by the Thai text — exact, patterns, parts between separators; names never translated by hand (0.5.0)', () => {
+  assert.equal(translate('ประเทศไทย'), 'Thailand', 'the shell words come with the shell');
+  assert.equal(translate('฿850'), null, 'the baht sign and numbers need nothing');
+  assert.equal(translate('English'), null);
+  registerDictionary({exact: {'สำนักงาน': 'Offices', 'กำลังสร้าง': 'under construction'},
+    patterns: [[/^([\d,]+) แห่ง$/, (m, t) => `${m[1]} ${t.plural(m[1], 'office', 'offices')}`]]});
+  assert.equal(translate('1 แห่ง'), '1 office');
+  assert.equal(translate('1,234 แห่ง'), '1,234 offices');
+  assert.equal(translate('สำนักงาน · 3 แห่ง'), 'Offices · 3 offices');
+  assert.equal(translate('ประเทศไทย › จังหวัดที่ไม่มี'), null, 'a part with no English leaves the whole Thai');
+  assert.equal(translate('· กำลังสร้าง'), '· under construction');
+  registerNames([['เขตวัฒนา', 'Watthana'], ['วัฒนา', 'Watthana'], ['ชื่อไทย', 'ยังไทย']]);
+  assert.equal(translate('เขตวัฒนา · 3 แห่ง'), 'Watthana · 3 offices');
+  assert.equal(translate('ชื่อไทย'), null, 'an "English" name in Thai script is not taken');
+  assert.equal(translate('เปิดเขตวัฒนาในชุดข้อมูลอื่น'), 'Open Watthana in another dataset');
+  keepThai(['บริษัท ตัวอย่าง จำกัด']);
+  assert.equal(translate('บริษัท ตัวอย่าง จำกัด · 3 แห่ง'), 'บริษัท ตัวอย่าง จำกัด · 3 offices', 'a name with no English stays Thai');
+  assert.equal(translate('ดูเดโมทั้งหมด'), 'All demos');
+});
+
+test('language: Thai dates read in English with the Christian-era year (0.5.0)', () => {
+  assert.equal(englishDate('29 ต.ค. 2569'), '29 Oct 2026');
+  assert.equal(englishDate('พ.ค.–ต.ค. 2569'), 'May–Oct 2026');
+  assert.equal(englishDate('8 พฤศจิกายน 2569'), '8 November 2026');
+  assert.equal(translate('2 พ.ย. 2569'), '2 Nov 2026');
+  assert.equal(translate('ต.ค. 2569'), 'Oct 2026');
+});
+
+test('header: the list ends with all demos on the showcase, in the page language, with the same `at`; English demos stay English (0.5.0)', () => {
+  assert.equal(hubUrl('th'), 'https://montri-th.github.io/CityMETER/demos/');
+  assert.equal(hubUrl('en'), 'https://montri-th.github.io/CityMETER/en/demos/');
+  assert.equal(hubHref('?d=office&at=BKK/D/1039&e=office:OFF-1', 'th'), 'https://montri-th.github.io/CityMETER/demos/?at=BKK/D/1039');
+  assert.equal(hubHref('?d=office', 'en'), 'https://montri-th.github.io/CityMETER/en/demos/');
+  const html = pickerList({pathname: '/hotel/', search: '?at=BKK/D/1039'});
+  assert.match(html, /<p class="dataset-hub"><a class="dataset-link" href="https:\/\/montri-th\.github\.io\/CityMETER\/demos\/\?at=BKK\/D\/1039">ดูเดโมทั้งหมด<\/a><\/p>$/);
+  const office = DEMOS.find(d => d.path === 'office'), hotel = DEMOS.find(d => d.path === 'hotel');
+  assert.equal(office.en, true, 'Office declares English (0.5.0)');
+  assert.equal(demoHref(office, '?at=BKK/D/1039&lang=en', 'en'), 'https://montri-th.github.io/office/?at=BKK/D/1039&lang=en');
+  assert.equal(demoHref(hotel, '?at=BKK/D/1039&lang=en', 'en'), 'https://montri-th.github.io/hotel/?at=BKK/D/1039', 'a demo without English opens in Thai');
+  assert.equal(demoHref(office, '', 'en'), 'https://montri-th.github.io/office/?lang=en');
+  assert.match(pickerList({pathname: '/hotel/', search: '?at=BKK&lang=en', lang: 'en'}), /CityMETER\/en\/demos\/\?at=BKK"/);
 });
