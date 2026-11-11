@@ -44,6 +44,7 @@ import {installScene, ELEVATION} from './scene.js';
 import {presetFor, applyPreset, fitPitched} from './camera.js';
 import {buildBreadcrumb, renderBreadcrumb, breadcrumbText} from './breadcrumb.js';
 import {createCodec, createNavigator} from './shell/url.js';
+import {mapBudget, budgetPixelRatio, reloadOnContextLoss} from './shell/maplibre-guard.js';
 import {pageTitle} from './shell/title.js';
 
 const $ = id => document.getElementById(id);
@@ -772,7 +773,7 @@ function renderStationModes() {
 function initMap() {
   if (!window.maplibregl) throw new Error('Map library is unavailable');
   state.mapTheme = theme();
-  state.map = new maplibregl.Map({container: 'map', center: BANGKOK.center, zoom: BANGKOK.zoom, pitch: 0, maxPitch: 85, attributionControl: {compact: true}, style: buildMapStyle(state.mapTheme)});
+  state.map = new maplibregl.Map({container: 'map', pixelRatio: budgetPixelRatio(mapBudget()), maxTileCacheZoomLevels: mapBudget().cacheZoomLevels, center: BANGKOK.center, zoom: BANGKOK.zoom, pitch: 0, maxPitch: 85, attributionControl: {compact: true}, style: buildMapStyle(state.mapTheme)});
   state.map.addControl(new maplibregl.NavigationControl({showCompass: true, visualizePitch: true}), 'top-right');
   state.provinceLabels = installAreaLabels(state.map, $('map'), {className: 'province-label', hostId: 'province-labels', hostLabel: 'จังหวัดบนแผนที่', minZoom: 0, maxZoom: PROVINCE_LABEL_MAX_ZOOM, verb: 'กดเพื่อดูจังหวัด', unit: 'สถานี', onSelect: code => selectProvince(code), reservedBottom: () => $('insights').getBoundingClientRect().height + 12});
   state.pins = installStationPins(state.map, $('map'), {
@@ -798,6 +799,8 @@ function initMap() {
   let moveTimer = 0;
   state.map.on('moveend', () => { clearTimeout(moveTimer); moveTimer = setTimeout(() => { if (state.loaded && state.panel.mode === 'line') updateSpatialLayers(); }, 250); });
   state.map.on('error', e => console.warn('Map resource', e.error?.message || e));
+    // A lost WebGL context (a phone under memory pressure): say so and reload once, lean (js/shell/maplibre-guard.js).
+    reloadOnContextLoss(state.map);
   for (const type of ['dragstart', 'zoomstart', 'rotatestart', 'pitchstart']) state.map.on(type, e => { if (e.originalEvent && state.stationFrame) state.stationFrame.moved = true; });
   fetch(TILEJSON_URL).then(r => r.json()).then(j => { state.tileTemplate = j.tiles?.[0] || ''; if (state.loaded) updateSpatialLayers(); }).catch(e => { partial('basemap'); console.warn('TileJSON', e); });
 }

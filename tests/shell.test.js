@@ -489,3 +489,135 @@ test('the launch script keeps the app contract: ready, load-error, progress, par
   for (const rule of ['.data-notice', '.data-notice-toggle', '.data-notice-body', '.map-loading']) assert.ok(css.includes(rule + ' {'), `navigation.css styles ${rule}`);
   assert.ok(!/\.data-notice[^{]*\{[^}]*border-left/.test(css), 'no rail on the notice');
 });
+
+/* ---------- shell 0.6.0: the theme before the first paint, a page that was stopped, the map's budget ---------- */
+
+/** Run js/shell/launch.js in a stand-in page; returns what it left on the root element and in the stores. */
+function runLaunch({stored = null, darkDevice = false, life = null, search = '', themeKey = 'citymeter-test-theme'} = {}) {
+  const listeners = {};
+  const store = seed => { const m = new Map(Object.entries(seed)); return {getItem: k => (m.has(k) ? m.get(k) : null), setItem: (k, v) => m.set(k, String(v)), removeItem: k => m.delete(k), map: m}; };
+  const metas = [{media: '(prefers-color-scheme: light)', content: '#F6F7F3'}, {media: '(prefers-color-scheme: dark)', content: '#11191D'}]
+    .map(m => ({getAttribute: k => m[k], setAttribute: (k, v) => { m[k] = v; }, m}));
+  const node = () => ({dataset: {}, style: {}, setAttribute() {}, appendChild() {}, append() {}, addEventListener() {}, remove() {}});
+  const root = {dataset: {}, style: {}, lang: 'th'};
+  const session = store(life ? {'citymeter-life:/hotel/': JSON.stringify(life)} : {});
+  const win = {
+    location: {search, hash: '', protocol: 'https:', origin: 'https://example.test', pathname: '/hotel/', href: 'https://example.test/hotel/' + search},
+    localStorage: store(stored ? {[themeKey]: stored} : {}), sessionStorage: session,
+    matchMedia: q => ({matches: /dark/.test(q) ? darkDevice : false}),
+    addEventListener: (name, fn) => { (listeners[name] ||= []).push(fn); }, dispatch: (name, detail) => (listeners[name] || []).forEach(fn => fn({detail})),
+    setTimeout: () => 0, clearTimeout() {}, setInterval: () => 0, clearInterval() {}, performance: {mark() {}}, navigator: {userAgent: 'test'}, innerWidth: 393, innerHeight: 659, devicePixelRatio: 3,
+  };
+  const doc = {
+    currentScript: {dataset: {public: 'https://example.test/hotel/', name: 'Test', themeKey}}, documentElement: root, head: node(), body: null, visibilityState: 'visible',
+    querySelector: () => null, querySelectorAll: sel => (/theme-color/.test(sel) ? metas : []), getElementById: () => null, createElement: node, createElementNS: node, addEventListener() {},
+  };
+  const source = readFileSync(new URL('launch.js', SHELL), 'utf8');
+  new Function('window', 'document', 'URL', 'URLSearchParams', 'MutationObserver', 'CustomEvent', source)(win, doc, URL, URLSearchParams, class { observe() {} disconnect() {} }, class {});
+  return {root, metas: metas.map(x => x.m.content), life: () => JSON.parse(session.getItem('citymeter-life:/hotel/') || 'null'), dispatch: win.dispatch};
+}
+
+test('the launch script sets the theme before the first paint: the reader\'s choice for this demo, else the device\'s (shell 0.6.0)', () => {
+  const chosenDark = runLaunch({stored: 'dark', darkDevice: false});
+  assert.equal(chosenDark.root.dataset.theme, 'dark');
+  assert.equal(chosenDark.root.style.colorScheme, 'dark');
+  assert.deepEqual(chosenDark.metas, ['#11191D', '#11191D'], 'the browser bar takes the page\'s theme, whatever the device prefers');
+  assert.equal(runLaunch({stored: null, darkDevice: true}).root.dataset.theme, 'dark');
+  assert.equal(runLaunch({stored: 'auto', darkDevice: true}).root.dataset.theme, 'dark');
+  const chosenLight = runLaunch({stored: 'light', darkDevice: true});
+  assert.equal(chosenLight.root.dataset.theme, 'light');
+  assert.deepEqual(chosenLight.metas, ['#F6F7F3', '#F6F7F3']);
+  assert.equal(runLaunch({stored: null, darkDevice: false}).root.dataset.theme, 'light');
+});
+
+test('a page the browser ended while it was on screen starts lean the next time; a clean exit does not (shell 0.6.0)', () => {
+  const now = Date.now();
+  const ended = runLaunch({life: {state: 'visible', at: now - 5000, ended: 0, lean: '', log: []}});
+  assert.equal(ended.root.dataset.lean, 'recovered');
+  assert.equal(ended.life().ended, 1);
+  assert.equal(ended.life().state, 'visible', 'the new page marks itself on screen');
+  for (const state of ['closed', 'hidden']) assert.equal(runLaunch({life: {state, at: now - 5000, ended: 0, lean: '', log: []}}).root.dataset.lean, undefined, state);
+  assert.equal(runLaunch({life: {state: 'visible', at: now - 7 * 3600 * 1000, ended: 0, lean: '', log: []}}).root.dataset.lean, undefined, 'a mark from another day is not a stop');
+  assert.equal(runLaunch({life: {state: 'closed', at: now, ended: 1, lean: 'recovered', log: []}}).root.dataset.lean, 'recovered', 'the tab stays lean');
+  // The reader's own choice of the full map holds until the page is ended again.
+  assert.equal(runLaunch({life: {state: 'closed', at: now, ended: 1, lean: 'off', log: []}}).root.dataset.lean, undefined);
+  assert.equal(runLaunch({life: {state: 'visible', at: now, ended: 1, lean: 'off', log: []}}).root.dataset.lean, 'recovered');
+  assert.equal(runLaunch({search: '?lean=phone'}).root.dataset.lean, 'phone');
+  assert.equal(runLaunch({search: '?lean=1'}).root.dataset.lean, 'recovered');
+  assert.equal(runLaunch({search: '?lean=0', life: {state: 'closed', at: now, ended: 2, lean: 'recovered', log: []}}).root.dataset.lean, undefined);
+  // A map that lost its context turns the tab lean at once, and the event is kept for a report.
+  const live = runLaunch({});
+  live.dispatch('citymeter:map-trouble', {kind: 'context-lost', note: 'restart 1'});
+  assert.equal(live.root.dataset.lean, 'recovered');
+  assert.match(live.life().log.at(-1)[1], /^context-lost/);
+});
+
+test('the map\'s budget: a desktop keeps everything, a touch-first device and a page that was stopped get less (shell 0.6.0)', async () => {
+  const {mapBudget, budgetPixelRatio, MAP_BUDGETS, capTerrainPool, watchContext, GUARDED_VERSION} = await import('../js/shell/maplibre-guard.js');
+  const page = ({lean = '', coarse = false, fine = !coarse, memory, ratio = 2} = {}) => ({document: {documentElement: {dataset: lean ? {lean} : {}}}, navigator: {deviceMemory: memory}, devicePixelRatio: ratio,
+    matchMedia: q => ({matches: q === '(pointer: coarse)' ? coarse : q === '(any-pointer: fine)' ? fine : false})});
+  assert.equal(mapBudget(page()).level, 'full');
+  assert.equal(mapBudget(page({coarse: true})).level, 'phone');
+  assert.equal(mapBudget(page({coarse: true, fine: true})).level, 'full', 'a touch screen with a mouse is a desktop');
+  assert.equal(mapBudget(page({memory: 4})).level, 'phone');
+  assert.equal(mapBudget(page({memory: 8})).level, 'full');
+  assert.equal(mapBudget(page({lean: 'recovered'})).level, 'recovered');
+  assert.equal(mapBudget(page({lean: 'phone'})).level, 'phone');
+  assert.equal(mapBudget(null).level, 'full');
+  // A lean level never asks for more than the level above it.
+  for (const key of ['tiles', 'cmRequests', 'terrainPool', 'cacheZoomLevels']) assert.ok(MAP_BUDGETS.recovered[key] <= MAP_BUDGETS.phone[key] && MAP_BUDGETS.phone[key] <= MAP_BUDGETS.full[key], key);
+  assert.ok(MAP_BUDGETS.phone.radiusM > MAP_BUDGETS.recovered.radiusM && MAP_BUDGETS.full.radiusM === 0);
+  assert.equal(MAP_BUDGETS.recovered.terrain, false);
+  assert.equal(budgetPixelRatio(MAP_BUDGETS.full, page({ratio: 3})), undefined);
+  assert.equal(budgetPixelRatio(MAP_BUDGETS.phone, page({ratio: 3})), 2);
+  assert.equal(budgetPixelRatio(MAP_BUDGETS.phone, page({ratio: 1})), 1);
+  assert.equal(budgetPixelRatio(MAP_BUDGETS.recovered, page({ratio: 3})), 1.5);
+
+  // The terrain pool: only a fresh pool of the pinned MapLibre is capped.
+  const pool = () => ({_size: 30, _objects: [], isFull() { return false; }});
+  const fresh = {painter: {renderToTexture: {pool: pool()}}};
+  assert.equal(capTerrainPool(fresh, 12), true);
+  assert.equal(fresh.painter.renderToTexture.pool._size, 12);
+  const used = {painter: {renderToTexture: {pool: {...pool(), _objects: [{}]}}}};
+  assert.equal(capTerrainPool(used, 12), false);
+  assert.equal(used.painter.renderToTexture.pool._size, 30);
+  assert.equal(capTerrainPool({painter: {renderToTexture: {pool: pool()}}}, 12, '6.0.0'), false);
+  assert.equal(capTerrainPool({painter: {renderToTexture: {pool: pool()}}}, 40), false);
+  assert.equal(capTerrainPool({}, 12), false);
+  assert.equal(capTerrainPool(fresh, 12, GUARDED_VERSION), false, 'already at the cap');
+
+  // A lost context calls back once, a little later; a watch that was stopped never does.
+  const emitter = () => { const on = {}; return {on: (n, f) => { on[n] = f; }, off: n => { delete on[n]; }, fire: n => on[n]?.()}; };
+  let calls = 0;
+  const map = emitter();
+  watchContext(map, () => { calls++; }, {delay: 5});
+  map.fire('webglcontextlost'); map.fire('webglcontextlost');
+  await new Promise(resolve => setTimeout(resolve, 30));
+  assert.equal(calls, 1);
+  const other = emitter();
+  watchContext(other, () => { calls++; }, {delay: 5})();
+  other.fire('webglcontextlost');
+  await new Promise(resolve => setTimeout(resolve, 30));
+  assert.equal(calls, 1);
+});
+
+test('a demo without its own restart reloads once after a lost context, never twice in a lean tab (shell 0.6.0)', async () => {
+  const {reloadOnContextLoss} = await import('../js/shell/maplibre-guard.js');
+  const run = async lean => {
+    const on = {}, sent = [];
+    let reloads = 0;
+    const win = {document: {documentElement: {dataset: lean ? {lean} : {}}}, CustomEvent: class { constructor(type, init) { this.type = type; this.detail = init.detail; } },
+      dispatchEvent: e => { sent.push(e); win.document.documentElement.dataset.lean = 'recovered'; }, location: {reload: () => { reloads++; }}};
+    reloadOnContextLoss({on: (n, f) => { on[n] = f; }, off() {}}, win);
+    const realTimeout = globalThis.setTimeout;
+    on.webglcontextlost();
+    await new Promise(resolve => realTimeout(resolve, 450));
+    return {reloads, sent};
+  };
+  const first = await run('');
+  assert.equal(first.reloads, 1);
+  assert.deepEqual(first.sent.map(e => [e.type, e.detail.kind, e.detail.note]), [['citymeter:map-trouble', 'context-lost', 'reload']]);
+  const again = await run('recovered');
+  assert.equal(again.reloads, 0, 'a lean tab is not reloaded again');
+  assert.equal(again.sent[0].detail.note, 'again');
+});

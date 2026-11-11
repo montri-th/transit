@@ -109,10 +109,28 @@ html[data-i18n="pending"] #launch-status { visibility: visible; }
 .data-notice-actions button { min-height: 44px; padding: 8px 16px; border: 1px solid var(--border-default, #C9D0CB); border-radius: 8px; background: var(--surface-alt, #EEF0EC); color: inherit; font: inherit; cursor: pointer; }
 .data-notice-actions .data-notice-retry { font-weight: 600; }
 .data-notice :focus-visible { outline: 3px solid var(--interaction-focus-ring, #176B82); outline-offset: 3px; }
-@media (max-width: 760px) and (orientation: portrait) {
-  .data-notice { left: auto; right: 6px; transform: none; justify-items: end; }
-  .data-notice[data-open="false"] .data-notice-label { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
-  .data-notice[data-open="false"] .data-notice-toggle { padding: 0; justify-content: center; }
-}
+.data-notice-mode { margin: 0 0 12px; }
+.data-notice-list + .data-notice-mode, .data-notice-hint + .data-notice-mode { padding-top: 10px; border-top: 1px solid var(--border-hairline, #DCE1DD); }
+.data-notice-detail { margin-top: 10px; font-size: 12px; color: var(--text-secondary, #4A5A5F); }
+.data-notice-detail summary { display: flex; align-items: center; min-height: 44px; cursor: pointer; }
+.data-notice-detail pre { margin: 0; white-space: pre-wrap; overflow-wrap: anywhere; font: 400 12px/1.6 "JetBrains Mono", monospace; }
 /* The map after the data (0.6.0): one line over the map's place until the map reports loaded. */
 .map-loading { position: absolute; z-index: 3; left: 50%; top: 50%; transform: translate(-50%, -50%); margin: 0; padding: 6px 14px; border: 1px solid var(--border-default, #C9D0CB); border-radius: 999px; background: var(--surface-card, #FCFCFA); color: var(--text-primary, #182327); font-size: 13px; line-height: 1.6; white-space: nowrap; pointer-events: none; }
+/* A phone: the mark is a sign beside the language link (its words stay for screen readers), and the open card is a
+   short one under the header — it never takes the whole map (owner 2026-11-11 20:38). */
+@media (max-width: 760px) and (orientation: portrait) {
+  .data-notice { left: auto; right: 50px; transform: none; justify-items: end; }
+  .data-notice .data-notice-label { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
+  .data-notice .data-notice-toggle { padding: 0; justify-content: center; }
+  .data-notice-body { position: fixed; top: 50px; left: 8px; right: 8px; width: auto; max-height: 46dvh; margin: 0; padding: 12px 14px; font-size: 13px; line-height: 1.55; }
+  .data-notice-lead { margin-bottom: 6px; }
+  .data-notice-hint { margin-bottom: 10px; }
+  /* The sheet covers the lower half of the map: the line stands under the toolbar. */
+  .map-loading { top: 68px; transform: translateX(-50%); }
+}
+/* The map's own buttons in the dark theme (0.6.0, owner 2026-11-11 20:38: a white box on the dark map): the vendor's
+   white group takes the card surface and its dark glyphs are inverted. Fallbacks are the dark theme's own values. */
+:root[data-theme="dark"] .maplibregl-ctrl-group { background: var(--surface-card, #20292D); box-shadow: 0 0 0 1px var(--border-default, #46524F); }
+:root[data-theme="dark"] .maplibregl-ctrl-group button + button { border-top-color: var(--border-hairline, #33403D); }
+:root[data-theme="dark"] .maplibregl-ctrl-group button .maplibregl-ctrl-icon { filter: invert(1); }
+:root[data-theme="dark"] .maplibregl-ctrl-group button:not(:disabled):hover { background-color: var(--surface-alt, #172126); }
