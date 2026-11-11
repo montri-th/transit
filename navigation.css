@@ -92,3 +92,27 @@ a.lang-link:hover { background: var(--surface-alt); }
    (launch.js sets the mark and lifts it after a few seconds whatever happens). */
 html[data-i18n="pending"] body { visibility: hidden; }
 html[data-i18n="pending"] #launch-status { visibility: visible; }
+/* A result that lacks a part (0.6.0, js/shell/launch.js `citymeter:partial`): a card under the header that says what
+   did not load and what that does to the numbers; folded, a mark with its words stays in the header band until the
+   page is reloaded. A sign and words, never a colour alone; no rail, no bracket (LDS). */
+.data-notice { position: fixed; z-index: 35; top: 2px; left: 50%; transform: translateX(-50%); display: grid; justify-items: center; gap: 6px; width: max-content; max-width: calc(100vw - 20px); color: var(--text-primary, #182327); font-size: 14px; line-height: 1.6; pointer-events: none; }
+.data-notice > * { pointer-events: auto; }
+.data-notice-toggle { display: inline-flex; align-items: center; gap: 6px; min-width: 44px; min-height: 44px; padding: 0 12px; border: 1px solid var(--border-default, #C9D0CB); border-radius: 999px; background: var(--surface-card, #FCFCFA); color: inherit; font: inherit; font-weight: 600; cursor: pointer; }
+.data-notice-toggle svg { flex: none; }
+.data-notice-body { box-sizing: border-box; width: min(520px, calc(100vw - 20px)); max-height: calc(100dvh - 120px); overflow: auto; margin-top: 4px; padding: 16px; border: 1px solid var(--border-default, #C9D0CB); border-radius: 16px; background: var(--surface-card, #FCFCFA); box-shadow: 0 8px 24px rgb(0 0 0 / .16); }
+.data-notice-body[hidden] { display: none; }
+.data-notice-lead { margin: 0 0 8px; font-weight: 600; }
+.data-notice-list { margin: 0 0 8px; padding-left: 20px; }
+.data-notice-list li + li { margin-top: 4px; }
+.data-notice-hint { margin: 0 0 12px; font-size: 12px; color: var(--text-secondary, #4A5A5F); }
+.data-notice-actions { display: flex; flex-wrap: wrap; gap: 10px; }
+.data-notice-actions button { min-height: 44px; padding: 8px 16px; border: 1px solid var(--border-default, #C9D0CB); border-radius: 8px; background: var(--surface-alt, #EEF0EC); color: inherit; font: inherit; cursor: pointer; }
+.data-notice-actions .data-notice-retry { font-weight: 600; }
+.data-notice :focus-visible { outline: 3px solid var(--interaction-focus-ring, #176B82); outline-offset: 3px; }
+@media (max-width: 760px) and (orientation: portrait) {
+  .data-notice { left: auto; right: 6px; transform: none; justify-items: end; }
+  .data-notice[data-open="false"] .data-notice-label { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
+  .data-notice[data-open="false"] .data-notice-toggle { padding: 0; justify-content: center; }
+}
+/* The map after the data (0.6.0): one line over the map's place until the map reports loaded. */
+.map-loading { position: absolute; z-index: 3; left: 50%; top: 50%; transform: translate(-50%, -50%); margin: 0; padding: 6px 14px; border: 1px solid var(--border-default, #C9D0CB); border-radius: 999px; background: var(--surface-card, #FCFCFA); color: var(--text-primary, #182327); font-size: 13px; line-height: 1.6; white-space: nowrap; pointer-events: none; }

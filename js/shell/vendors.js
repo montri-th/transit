@@ -13,6 +13,12 @@ const TIMEOUT_MS = 20_000;
 export const MAP_VERSION = '5.6.2';
 export const MAP_URL = `https://unpkg.com/maplibre-gl@${MAP_VERSION}/dist/maplibre-gl.js`;
 export const MAP_CSS_URL = `https://unpkg.com/maplibre-gl@${MAP_VERSION}/dist/maplibre-gl.css`;
+// Subresource Integrity of the two pinned files (shell 0.6.0), SHA-384 of the bytes in the npm package maplibre-gl@5.6.2
+// that unpkg serves. A file that differs is not run or applied: the map shows its error and its retry, the data stays.
+// js/shell/launch.js starts the same two elements early, with the same values; change all of them with MAP_VERSION.
+export const MAP_INTEGRITY = 'sha384-1qC0PnXk2fgMDybOtZF1ui4LM5Sxm7o0TbEkwfxTTVdlZvuNENNGCKUub7d644HP';
+export const MAP_CSS_INTEGRITY = 'sha384-gNYNsUmuZqDYiT3gbirWTV5K7rt71RoveS/yXAaU09d4ZUmeDVTD3XoqB6uJAIFR';
+const INTEGRITY = {[MAP_URL]: MAP_INTEGRITY, [MAP_CSS_URL]: MAP_CSS_INTEGRITY};
 
 const scripts = new Map();
 const stylesheets = new Map();
@@ -62,7 +68,9 @@ function loadScript(resource, label, readExport) {
   const entry = {state: 'pending', promise: null};
   scripts.set(resource, entry);
   entry.promise = new Promise((resolve, reject) => {
-    const script = document.createElement('script');
+    // The launch script may have started this file already (0.6.0): wait for that element instead of a second request.
+    const early = Array.from(document.querySelectorAll('script[data-citymeter-library="early"]')).find(node => node.src === resource && node.isConnected);
+    const script = early || document.createElement('script');
     let settled = false, timer;
     const cleanup = () => { clearTimeout(timer); script.onload = null; script.onerror = null; };
     const fail = error => {
@@ -71,8 +79,11 @@ function loadScript(resource, label, readExport) {
       if (scripts.get(resource) === entry) scripts.delete(resource);
       reject(error);
     };
-    script.async = true;
-    script.src = resource;
+    if (!early) {
+      script.async = true;
+      if (INTEGRITY[resource]) { script.crossOrigin = 'anonymous'; script.integrity = INTEGRITY[resource]; }
+      script.src = resource;
+    }
     script.dataset.citymeterLibrary = label;
     script.onload = () => {
       if (settled) return;
@@ -82,7 +93,7 @@ function loadScript(resource, label, readExport) {
     };
     script.onerror = () => fail(libraryError(label, resource, 'LIBRARY_LOAD_FAILED'));
     timer = setTimeout(() => fail(libraryError(label, resource, 'LIBRARY_TIMEOUT')), TIMEOUT_MS);
-    try { document.head.appendChild(script); } catch { fail(libraryError(label, resource, 'LIBRARY_LOAD_FAILED')); }
+    if (!early) { try { document.head.appendChild(script); } catch { fail(libraryError(label, resource, 'LIBRARY_LOAD_FAILED')); } }
   });
   return entry.promise;
 }
@@ -101,7 +112,8 @@ function loadStylesheet(resource, label) {
     stylesheets.set(resource, {state: 'fulfilled', promise, element: existing});
     return promise;
   }
-  const link = document.createElement('link');
+  const early = Array.from(document.querySelectorAll('link[rel="stylesheet"][data-citymeter-library="early"]')).find(node => node.href === resource && node.isConnected);
+  const link = early || document.createElement('link');
   const entry = {state: 'pending', promise: null, element: link};
   stylesheets.set(resource, entry);
   entry.promise = new Promise((resolve, reject) => {
@@ -113,8 +125,11 @@ function loadStylesheet(resource, label) {
       if (stylesheets.get(resource) === entry) stylesheets.delete(resource);
       reject(error);
     };
-    link.rel = 'stylesheet';
-    link.href = resource;
+    if (!early) {
+      link.rel = 'stylesheet';
+      if (INTEGRITY[resource]) { link.crossOrigin = 'anonymous'; link.integrity = INTEGRITY[resource]; }
+      link.href = resource;
+    }
     link.dataset.citymeterLibrary = label;
     link.onload = () => {
       if (settled) return;
@@ -123,7 +138,7 @@ function loadStylesheet(resource, label) {
     };
     link.onerror = () => fail(libraryError(label, resource, 'LIBRARY_LOAD_FAILED'));
     timer = setTimeout(() => fail(libraryError(label, resource, 'LIBRARY_TIMEOUT')), TIMEOUT_MS);
-    try { document.head.appendChild(link); } catch { fail(libraryError(label, resource, 'LIBRARY_LOAD_FAILED')); }
+    if (!early) { try { document.head.appendChild(link); } catch { fail(libraryError(label, resource, 'LIBRARY_LOAD_FAILED')); } }
   });
   return entry.promise;
 }

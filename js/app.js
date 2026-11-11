@@ -799,7 +799,7 @@ function initMap() {
   state.map.on('moveend', () => { clearTimeout(moveTimer); moveTimer = setTimeout(() => { if (state.loaded && state.panel.mode === 'line') updateSpatialLayers(); }, 250); });
   state.map.on('error', e => console.warn('Map resource', e.error?.message || e));
   for (const type of ['dragstart', 'zoomstart', 'rotatestart', 'pitchstart']) state.map.on(type, e => { if (e.originalEvent && state.stationFrame) state.stationFrame.moved = true; });
-  fetch(TILEJSON_URL).then(r => r.json()).then(j => { state.tileTemplate = j.tiles?.[0] || ''; if (state.loaded) updateSpatialLayers(); }).catch(e => console.warn('TileJSON', e));
+  fetch(TILEJSON_URL).then(r => r.json()).then(j => { state.tileTemplate = j.tiles?.[0] || ''; if (state.loaded) updateSpatialLayers(); }).catch(e => { partial('basemap'); console.warn('TileJSON', e); });
 }
 
 async function startMap() {
@@ -1015,6 +1015,23 @@ function indexData() {
   resolveLineColors();
 }
 
+/**
+ * A part of the data that did not load is said on the page (citymeter-shell 0.6.0, js/shell/launch.js
+ * `citymeter:partial`): what is missing and what that does to the result on screen, with a reload that keeps the
+ * address. The words live here, by file: [Thai name, Thai effect, English name, English effect].
+ */
+const PARTIAL = {
+  'data/provinces.geojson': ['กรอบจังหวัด', 'แผนที่ไม่แสดงขอบจังหวัด', 'Province outlines', 'The map shows no province outlines'],
+  'basemap': ['แผนที่ฐาน', 'ถนน แหล่งน้ำ และอาคารพื้นหลังอาจไม่แสดง ข้อมูลในแผงและตารางยังใช้ได้', 'Basemap', 'Roads, water and background buildings may be missing; the panel and the table still work'],
+  'data/rail-lines.geojson': ['แนวเส้นทางรถไฟฟ้า', 'แผนที่ไม่แสดงแนวเส้นทาง', 'Rail lines', 'The map shows no rail lines'],
+  'data/station-buildings.geojson': ['อาคารสถานี', 'สถานีไม่แสดงเป็นอาคารบนแผนที่', 'Station buildings', 'Stations are not drawn as buildings on the map'],
+};
+function partial(key) {
+  const words = PARTIAL[key];
+  if (!words || typeof window === 'undefined') return;
+  window.dispatchEvent(new CustomEvent('citymeter:partial', {detail: {id: key, label: words[0], effect: words[1], labelEn: words[2], effectEn: words[3]}}));
+}
+
 async function init() {
   try {
     const resources = ['data/transit.json', 'data/rail-lines.geojson', 'data/station-buildings.geojson', 'data/provinces.geojson'];
@@ -1022,6 +1039,8 @@ async function init() {
     if (results[0].status === 'rejected') throw results[0].reason;
     state.data = results[0].value;
     const fc = (r, name) => { if (r.status === 'fulfilled' && r.value?.type === 'FeatureCollection' && Array.isArray(r.value.features)) return r.value; if (r.status === 'rejected') console.warn('Optional dataset unavailable', name, r.reason); return {type: 'FeatureCollection', features: []}; };
+    // A file that did not load is said on the page (citymeter-shell 0.6.0).
+    resources.forEach((r, i) => { if (results[i].status === 'rejected') partial(r); });
     state.railGeo = fc(results[1], 'rail-lines');
     state.buildingGeo = fc(results[2], 'station-buildings');
     state.provinces = fc(results[3], 'provinces');

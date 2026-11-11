@@ -1,7 +1,7 @@
 /**
  * citymeter-shell — the shared code of the CityMETER demos (js/shell/): navigation (0.1.0), the map modules (0.2.0),
  * the header (0.3.0), the subdistrict, local-unit and locale levels (0.4.0, 0.4.1), a zone a dataset defines itself
- * (0.4.2), networks (0.4.3) and the page language (0.5.0, words in context 0.5.1, cut titles 0.5.2, Pharmacy and Restaurants in English 0.5.3). This file is the same in every repository that carries the shell: the files must match
+ * (0.4.2), networks (0.4.3), the page language (0.5.0, words in context 0.5.1, cut titles 0.5.2, Pharmacy and Restaurants in English 0.5.3) and a demo kept inside another repository (0.5.4: Industrial Estate). This file is the same in every repository that carries the shell: the files must match
  * js/shell/manifest.json byte for byte (and so must the files it lists under `shared`), and the navigation modules
  * must keep the contract of demo-platform-review §5.2–5.3 (address grammar, history, breadcrumb, tab title). The map
  * modules keep their own tests in each repository (tests/camera.test.js, tests/terrain.test.js …); the launch card
@@ -16,7 +16,7 @@ import {splitRef, joinRef, serialize, createCodec, createNavigator, LEVEL_KEYS} 
 import {buildBreadcrumb, renderBreadcrumb, breadcrumbText, deepestHref} from '../js/shell/breadcrumb.js';
 import {pageTitle, TITLE_MAX} from '../js/shell/title.js';
 import {terrainChips} from '../js/shell/terrain.js';
-import {DEMOS, GROUPS, demoUrl, hubUrl} from '../js/shell/datasets.js';
+import {DEMOS, GROUPS, demoUrl, demoPath, hubUrl} from '../js/shell/datasets.js';
 import {demoHref, currentDemo, pickerList, placeLevel, hubHref, languageLink} from '../js/shell/header.js';
 import {pageLanguage, languageHref, translate, translateIn, registerDictionary, registerNames, keepThai, englishDate, cutName, LANG} from '../js/shell/i18n.js';
 
@@ -239,9 +239,20 @@ test('header: the demo list is one entry per demo, grouped Land · Location · L
   assert.equal(new Set(DEMOS.map(d => d.path)).size, DEMOS.length);
   for (const d of DEMOS) {
     assert.ok(GROUPS.includes(d.group), d.path);
-    assert.match(demoUrl(d), /^https:\/\/montri-th\.github\.io\/[a-z]+\/$/);
+    assert.match(demoUrl(d), /^https:\/\/montri-th\.github\.io\/[a-z]+(\/[a-z]+)?\/$/);
   }
   assert.ok(DEMOS.filter(d => d.at).length >= 6, 'the six Hotel-family demos open ?at=');
+  // Industrial Estate lives inside the Factory repository (0.5.4): its GitHub Pages path is factory/industrialestate,
+  // its path on the CityMETER Pages site industrialestate; the page is never taken for Factory.
+  const estate = DEMOS.find(d => d.path === 'industrialestate');
+  assert.deepEqual([estate.group, estate.pages, estate.at, estate.en], ['Land', 'factory/industrialestate', true, true]);
+  assert.equal(demoPath(estate), 'factory/industrialestate');
+  assert.equal(demoUrl(estate), 'https://montri-th.github.io/factory/industrialestate/');
+  assert.equal(currentDemo('/factory/industrialestate/')?.path, 'industrialestate');
+  assert.equal(currentDemo('/industrialestate/')?.path, 'industrialestate');
+  assert.equal(currentDemo('/factory/')?.path, 'factory');
+  assert.equal(currentDemo('/factory/data/x.json')?.path, 'factory');
+  assert.equal(demoHref(estate, '?at=CBI'), 'https://montri-th.github.io/factory/industrialestate/?at=CBI');
 });
 
 test('header: a demo on the shell opens the same area, the others their start page (0.3.0)', () => {
@@ -397,8 +408,8 @@ test('header: the list ends with all demos on the showcase, in the page language
   assert.match(html, /<p class="dataset-hub"><a class="dataset-link" href="https:\/\/montri-th\.github\.io\/CityMETER\/demos\/\?at=BKK\/D\/1039">ดูเดโมทั้งหมด<\/a><\/p>$/);
   const office = DEMOS.find(d => d.path === 'office'), thai = DEMOS.find(d => !d.en);
   assert.equal(office.en, true, 'Office declares English (0.5.0)');
-  assert.deepEqual(DEMOS.filter(d => d.en).map(d => d.path).sort(), ['factory', 'governmentoffice', 'hospital', 'hotel', 'office', 'pharmacy', 'restaurant', 'school'],
-    'Hotel and Hospital declare English (0.5.1); School, Government Office and Factory (0.5.2); Pharmacy and Restaurants (0.5.3)');
+  assert.deepEqual(DEMOS.filter(d => d.en).map(d => d.path).sort(), ['factory', 'governmentoffice', 'hospital', 'hotel', 'industrialestate', 'office', 'pharmacy', 'restaurant', 'school'],
+    'Hotel and Hospital declare English (0.5.1); School, Government Office and Factory (0.5.2); Pharmacy and Restaurants (0.5.3); Industrial Estate (0.5.4)');
   assert.equal(demoHref(office, '?at=BKK/D/1039&lang=en', 'en'), 'https://montri-th.github.io/office/?at=BKK/D/1039&lang=en');
   assert.equal(demoHref(thai, '?at=BKK/D/1039&lang=en', 'en'), `https://montri-th.github.io/${thai.path}/?at=BKK/D/1039`, 'a demo without English opens in Thai');
   assert.equal(demoHref(office, '', 'en'), 'https://montri-th.github.io/office/?lang=en');
@@ -453,4 +464,28 @@ test('language: a pattern can translate a longer piece with its separators — �
     [/^([^:]+): (.+)$/, (m, t) => { const a = t.part(m[1]), b = t.text(m[2]); return a == null || b == null ? null : `${a}: ${b}`; }],
   ]});
   assert.equal(translate('ผลิตทดสอบ: 3 จาก 10 หน่วยทดสอบ · 5 หน่วยทดสอบ'), 'Test making: 3 of 10 test units · 5 test units');
+});
+
+test('the launch script and the loader pin one map library with the same integrity values (shell 0.6.0)', async () => {
+  const launch = readFileSync(new URL('launch.js', SHELL), 'utf8');
+  const loader = await import('../js/shell/vendors.js');
+  const pinned = launch.match(/const MAP_LIBRARY=\{version:'([^']+)',script:'([^']+)',style:'([^']+)'\}/);
+  assert.ok(pinned, 'launch.js names the pinned map library');
+  assert.equal(pinned[1], loader.MAP_VERSION);
+  assert.equal(pinned[2], loader.MAP_INTEGRITY);
+  assert.equal(pinned[3], loader.MAP_CSS_INTEGRITY);
+  for (const value of [loader.MAP_INTEGRITY, loader.MAP_CSS_INTEGRITY]) assert.match(value, /^sha384-[A-Za-z0-9+/]{64}$/);
+  assert.equal(loader.MAP_URL, `https://unpkg.com/maplibre-gl@${loader.MAP_VERSION}/dist/maplibre-gl.js`);
+});
+
+test('the launch script keeps the app contract: ready, load-error, progress, partial and map-ready (shell 0.6.0)', () => {
+  const launch = readFileSync(new URL('launch.js', SHELL), 'utf8');
+  for (const name of ['citymeter:ready', 'citymeter:load-error', 'citymeter:progress', 'citymeter:partial', 'citymeter:map-ready']) {
+    assert.ok(launch.includes(`addEventListener('${name}'`), `launch.js listens for ${name}`);
+  }
+  // The notice is built from text nodes only: a label from a data file can never become markup.
+  assert.ok(!/innerHTML|insertAdjacentHTML|document\.write/.test(launch));
+  const css = readFileSync(new URL('../navigation.css', import.meta.url), 'utf8');
+  for (const rule of ['.data-notice', '.data-notice-toggle', '.data-notice-body', '.map-loading']) assert.ok(css.includes(rule + ' {'), `navigation.css styles ${rule}`);
+  assert.ok(!/\.data-notice[^{]*\{[^}]*border-left/.test(css), 'no rail on the notice');
 });

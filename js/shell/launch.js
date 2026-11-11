@@ -16,6 +16,16 @@
  * the whole page (live 2026-11-08 on Hotel: js/model.js). A second failure within RETRY_WINDOW_MS shows the card.
  * The mark lives in sessionStorage for this page and is cleared once the page is ready; without sessionStorage
  * there is no automatic retry, so the page never reloads in a loop.
+ * Part of a result (shell 0.6.0): a demo that could not load one of its optional files says so with
+ *   window.dispatchEvent(new CustomEvent('citymeter:partial',{detail:{id,label,effect,labelEn,effectEn}}))
+ * and the page shows it — what is missing and what that does to the numbers on screen — with one button that reloads
+ * the page (the address keeps the place and the filters). The notice folds to a small mark that stays until the page
+ * is reloaded, so a result that lacks a part never reads as a whole one. {id, resolved:true} takes an entry back.
+ * The map (0.6.0): the pinned MapLibre script and stylesheet start loading here, while the data loads, with the same
+ * integrity values as js/shell/vendors.js (which adopts these two elements); after citymeter:ready a small line says
+ * the map is still loading until window.__citymeter.map reports loaded (or the demo shows #map-failure).
+ * Marks for measuring (0.6.0): performance marks citymeter:ready, citymeter:map-ready and citymeter:partial; the
+ * event citymeter:map-ready follows the mark.
  *
  * Part of the shared CityMETER demo shell: edit it in every repository at once (js/shell/manifest.json).
  */
@@ -42,6 +52,20 @@
  publicTarget.hash=window.location.hash;
  const isFile=window.location.protocol==='file:';
  let phase=isFile?'file':'loading',failure=null,warning='',progress='',elements=null,slowTimer,failTimer,redirectTimer;
+ // The pinned map library (same version and integrity as js/shell/vendors.js; tests/shell.test.js keeps them equal).
+ const MAP_LIBRARY={version:'5.6.2',script:'sha384-1qC0PnXk2fgMDybOtZF1ui4LM5Sxm7o0TbEkwfxTTVdlZvuNENNGCKUub7d644HP',style:'sha384-gNYNsUmuZqDYiT3gbirWTV5K7rt71RoveS/yXAaU09d4ZUmeDVTD3XoqB6uJAIFR'};
+ function mark(name){try{window.performance.mark(name);}catch{}}
+ function startMapLibrary(){
+  if(isFile||!document.head)return;
+  const base='https://unpkg.com/maplibre-gl@'+MAP_LIBRARY.version+'/dist/maplibre-gl';
+  try{
+   for(const origin of ['https://unpkg.com','https://tiles.openfreemap.org']){const hint=document.createElement('link');hint.rel='preconnect';hint.href=origin;hint.crossOrigin='anonymous';document.head.appendChild(hint);}
+   // A failed early element is removed, so the loader in js/shell/vendors.js starts from nothing and reports the error.
+   const style=document.createElement('link');style.rel='stylesheet';style.href=base+'.css';style.crossOrigin='anonymous';style.integrity=MAP_LIBRARY.style;style.dataset.citymeterLibrary='early';style.onerror=()=>style.remove();document.head.appendChild(style);
+   const script=document.createElement('script');script.async=true;script.src=base+'.js';script.crossOrigin='anonymous';script.integrity=MAP_LIBRARY.script;script.dataset.citymeterLibrary='early';script.onerror=()=>script.remove();document.head.appendChild(script);
+  }catch{}
+ }
+ startMapLibrary();
  function text(value){return typeof value==='string'?value:String(value??'');}
  function clearTimers(){window.clearTimeout(slowTimer);window.clearTimeout(failTimer);}
  function diagnostics(){
@@ -127,7 +151,70 @@
   }
   return true;
  }
+ // ---- a result that lacks a part (0.6.0) ----
+ const partial=new Map();let notice=null,noticeOpen=true;
+ function el(tag,className,content){const node=document.createElement(tag);if(className)node.className=className;if(content!=null)node.textContent=content;return node;}
+ function warningSign(){
+  const NS='http://www.w3.org/2000/svg',svg=document.createElementNS(NS,'svg');
+  svg.setAttribute('viewBox','0 0 24 24');svg.setAttribute('width','20');svg.setAttribute('height','20');svg.setAttribute('aria-hidden','true');svg.setAttribute('focusable','false');
+  const path=document.createElementNS(NS,'path');path.setAttribute('d','M12 3 2 20h20L12 3Zm-1 6h2v6h-2V9Zm0 8h2v2h-2v-2Z');path.setAttribute('fill','currentColor');svg.appendChild(path);return svg;
+ }
+ function renderNotice(){
+  if(isFile||phase!=='ready'||!document.body)return;
+  if(!partial.size){if(notice){notice.remove();notice=null;}delete document.documentElement.dataset.partial;return;}
+  document.documentElement.dataset.partial=String(partial.size);
+  if(!notice){notice=el('aside','data-notice');notice.id='data-notice';notice.setAttribute('role','status');notice.setAttribute('aria-live','polite');document.body.appendChild(notice);}
+  notice.textContent='';notice.dataset.open=String(noticeOpen);
+  const toggle=el('button','data-notice-toggle');toggle.type='button';toggle.setAttribute('aria-expanded',String(noticeOpen));toggle.setAttribute('aria-controls','data-notice-body');
+  toggle.append(warningSign(),el('span','data-notice-label',L('ข้อมูลไม่ครบ','Data incomplete')));
+  toggle.setAttribute('aria-label',L('ข้อมูลไม่ครบ '+partial.size+' ส่วน','Data incomplete: '+partial.size+(partial.size===1?' part':' parts')));
+  toggle.addEventListener('click',()=>{noticeOpen=!noticeOpen;renderNotice();notice.querySelector('.data-notice-toggle').focus();});
+  const body=el('div','data-notice-body');body.id='data-notice-body';body.hidden=!noticeOpen;
+  body.append(el('p','data-notice-lead',L('โหลดข้อมูลบางส่วนไม่สำเร็จ ผลที่แสดงอยู่จึงยังไม่ครบ','Part of the data did not load, so what is shown is incomplete')));
+  const list=el('ul','data-notice-list');
+  for(const item of partial.values()){
+   const row=el('li'),name=el('strong',null,EN&&item.labelEn?item.labelEn:item.label),effect=EN&&item.effectEn?item.effectEn:item.effect;
+   row.append(name);if(effect)row.append(' — '+effect);list.append(row);
+  }
+  const actions=el('div','data-notice-actions'),again=el('button','data-notice-retry',L('ลองโหลดใหม่','Reload')),fold=el('button','data-notice-fold',L('ย่อ','Fold'));
+  again.type='button';fold.type='button';
+  again.addEventListener('click',()=>window.location.reload());
+  fold.addEventListener('click',()=>{noticeOpen=false;renderNotice();notice.querySelector('.data-notice-toggle').focus();});
+  actions.append(again,fold);body.append(list,el('p','data-notice-hint',L('การโหลดใหม่ยังอยู่ที่พื้นที่และตัวกรองเดิม','Reloading keeps the place and the filters')),actions);
+  notice.append(toggle,body);
+ }
+ function notePartial(detail){
+  if(!detail||typeof detail!=='object')return;
+  const id=text(detail.id||detail.label);if(!id)return;
+  if(detail.resolved){if(partial.delete(id))renderNotice();return;}
+  if(partial.has(id))return;
+  partial.set(id,{label:text(detail.label||id),effect:text(detail.effect||''),labelEn:text(detail.labelEn||''),effectEn:text(detail.effectEn||'')});
+  mark('citymeter:partial');noticeOpen=true;renderNotice();
+ }
+ // ---- the map after the data (0.6.0) ----
+ let mapPoll,mapLine=null,mapSince=0,mapDone=false;
+ function mapFinished(loaded,told){
+  if(mapDone)return;mapDone=true;window.clearInterval(mapPoll);
+  if(mapLine){mapLine.remove();mapLine=null;}
+  if(loaded){mark('citymeter:map-ready');if(!told){try{window.dispatchEvent(new CustomEvent('citymeter:map-ready'));}catch{}}}
+ }
+ function watchMap(){
+  if(isFile||mapPoll||mapDone)return;
+  mapSince=Date.now();
+  mapPoll=window.setInterval(()=>{
+   const holder=document.getElementById('map'),failed=document.getElementById('map-failure');
+   let map=null;try{map=window.__citymeter&&window.__citymeter.map;}catch{}
+   let loaded=false;try{loaded=Boolean(map&&typeof map.loaded==='function'&&map.loaded());}catch{}
+   if(loaded){mapFinished(true);return;}
+   if(!holder||(failed&&!failed.hidden)||Date.now()-mapSince>30000){mapFinished(false);return;}
+   if(!mapLine&&Date.now()-mapSince>700){mapLine=el('p','map-loading',L('กำลังโหลดแผนที่…','Loading the map…'));mapLine.id='map-loading';mapLine.setAttribute('role','status');(holder.parentElement||holder).appendChild(mapLine);}
+  },200);
+ }
+ window.addEventListener('citymeter:ready',()=>{mark('citymeter:ready');});
  window.addEventListener('citymeter:ready',ready);
+ window.addEventListener('citymeter:ready',()=>{renderNotice();watchMap();});
+ window.addEventListener('citymeter:partial',event=>notePartial(event.detail));
+ window.addEventListener('citymeter:map-ready',()=>mapFinished(true,true));
  window.addEventListener('citymeter:progress',event=>{if(isFile||phase==='ready')return;progress=text(event.detail?.message);window.clearTimeout(failTimer);failTimer=window.setTimeout(()=>fail({message:L('ยังเริ่มหน้าจอไม่สำเร็จ ลองโหลดใหม่ หรือเปิดเว็บสาธารณะด้านล่าง','The page has not started. Reload, or open the public site below.'),phase:'startup-timeout',diagnostic:'No citymeter:ready event received within 180 seconds of '+progress}),180000);render();});
  window.addEventListener('citymeter:load-error',event=>fail(event.detail));
  window.addEventListener('error',event=>{
@@ -144,7 +231,7 @@
   const reason=event.reason;
   fail({message:L('การโหลดหน้าจอหยุดก่อนข้อมูลพร้อม ลองโหลดใหม่ หรือเปิดเว็บสาธารณะด้านล่าง','Loading stopped before the data was ready. Reload, or open the public site below.'),phase:'unhandled-rejection',diagnostic:reason?.message||text(reason)});
  });
- window.addEventListener('pagehide',()=>{clearTimers();window.clearTimeout(redirectTimer);});
+ window.addEventListener('pagehide',()=>{clearTimers();window.clearTimeout(redirectTimer);window.clearInterval(mapPoll);});
  if(!bind()){
   const observer=new MutationObserver(()=>{if(bind())observer.disconnect();});
   observer.observe(document.documentElement,{childList:true,subtree:true});

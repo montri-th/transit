@@ -1,6 +1,6 @@
 {
   "name": "citymeter-transit",
-  "version": "0.2.4",
+  "version": "0.3.0",
   "private": true,
   "type": "module",
   "description": "CityMETER · Transit — rail-first 3D map of Thailand's public transport: lines, stations, interchanges and the buildings around large stations, with evidence per record",
