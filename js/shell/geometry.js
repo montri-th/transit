@@ -161,11 +161,28 @@ function segmentsCross(a, b, c, d) {
   return o1 * o2 < 0 && o3 * o4 < 0;
 }
 
+// The box of a ring, kept while the ring is the same array of the same length starting at the same point (shell 0.6.0):
+// a district outline is asked for its box once per building otherwise (the massing asks thousands of times per tile).
+const ringBoxes = new WeakMap();
+function boxOf(ring) {
+  const kept = ringBoxes.get(ring);
+  if (kept && kept.length === ring.length && kept.first === ring[0]) return kept.box;
+  const box = ringBBox(ring);
+  ringBoxes.set(ring, {length: ring.length, first: ring[0], box});
+  return box;
+}
+
 /** True when two closed rings overlap: containment either way or any crossing edges. */
 export function ringsIntersect(a, b) {
-  const ba = ringBBox(a), bb = ringBBox(b);
+  const ba = boxOf(a), bb = boxOf(b);
   if (ba.maxX < bb.minX || bb.maxX < ba.minX || ba.maxY < bb.minY || bb.maxY < ba.minY) return false;
   if (pointInRing(a[0], b) || pointInRing(b[0], a)) return true;
-  for (let i = 0; i < a.length - 1; i++) for (let j = 0; j < b.length - 1; j++) if (segmentsCross(a[i], a[i + 1], b[j], b[j + 1])) return true;
+  // An edge of b wholly to one side of a's box cannot cross an edge of a (0.6.0): the same answer, far fewer tests
+  // when b is a long outline and a a building.
+  for (let j = 0; j < b.length - 1; j++) {
+    const p = b[j], q = b[j + 1];
+    if ((p[0] < ba.minX && q[0] < ba.minX) || (p[0] > ba.maxX && q[0] > ba.maxX) || (p[1] < ba.minY && q[1] < ba.minY) || (p[1] > ba.maxY && q[1] > ba.maxY)) continue;
+    for (let i = 0; i < a.length - 1; i++) if (segmentsCross(a[i], a[i + 1], p, q)) return true;
+  }
   return false;
 }

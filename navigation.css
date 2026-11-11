@@ -1,12 +1,17 @@
 /* LDS 0.9.7 approved nav-7 icon subset, unchanged bytes; Apache-2.0.
    SHA-256 d7e283106ed2898726b24504c4e0f5ad524292984a90a4d29553c7dcf53b9657.
    Static outline FILL 0 / wght 300 / GRAD 0 / opsz 24. Glyphs never change
-   with state; selection is shown by surface, text and outline instead. */
+   with state; selection is shown by surface, text and outline instead.
+   U+0020 in the range (0.6.0) makes this face the first available font of its
+   own box (CSS Fonts: the first face that does not exclude the space), so the
+   line is laid out with the glyphs' own ascent and descent and a glyph stands
+   in the middle of its box; without it the box took the fallback text font's
+   baseline and every glyph stood about 3 px high — plain to see in a circle. */
 @font-face {
   font-family: "LDS Material Symbols Rounded Nav";
   src: url("assets/icons/material-nav-300.woff2?v=d7e28310") format("woff2");
   font-style: normal; font-weight: 300; font-display: block;
-  unicode-range: U+E518, U+E51C, U+E5CD, U+E5D2, U+E89E, U+EB37, U+F233;
+  unicode-range: U+0020, U+E518, U+E51C, U+E5CD, U+E5D2, U+E89E, U+EB37, U+F233;
 }
 .nav-icon {
   display: inline-block; flex: 0 0 22px; width: 22px; height: 22px;
@@ -19,6 +24,30 @@
 .nav-icons-ready .nav-icon { visibility: visible; }
 .nav-icons-unavailable .nav-icon { display: none; }
 .nav-decorated { align-items: center; justify-content: center; gap: 5px; }
+/* Control glyphs for the phone controls (citymeter-shell 0.6.0; owner 2026-11-12 00:36: shorter words or symbols on a
+   phone, checked against LDS): back, more and help. A subset of the pictogram font approved for Shopping Center's UI
+   roles (owner 2026-10-25), same family and axes as nav-7 (FILL 0 / wght 300 / GRAD 0 / opsz 24), no outline redrawn;
+   SHA-256 a8d78ffa177e28282b416f071713a4ca1a115ce32bebb3e6ca8c5062499b527a (assets/icons/material-controls-300.json).
+   A glyph shows only once its font has loaded; until then, and if it never loads, the control shows its words. */
+@font-face {
+  font-family: "LDS Material Symbols Rounded Controls";
+  src: url("assets/icons/material-controls-300.woff2?v=a8d78ffa") format("woff2");
+  font-style: normal; font-weight: 300; font-display: block;
+  unicode-range: U+0020, U+E5C4, U+E5CF, U+E8FD;
+}
+.ctl-icon {
+  display: none; flex: 0 0 22px; width: 22px; height: 22px;
+  font-family: "LDS Material Symbols Rounded Controls" !important; font-size: 22px !important;
+  font-style: normal !important; font-weight: 300 !important; line-height: 1 !important;
+  letter-spacing: normal !important; text-transform: none !important; font-synthesis: none;
+  font-variation-settings: "FILL" 0, "wght" 300, "GRAD" 0, "opsz" 24;
+  vertical-align: middle; overflow: hidden; pointer-events: none;
+}
+.controls-ready .ctl-icon { display: inline-block; }
+.controls-ready .ctl-fallback { display: none; }
+/* Wide screens keep the words of these controls; the glyph stands before them only on a phone (below). */
+.ctl-decorated > .ctl-icon { display: none; }
+.toolbar-more[hidden], .toolbar-more-list[hidden] { display: none !important; }
 button.nav-decorated { display: inline-flex; }
 a.nav-decorated { display: inline-flex; justify-content: flex-start; vertical-align: middle; gap: 3px; }
 a.nav-decorated .nav-icon { flex-basis: 16px; width: 16px; height: 16px; font-size: 16px !important; }
@@ -60,18 +89,19 @@ a.nav-decorated .nav-icon { flex-basis: 16px; width: 16px; height: 16px; font-si
 /* Dataset picker in the header (citymeter-shell 0.3.0, js/shell/header.js; this file is checked as shared bytes
    by js/shell/manifest.json). A disclosure of links; the current demo reads bold on the quiet surface. */
 .dataset-switch { position: relative; display: flex; align-items: center; min-width: 0; }
-.dataset-picker { display: inline-flex; align-items: center; gap: 4px; min-width: 44px; min-height: 44px; margin-left: -6px; padding: 0 8px 0 6px; border: 0; border-radius: 8px; background: none; color: var(--text-primary); font: inherit; cursor: pointer; }
+.dataset-picker { display: inline-flex; align-items: center; gap: 4px; min-width: 44px; min-height: 44px; margin-left: -6px; padding: 0 8px 0 6px; border: 0; border-radius: 10px; background: none; color: var(--text-primary); font: inherit; cursor: pointer; }
 .dataset-picker:hover, .dataset-picker[aria-expanded="true"] { background: var(--surface-alt); }
-.picker-caret { font-size: 11px; line-height: 1; color: var(--text-secondary); }
-.dataset-menu { position: absolute; top: calc(100% + 2px); left: -6px; z-index: 40; width: 300px; max-height: calc(100dvh - 64px); overflow: auto; overscroll-behavior: contain; padding: 10px; background: var(--surface-card); color: var(--text-primary); border: 1px solid var(--border-default); border-radius: 12px; font-size: 13px; line-height: 1.5; }
+.picker-caret { display: inline-flex; align-items: center; font-size: .75rem; line-height: 1; color: var(--text-secondary); }
+.picker-caret .ctl-icon { flex-basis: 18px; width: 18px; height: 18px; font-size: 18px !important; }
+.dataset-menu { position: absolute; top: calc(100% + 2px); left: -6px; z-index: 40; width: 300px; max-height: calc(100dvh - 64px); overflow: auto; overscroll-behavior: contain; padding: 10px; background: var(--surface-card); color: var(--text-primary); border: 1px solid var(--border-default); border-radius: 16px; font-size: 13px; line-height: 1.5; }
 .dataset-lead { margin: 2px 8px 8px; font-size: 12px; color: var(--text-secondary); }
 .dataset-group + .dataset-group { margin-top: 6px; padding-top: 6px; border-top: 1px solid var(--border-hairline); }
-.dataset-group-label { margin: 4px 8px 0; font-size: 11px; font-weight: 600; letter-spacing: .06em; color: var(--text-secondary); }
+.dataset-group-label { margin: 4px 8px 0; font-size: .75rem; font-weight: 600; letter-spacing: .06em; color: var(--text-secondary); }
 .dataset-group ul { margin: 0; padding: 0; list-style: none; }
-.dataset-link { display: flex; align-items: center; justify-content: space-between; gap: 8px; min-height: 44px; padding: 0 8px; border-radius: 8px; color: var(--text-primary); text-decoration: none; }
+.dataset-link { display: flex; align-items: center; justify-content: space-between; gap: 8px; min-height: 44px; padding: 0 8px; border-radius: 10px; color: var(--text-primary); text-decoration: none; }
 .dataset-link:hover { background: var(--surface-alt); }
 .dataset-link[aria-current="page"] { font-weight: 600; background: var(--surface-alt); }
-.dataset-note { font-size: 11px; font-weight: 400; color: var(--text-secondary); }
+.dataset-note { font-size: .75rem; font-weight: 400; color: var(--text-secondary); }
 .dataset-utility { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 16px; margin-bottom: 6px; padding: 2px 8px 8px; border-bottom: 1px solid var(--border-hairline); }
 .dataset-utility:empty { display: none; }
 /* The theme control lives at the top of the list on every width (0.5.0). */
@@ -82,7 +112,7 @@ a.nav-decorated .nav-icon { flex-basis: 16px; width: 16px; height: 16px; font-si
 .dataset-hub .dataset-link { font-weight: 600; }
 /* Every header control is a 44 × 44 px target (LDS NAV-01), the Product statement and language links included. */
 .top-actions a.text-link { min-height: 44px; }
-a.lang-link { display: inline-flex; align-items: center; justify-content: center; min-width: 44px; min-height: 44px; padding: 0 8px; border-radius: 8px; color: var(--text-primary); font-weight: 600; text-underline-offset: 3px; }
+a.lang-link { display: inline-flex; align-items: center; justify-content: center; min-width: 44px; min-height: 44px; padding: 0 8px; border-radius: 10px; color: var(--text-primary); font-weight: 600; text-underline-offset: 3px; }
 a.lang-link:hover { background: var(--surface-alt); }
 .dataset-utility a.lang-link { justify-content: flex-start; padding: 0; }
 @media (max-width: 760px) and (orientation: portrait) {
@@ -92,3 +122,127 @@ a.lang-link:hover { background: var(--surface-alt); }
    (launch.js sets the mark and lifts it after a few seconds whatever happens). */
 html[data-i18n="pending"] body { visibility: hidden; }
 html[data-i18n="pending"] #launch-status { visibility: visible; }
+/* A result that lacks a part (0.6.0, js/shell/launch.js `citymeter:partial`): a card under the header that says what
+   did not load and what that does to the numbers; folded, a mark with its words stays in the header band until the
+   page is reloaded. A sign and words, never a colour alone; no rail, no bracket (LDS). */
+.data-notice { position: fixed; z-index: 35; top: 2px; left: 50%; transform: translateX(-50%); display: grid; justify-items: center; gap: 6px; width: max-content; max-width: calc(100vw - 20px); color: var(--text-primary, #182327); font-size: 14px; line-height: 1.6; pointer-events: none; }
+.data-notice > * { pointer-events: auto; }
+.data-notice-toggle { display: inline-flex; align-items: center; gap: 6px; min-width: 44px; min-height: 44px; padding: 0 12px; border: 1px solid var(--border-default, #C9D0CB); border-radius: 999px; background: var(--surface-card, #FCFCFA); color: inherit; font: inherit; font-weight: 600; cursor: pointer; }
+.data-notice-toggle svg { flex: none; }
+.data-notice-body { box-sizing: border-box; width: min(520px, calc(100vw - 20px)); max-height: calc(100dvh - 120px); overflow: auto; margin-top: 4px; padding: 16px; border: 1px solid var(--border-default, #C9D0CB); border-radius: 16px; background: var(--surface-card, #FCFCFA); box-shadow: 0 8px 24px rgb(0 0 0 / .16); }
+.data-notice-body[hidden] { display: none; }
+.data-notice-lead { margin: 0 0 8px; font-weight: 600; }
+.data-notice-list { margin: 0 0 8px; padding-left: 20px; }
+.data-notice-list li + li { margin-top: 4px; }
+.data-notice-hint { margin: 0 0 12px; font-size: 12px; color: var(--text-secondary, #4A5A5F); }
+.data-notice-actions { display: flex; flex-wrap: wrap; gap: 10px; }
+.data-notice-actions button { min-height: 44px; padding: 8px 16px; border: 1px solid var(--border-default, #C9D0CB); border-radius: 999px; background: var(--surface-alt, #EEF0EC); color: inherit; font: inherit; cursor: pointer; }
+.data-notice-actions .data-notice-retry { font-weight: 600; }
+.data-notice :focus-visible { outline: 3px solid var(--interaction-focus-ring, #176B82); outline-offset: 3px; }
+.data-notice-mode { margin: 0 0 12px; }
+.data-notice-list + .data-notice-mode, .data-notice-hint + .data-notice-mode { padding-top: 10px; border-top: 1px solid var(--border-hairline, #DCE1DD); }
+.data-notice-detail { margin-top: 10px; font-size: 12px; color: var(--text-secondary, #4A5A5F); }
+.data-notice-detail summary { display: flex; align-items: center; min-height: 44px; cursor: pointer; }
+.data-notice-detail pre { margin: 0; white-space: pre-wrap; overflow-wrap: anywhere; font: 400 12px/1.6 "JetBrains Mono", monospace; }
+/* The map after the data (0.6.0): one line over the map's place until the map reports loaded. */
+.map-loading { position: absolute; z-index: 3; left: 50%; top: 50%; transform: translate(-50%, -50%); margin: 0; padding: 6px 14px; border: 1px solid var(--border-default, #C9D0CB); border-radius: 999px; background: var(--surface-card, #FCFCFA); color: var(--text-primary, #182327); font-size: 13px; line-height: 1.6; white-space: nowrap; pointer-events: none; }
+/* A phone: the mark is a sign beside the language link (its words stay for screen readers), and the open card is a
+   short one under the header — it never takes the whole map (owner 2026-11-11 20:38). */
+@media (max-width: 760px) and (orientation: portrait) {
+  .data-notice { left: auto; right: 50px; transform: none; justify-items: end; }
+  .data-notice .data-notice-label { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
+  .data-notice .data-notice-toggle { padding: 0; justify-content: center; }
+  .data-notice-body { position: fixed; top: 50px; left: 8px; right: 8px; width: auto; max-height: 46dvh; margin: 0; padding: 12px 14px; font-size: 13px; line-height: 1.55; }
+  .data-notice-lead { margin-bottom: 6px; }
+  .data-notice-hint { margin-bottom: 10px; }
+  /* The sheet covers the lower half of the map: the line stands under the toolbar. */
+  .map-loading { top: 68px; transform: translateX(-50%); }
+}
+/* The map's own buttons in the dark theme (0.6.0, owner 2026-11-11 20:38: a white box on the dark map): the vendor's
+   white group takes the card surface and its dark glyphs are inverted. Fallbacks are the dark theme's own values. */
+:root[data-theme="dark"] .maplibregl-ctrl-group { background: var(--surface-card, #20292D); box-shadow: 0 0 0 1px var(--border-default, #46524F); }
+:root[data-theme="dark"] .maplibregl-ctrl-group button + button { border-top-color: var(--border-hairline, #33403D); }
+:root[data-theme="dark"] .maplibregl-ctrl-group button .maplibregl-ctrl-icon { filter: invert(1); }
+:root[data-theme="dark"] .maplibregl-ctrl-group button:not(:disabled):hover { background-color: var(--surface-alt, #172126); }
+/* Controls and type (citymeter-shell 0.6.0; owner 2026-11-12 00:36, VERBATIM: “on mobile เราย่อ ข้อความยาวๆให้สั้น หรือ
+   แทนที่ ด้วย icon / symbol แทนได้มั้ยครับ เช็ค LDS นะ แล้วพยายามปรับหน้าตาให้แสดง identity ตาม LDS ออกมาให้มากที่สุด”).
+   LDS 0.9.7: CTRL-01 — every target at least 44 × 44 CSS px, words in a capsule, a symbol alone in a circle;
+   ICON-01 — a symbol alone only where it is conventional and the control has a name, an ambiguous action keeps its
+   words; LAYOUT-01 — a crowded row loses non-essential content first, then is recomposed, stacked, relieved of its
+   lower-priority actions, and only then gets a compact label, never a smaller type or a cut label; type scale —
+   label 0.8125rem for a control, caption 0.75rem the smallest text. The same bytes in every demo: the rules name the
+   ids and classes the demos share, and a demo without one of them is not touched by its rule.
+   Left as they are, and why: the marks on the map (area and place labels, pins) are the map's content, sized to the
+   map; a link inside a line of text keeps the height of its line (CTRL-01 exempts it); the map library's attribution
+   button keeps its 24 px drawing and takes a 44 px touch area. */
+
+/* 1. At every width: the height of a target and the smallest text. */
+.map-toolbar > button, .toolbar-more-list > button { min-width: 44px; min-height: 44px; }
+.maplibregl-map .maplibregl-ctrl-top-right .maplibregl-ctrl-group { border-radius: 22px; overflow: hidden; }
+.maplibregl-map .maplibregl-ctrl-top-right .maplibregl-ctrl-group > button { width: 44px; height: 44px; }
+.maplibregl-map .maplibregl-ctrl-attrib-button::after { content: ""; position: absolute; inset: -10px; }
+.map-aha .btn, .map-aha > button, .insight-heading button { min-height: 44px; }
+:is(#panel, #insights, #map-legend) .metric-switch button { min-height: 44px; font-size: .8125rem; }
+#category-key > summary, #line-key > summary, .legend-toggle { min-width: 44px; min-height: 44px; }
+.sheet-links .link-button, .sheet-links .text-link, #close-mobile-panel, #expand-mobile-panel { min-height: 44px; }
+#filter-details > summary, .filters select, .filters input[type="search"], #filters .filter-actions .btn { min-height: 44px; }
+.filter-chip, .lens-chip, .brand-chip, .chip-toggle, .crumbs button.crumb, .outbound-link { min-height: 44px; }
+#toggle-table, .tabs button, .pagination button, #panel-back { min-height: 44px; }
+#results .row-name, #panel .mix-row, #insights button.bar-row, #insights button.chart-row { min-height: 44px; }
+#panel .detail-actions .btn, #panel .detail-head > .btn, #panel .ask-link { min-height: 44px; }
+.mode-bar .mode-bar-label, .mode-bar .mode-chip { min-height: 44px; }
+#category-key > summary, #line-key > summary { display: inline-flex; align-items: center; }
+#legend-title, #map-legend .ramp-tick, #map-legend .legend-step, .map-aha .map-aha-crumb, #map-status { font-size: .75rem; }
+#map-legend .legend-ramp-labels span, #map-legend .legend-ramp-ticks span, #map-legend .size-step span, #map-legend .data-number, #map-legend small { font-size: .75rem; }
+/* Names and numbers on the map are captions too. Each demo's own cap on a label's width grew by the same share (200 to
+   204 px; on a phone 184 to 196 px or 150 to 160 px), so a name that fitted at 11 px still fits. */
+#map .label-name, #map .label-count, #map [class^="hl-"], .estate-chip, .estate-chip-count, .mode-info-i, .inferred { font-size: .75rem; }
+#panel small, #insights small, #results small, #panel .metrics span, #insights .bar-rank, .line-badge, .metric-sub, .table-sub, .ask-note { font-size: .75rem; }
+
+/* 2. A phone in portrait: the composition. */
+@media (max-width: 760px) and (orientation: portrait) {
+  /* The map toolbar: one row of 44 px targets. Without js/shell/navigation.js (fitToolbar) it wraps and shows every
+     button; with it, what does not fit moves into the list the last button opens. Help is in the sheet where the
+     sheet has its own opener; the architect's view shows once it can be used. */
+  .map-toolbar { gap: 6px; flex-wrap: wrap; overflow: visible; padding-right: 0; padding-bottom: 0; -webkit-mask-image: none; mask-image: none; }
+  .map-toolbar[data-fit] { flex-wrap: nowrap; }
+  .map-toolbar > button, .toolbar-more-list > button { box-sizing: border-box; min-width: 44px; padding: 0 12px; font-size: .8125rem; line-height: 1.2; white-space: nowrap; flex: 0 0 auto; justify-content: center; }
+  .map-toolbar > button#toggle-3d { width: 44px; padding: 0; }
+  .map-toolbar > button#toggle-3d .pictogram { display: none; }
+  .map-toolbar > button#toggle-eye:disabled { display: none; }
+  body:has(#open-help-sheet) .map-toolbar > button#open-help { display: none; }
+  .nav-icons-ready .map-toolbar > button#mobile-panel { width: 44px; padding: 0; gap: 0; font-size: 0; }
+  .map-toolbar > button.toolbar-more { display: inline-flex; align-items: center; justify-content: center; gap: 5px; }
+  .controls-ready .map-toolbar > button.toolbar-more { width: 44px; padding: 0; gap: 0; font-size: 0; }
+  .map-toolbar > button.toolbar-more[aria-expanded="true"] { background: var(--surface-alt); border-color: var(--border-emphasis); }
+  .toolbar-more-list { position: absolute; z-index: 6; top: calc(100% + 6px); right: 0; display: grid; gap: 4px; min-width: 184px; max-width: calc(100vw - 16px); padding: 6px; pointer-events: auto; background: var(--surface-card); border: 1px solid var(--border-default); border-radius: 16px; box-shadow: 0 8px 24px rgb(0 0 0 / .16); }
+  .toolbar-more-list > button { width: 100%; justify-content: flex-start; text-align: left; border-color: transparent; border-radius: 10px; background: none; }
+  .toolbar-more-list > button:hover { background: var(--surface-alt); }
+  /* In the list a button always shows its words (a demo may hide them on the row). */
+  #toolbar-more-list.toolbar-more-list > button span { position: static; width: auto; height: auto; overflow: visible; clip-path: none; white-space: nowrap; }
+  /* A second row of the map's own switches (Transit) follows the taller toolbar. */
+  .mode-bar { top: 58px; }
+  .mode-bar .mode-bar-label, .mode-bar .mode-chip { font-size: .8125rem; }
+  /* The map library's own buttons stand level with the toolbar; the compass alone is a circle. */
+  .maplibregl-map .maplibregl-ctrl-top-right .maplibregl-ctrl { margin: 8px 8px 0 0; }
+  /* The finding over the map, the measure switch and the comparison bar: the label role, and no taller a dock. */
+  .map-aha .btn, .map-aha > button, .insight-heading button { font-size: .8125rem; }
+  .map-dock .map-aha { padding-top: 2px; padding-bottom: 2px; }
+  .map-dock .map-legend { padding-top: 2px; padding-bottom: 2px; }
+  /* A legend title too long for its place beside the measure switch takes a second line (three measures in English): it is
+     never cut (LAYOUT-01). The scale then keeps a little air under its numbers; a one-line title is no taller for it. */
+  .map-dock #legend-title { white-space: normal; overflow: visible; text-overflow: clip; }
+  .map-dock #legend-steps > .legend-ramp { margin-bottom: 3px; }
+  /* The sheet: help and the way back are symbols once their glyphs have loaded; the words stay for assistive technology. */
+  .sheet-links .link-button, .sheet-links .text-link, #filters .filter-actions .btn { font-size: .8125rem; }
+  .controls-ready .sheet-links #open-help-sheet { justify-content: center; width: 44px; padding: 0; font-size: 0; text-decoration: none; border-radius: 50%; }
+  .controls-ready .sheet-links #open-help-sheet > .ctl-icon, .controls-ready .sheet-bar .sheet-back > .ctl-icon { display: inline-block; }
+  .controls-ready .sheet-links #open-help-sheet:hover { background: var(--surface-alt); }
+  .controls-ready .sheet-bar .sheet-back { justify-content: center; width: 44px; min-height: 44px; padding: 0; gap: 0; font-size: 0; border-color: transparent; background: none; border-radius: 50%; }
+  .controls-ready .sheet-bar .sheet-back::before { content: none; }
+  .controls-ready .sheet-bar .sheet-back:hover { background: var(--surface-alt); }
+}
+/* Two fingers zoom on a touch screen: the zoom buttons step aside for the map, the compass (north, tilt) stays. */
+@media (max-width: 760px) and (orientation: portrait) and (pointer: coarse) {
+  .maplibregl-map .maplibregl-ctrl-top-right .maplibregl-ctrl-zoom-in, .maplibregl-map .maplibregl-ctrl-top-right .maplibregl-ctrl-zoom-out { display: none; }
+}

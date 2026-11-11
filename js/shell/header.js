@@ -43,9 +43,12 @@ export function hubHref(search = '', lang = 'th') {
   return at ? `${hubUrl(lang)}?at=${encodeURIComponent(at).replace(/%2F/gi, '/')}` : hubUrl(lang);
 }
 
-/** The demo this page belongs to, by its path (/hotel/…), or null. */
-export const currentDemo = (pathname = '') =>
-  DEMOS.find(d => pathname === `/${d.path}` || pathname.startsWith(`/${d.path}/`)) || null;
+/** The demo this page belongs to, by its path (/hotel/…), or null. The longest matching path wins, so a demo kept
+ * inside another repository (/factory/industrialestate/ on GitHub Pages) is never taken for its host (0.5.4). */
+export const currentDemo = (pathname = '') => DEMOS
+  .flatMap(d => [d.path, d.pages].filter(Boolean).map(path => ({d, path})))
+  .filter(({path}) => pathname === `/${path}` || pathname.startsWith(`/${path}/`))
+  .sort((a, b) => b.path.length - a.path.length)[0]?.d || null;
 
 /** Pure: the list for this page. place = the area the page shows (only when the address names one). */
 export function pickerList({pathname = '', search = '', place = '', lang = 'th'} = {}) {

@@ -1,7 +1,7 @@
 /**
  * citymeter-shell — the shared code of the CityMETER demos (js/shell/): navigation (0.1.0), the map modules (0.2.0),
  * the header (0.3.0), the subdistrict, local-unit and locale levels (0.4.0, 0.4.1), a zone a dataset defines itself
- * (0.4.2), networks (0.4.3) and the page language (0.5.0, words in context 0.5.1, cut titles 0.5.2, Pharmacy and Restaurants in English 0.5.3). This file is the same in every repository that carries the shell: the files must match
+ * (0.4.2), networks (0.4.3), the page language (0.5.0, words in context 0.5.1, cut titles 0.5.2, Pharmacy and Restaurants in English 0.5.3) and a demo kept inside another repository (0.5.4: Industrial Estate). This file is the same in every repository that carries the shell: the files must match
  * js/shell/manifest.json byte for byte (and so must the files it lists under `shared`), and the navigation modules
  * must keep the contract of demo-platform-review §5.2–5.3 (address grammar, history, breadcrumb, tab title). The map
  * modules keep their own tests in each repository (tests/camera.test.js, tests/terrain.test.js …); the launch card
@@ -16,8 +16,9 @@ import {splitRef, joinRef, serialize, createCodec, createNavigator, LEVEL_KEYS} 
 import {buildBreadcrumb, renderBreadcrumb, breadcrumbText, deepestHref} from '../js/shell/breadcrumb.js';
 import {pageTitle, TITLE_MAX} from '../js/shell/title.js';
 import {terrainChips} from '../js/shell/terrain.js';
-import {DEMOS, GROUPS, demoUrl, hubUrl} from '../js/shell/datasets.js';
-import {demoHref, currentDemo, pickerList, placeLevel, hubHref, languageLink} from '../js/shell/header.js';
+import {DEMOS, GROUPS, demoUrl, demoPath, hubUrl} from '../js/shell/datasets.js';
+import {demoHref, currentDemo, pickerList, placeLevel, hubHref, languageLink, PHONE_QUERY} from '../js/shell/header.js';
+import {NAV_ICON_CONTRACT, CONTROL_GLYPHS, CONTROL_ICON_CONTRACT, keepScore, planToolbar, PHONE_QUERY as TOOLBAR_PHONE_QUERY} from '../js/shell/navigation.js';
 import {pageLanguage, languageHref, translate, translateIn, registerDictionary, registerNames, keepThai, englishDate, cutName, LANG} from '../js/shell/i18n.js';
 
 const SHELL = new URL('../js/shell/', import.meta.url);
@@ -239,9 +240,26 @@ test('header: the demo list is one entry per demo, grouped Land · Location · L
   assert.equal(new Set(DEMOS.map(d => d.path)).size, DEMOS.length);
   for (const d of DEMOS) {
     assert.ok(GROUPS.includes(d.group), d.path);
-    assert.match(demoUrl(d), /^https:\/\/montri-th\.github\.io\/[a-z]+\/$/);
+    assert.match(demoUrl(d), /^https:\/\/montri-th\.github\.io\/[a-z]+(\/[a-z]+)?\/$/);
   }
   assert.ok(DEMOS.filter(d => d.at).length >= 6, 'the six Hotel-family demos open ?at=');
+  // The groups as the registry reads on 2026-11-12 (R01_DATASETS.dataset_group): Hospital and School moved from
+  // Location to Living that day (owner; registry change CHANGE-LIVING-HEALTH-EDUCATION-20261112-01).
+  const inGroup = group => DEMOS.filter(d => d.group === group).map(d => d.path);
+  assert.deepEqual(inGroup('Land'), ['hotel', 'industrialestate', 'office', 'shoppingcenter']);
+  assert.deepEqual(inGroup('Location'), ['camera', 'factory', 'fitness', 'grocery', 'luxurybrands', 'pharmacy', 'restaurant']);
+  assert.deepEqual(inGroup('Living'), ['governmentoffice', 'hospital', 'school', 'transit']);
+  // Industrial Estate lives inside the Factory repository (0.5.4): its GitHub Pages path is factory/industrialestate,
+  // its path on the CityMETER Pages site industrialestate; the page is never taken for Factory.
+  const estate = DEMOS.find(d => d.path === 'industrialestate');
+  assert.deepEqual([estate.group, estate.pages, estate.at, estate.en], ['Land', 'factory/industrialestate', true, true]);
+  assert.equal(demoPath(estate), 'factory/industrialestate');
+  assert.equal(demoUrl(estate), 'https://montri-th.github.io/factory/industrialestate/');
+  assert.equal(currentDemo('/factory/industrialestate/')?.path, 'industrialestate');
+  assert.equal(currentDemo('/industrialestate/')?.path, 'industrialestate');
+  assert.equal(currentDemo('/factory/')?.path, 'factory');
+  assert.equal(currentDemo('/factory/data/x.json')?.path, 'factory');
+  assert.equal(demoHref(estate, '?at=CBI'), 'https://montri-th.github.io/factory/industrialestate/?at=CBI');
 });
 
 test('header: a demo on the shell opens the same area, the others their start page (0.3.0)', () => {
@@ -397,8 +415,8 @@ test('header: the list ends with all demos on the showcase, in the page language
   assert.match(html, /<p class="dataset-hub"><a class="dataset-link" href="https:\/\/montri-th\.github\.io\/CityMETER\/demos\/\?at=BKK\/D\/1039">ดูเดโมทั้งหมด<\/a><\/p>$/);
   const office = DEMOS.find(d => d.path === 'office'), thai = DEMOS.find(d => !d.en);
   assert.equal(office.en, true, 'Office declares English (0.5.0)');
-  assert.deepEqual(DEMOS.filter(d => d.en).map(d => d.path).sort(), ['factory', 'governmentoffice', 'hospital', 'hotel', 'office', 'pharmacy', 'restaurant', 'school'],
-    'Hotel and Hospital declare English (0.5.1); School, Government Office and Factory (0.5.2); Pharmacy and Restaurants (0.5.3)');
+  assert.deepEqual(DEMOS.filter(d => d.en).map(d => d.path).sort(), ['factory', 'governmentoffice', 'hospital', 'hotel', 'industrialestate', 'office', 'pharmacy', 'restaurant', 'school'],
+    'Hotel and Hospital declare English (0.5.1); School, Government Office and Factory (0.5.2); Pharmacy and Restaurants (0.5.3); Industrial Estate (0.5.4)');
   assert.equal(demoHref(office, '?at=BKK/D/1039&lang=en', 'en'), 'https://montri-th.github.io/office/?at=BKK/D/1039&lang=en');
   assert.equal(demoHref(thai, '?at=BKK/D/1039&lang=en', 'en'), `https://montri-th.github.io/${thai.path}/?at=BKK/D/1039`, 'a demo without English opens in Thai');
   assert.equal(demoHref(office, '', 'en'), 'https://montri-th.github.io/office/?lang=en');
@@ -453,4 +471,225 @@ test('language: a pattern can translate a longer piece with its separators — �
     [/^([^:]+): (.+)$/, (m, t) => { const a = t.part(m[1]), b = t.text(m[2]); return a == null || b == null ? null : `${a}: ${b}`; }],
   ]});
   assert.equal(translate('ผลิตทดสอบ: 3 จาก 10 หน่วยทดสอบ · 5 หน่วยทดสอบ'), 'Test making: 3 of 10 test units · 5 test units');
+});
+
+test('the launch script and the loader pin one map library with the same integrity values (shell 0.6.0)', async () => {
+  const launch = readFileSync(new URL('launch.js', SHELL), 'utf8');
+  const loader = await import('../js/shell/vendors.js');
+  const pinned = launch.match(/const MAP_LIBRARY=\{version:'([^']+)',script:'([^']+)',style:'([^']+)'\}/);
+  assert.ok(pinned, 'launch.js names the pinned map library');
+  assert.equal(pinned[1], loader.MAP_VERSION);
+  assert.equal(pinned[2], loader.MAP_INTEGRITY);
+  assert.equal(pinned[3], loader.MAP_CSS_INTEGRITY);
+  for (const value of [loader.MAP_INTEGRITY, loader.MAP_CSS_INTEGRITY]) assert.match(value, /^sha384-[A-Za-z0-9+/]{64}$/);
+  assert.equal(loader.MAP_URL, `https://unpkg.com/maplibre-gl@${loader.MAP_VERSION}/dist/maplibre-gl.js`);
+});
+
+test('the launch script keeps the app contract: ready, load-error, progress, partial and map-ready (shell 0.6.0)', () => {
+  const launch = readFileSync(new URL('launch.js', SHELL), 'utf8');
+  for (const name of ['citymeter:ready', 'citymeter:load-error', 'citymeter:progress', 'citymeter:partial', 'citymeter:map-ready']) {
+    assert.ok(launch.includes(`addEventListener('${name}'`), `launch.js listens for ${name}`);
+  }
+  // The notice is built from text nodes only: a label from a data file can never become markup.
+  assert.ok(!/innerHTML|insertAdjacentHTML|document\.write/.test(launch));
+  const css = readFileSync(new URL('../navigation.css', import.meta.url), 'utf8');
+  for (const rule of ['.data-notice', '.data-notice-toggle', '.data-notice-body', '.map-loading']) assert.ok(css.includes(rule + ' {'), `navigation.css styles ${rule}`);
+  assert.ok(!/\.data-notice[^{]*\{[^}]*border-left/.test(css), 'no rail on the notice');
+});
+
+/* ---------- shell 0.6.0: the theme before the first paint, a page that was stopped, the map's budget ---------- */
+
+/** Run js/shell/launch.js in a stand-in page; returns what it left on the root element and in the stores. */
+function runLaunch({stored = null, darkDevice = false, life = null, search = '', themeKey = 'citymeter-test-theme'} = {}) {
+  const listeners = {};
+  const store = seed => { const m = new Map(Object.entries(seed)); return {getItem: k => (m.has(k) ? m.get(k) : null), setItem: (k, v) => m.set(k, String(v)), removeItem: k => m.delete(k), map: m}; };
+  const metas = [{media: '(prefers-color-scheme: light)', content: '#F6F7F3'}, {media: '(prefers-color-scheme: dark)', content: '#11191D'}]
+    .map(m => ({getAttribute: k => m[k], setAttribute: (k, v) => { m[k] = v; }, m}));
+  const node = () => ({dataset: {}, style: {}, setAttribute() {}, appendChild() {}, append() {}, addEventListener() {}, remove() {}});
+  const root = {dataset: {}, style: {}, lang: 'th'};
+  const session = store(life ? {'citymeter-life:/hotel/': JSON.stringify(life)} : {});
+  const win = {
+    location: {search, hash: '', protocol: 'https:', origin: 'https://example.test', pathname: '/hotel/', href: 'https://example.test/hotel/' + search},
+    localStorage: store(stored ? {[themeKey]: stored} : {}), sessionStorage: session,
+    matchMedia: q => ({matches: /dark/.test(q) ? darkDevice : false}),
+    addEventListener: (name, fn) => { (listeners[name] ||= []).push(fn); }, dispatch: (name, detail) => (listeners[name] || []).forEach(fn => fn({detail})),
+    setTimeout: () => 0, clearTimeout() {}, setInterval: () => 0, clearInterval() {}, performance: {mark() {}}, navigator: {userAgent: 'test'}, innerWidth: 393, innerHeight: 659, devicePixelRatio: 3,
+  };
+  const doc = {
+    currentScript: {dataset: {public: 'https://example.test/hotel/', name: 'Test', themeKey}}, documentElement: root, head: node(), body: null, visibilityState: 'visible',
+    querySelector: () => null, querySelectorAll: sel => (/theme-color/.test(sel) ? metas : []), getElementById: () => null, createElement: node, createElementNS: node, addEventListener() {},
+  };
+  const source = readFileSync(new URL('launch.js', SHELL), 'utf8');
+  new Function('window', 'document', 'URL', 'URLSearchParams', 'MutationObserver', 'CustomEvent', source)(win, doc, URL, URLSearchParams, class { observe() {} disconnect() {} }, class {});
+  return {root, metas: metas.map(x => x.m.content), life: () => JSON.parse(session.getItem('citymeter-life:/hotel/') || 'null'), dispatch: win.dispatch};
+}
+
+test('the launch script sets the theme before the first paint: the reader\'s choice for this demo, else the device\'s (shell 0.6.0)', () => {
+  const chosenDark = runLaunch({stored: 'dark', darkDevice: false});
+  assert.equal(chosenDark.root.dataset.theme, 'dark');
+  assert.equal(chosenDark.root.style.colorScheme, 'dark');
+  assert.deepEqual(chosenDark.metas, ['#11191D', '#11191D'], 'the browser bar takes the page\'s theme, whatever the device prefers');
+  assert.equal(runLaunch({stored: null, darkDevice: true}).root.dataset.theme, 'dark');
+  assert.equal(runLaunch({stored: 'auto', darkDevice: true}).root.dataset.theme, 'dark');
+  const chosenLight = runLaunch({stored: 'light', darkDevice: true});
+  assert.equal(chosenLight.root.dataset.theme, 'light');
+  assert.deepEqual(chosenLight.metas, ['#F6F7F3', '#F6F7F3']);
+  assert.equal(runLaunch({stored: null, darkDevice: false}).root.dataset.theme, 'light');
+});
+
+test('a page the browser ended while it was on screen starts lean the next time; a clean exit does not (shell 0.6.0)', () => {
+  const now = Date.now();
+  const ended = runLaunch({life: {state: 'visible', at: now - 5000, ended: 0, lean: '', log: []}});
+  assert.equal(ended.root.dataset.lean, 'recovered');
+  assert.equal(ended.life().ended, 1);
+  assert.equal(ended.life().state, 'visible', 'the new page marks itself on screen');
+  for (const state of ['closed', 'hidden']) assert.equal(runLaunch({life: {state, at: now - 5000, ended: 0, lean: '', log: []}}).root.dataset.lean, undefined, state);
+  assert.equal(runLaunch({life: {state: 'visible', at: now - 7 * 3600 * 1000, ended: 0, lean: '', log: []}}).root.dataset.lean, undefined, 'a mark from another day is not a stop');
+  assert.equal(runLaunch({life: {state: 'closed', at: now, ended: 1, lean: 'recovered', log: []}}).root.dataset.lean, 'recovered', 'the tab stays lean');
+  // The reader's own choice of the full map holds until the page is ended again.
+  assert.equal(runLaunch({life: {state: 'closed', at: now, ended: 1, lean: 'off', log: []}}).root.dataset.lean, undefined);
+  assert.equal(runLaunch({life: {state: 'visible', at: now, ended: 1, lean: 'off', log: []}}).root.dataset.lean, 'recovered');
+  assert.equal(runLaunch({search: '?lean=phone'}).root.dataset.lean, 'phone');
+  assert.equal(runLaunch({search: '?lean=1'}).root.dataset.lean, 'recovered');
+  assert.equal(runLaunch({search: '?lean=0', life: {state: 'closed', at: now, ended: 2, lean: 'recovered', log: []}}).root.dataset.lean, undefined);
+  // A map that lost its context turns the tab lean at once, and the event is kept for a report.
+  const live = runLaunch({});
+  live.dispatch('citymeter:map-trouble', {kind: 'context-lost', note: 'restart 1'});
+  assert.equal(live.root.dataset.lean, 'recovered');
+  assert.match(live.life().log.at(-1)[1], /^context-lost/);
+});
+
+test('the map\'s budget: a desktop keeps everything, a touch-first device and a page that was stopped get less (shell 0.6.0)', async () => {
+  const {mapBudget, budgetPixelRatio, MAP_BUDGETS, capTerrainPool, watchContext, GUARDED_VERSION} = await import('../js/shell/maplibre-guard.js');
+  const page = ({lean = '', coarse = false, fine = !coarse, memory, ratio = 2} = {}) => ({document: {documentElement: {dataset: lean ? {lean} : {}}}, navigator: {deviceMemory: memory}, devicePixelRatio: ratio,
+    matchMedia: q => ({matches: q === '(pointer: coarse)' ? coarse : q === '(any-pointer: fine)' ? fine : false})});
+  assert.equal(mapBudget(page()).level, 'full');
+  assert.equal(mapBudget(page({coarse: true})).level, 'phone');
+  assert.equal(mapBudget(page({coarse: true, fine: true})).level, 'full', 'a touch screen with a mouse is a desktop');
+  assert.equal(mapBudget(page({memory: 4})).level, 'phone');
+  assert.equal(mapBudget(page({memory: 8})).level, 'full');
+  assert.equal(mapBudget(page({lean: 'recovered'})).level, 'recovered');
+  assert.equal(mapBudget(page({lean: 'phone'})).level, 'phone');
+  assert.equal(mapBudget(null).level, 'full');
+  // A lean level never asks for more than the level above it.
+  for (const key of ['tiles', 'cmRequests', 'terrainPool', 'cacheZoomLevels']) assert.ok(MAP_BUDGETS.recovered[key] <= MAP_BUDGETS.phone[key] && MAP_BUDGETS.phone[key] <= MAP_BUDGETS.full[key], key);
+  assert.ok(MAP_BUDGETS.phone.radiusM > MAP_BUDGETS.recovered.radiusM && MAP_BUDGETS.full.radiusM === 0);
+  assert.equal(MAP_BUDGETS.recovered.terrain, false);
+  assert.equal(budgetPixelRatio(MAP_BUDGETS.full, page({ratio: 3})), undefined);
+  assert.equal(budgetPixelRatio(MAP_BUDGETS.phone, page({ratio: 3})), 2);
+  assert.equal(budgetPixelRatio(MAP_BUDGETS.phone, page({ratio: 1})), 1);
+  assert.equal(budgetPixelRatio(MAP_BUDGETS.recovered, page({ratio: 3})), 1.5);
+
+  // The terrain pool: only a fresh pool of the pinned MapLibre is capped.
+  const pool = () => ({_size: 30, _objects: [], isFull() { return false; }});
+  const fresh = {painter: {renderToTexture: {pool: pool()}}};
+  assert.equal(capTerrainPool(fresh, 12), true);
+  assert.equal(fresh.painter.renderToTexture.pool._size, 12);
+  const used = {painter: {renderToTexture: {pool: {...pool(), _objects: [{}]}}}};
+  assert.equal(capTerrainPool(used, 12), false);
+  assert.equal(used.painter.renderToTexture.pool._size, 30);
+  assert.equal(capTerrainPool({painter: {renderToTexture: {pool: pool()}}}, 12, '6.0.0'), false);
+  assert.equal(capTerrainPool({painter: {renderToTexture: {pool: pool()}}}, 40), false);
+  assert.equal(capTerrainPool({}, 12), false);
+  assert.equal(capTerrainPool(fresh, 12, GUARDED_VERSION), false, 'already at the cap');
+
+  // A lost context calls back once, a little later; a watch that was stopped never does.
+  const emitter = () => { const on = {}; return {on: (n, f) => { on[n] = f; }, off: n => { delete on[n]; }, fire: n => on[n]?.()}; };
+  let calls = 0;
+  const map = emitter();
+  watchContext(map, () => { calls++; }, {delay: 5});
+  map.fire('webglcontextlost'); map.fire('webglcontextlost');
+  await new Promise(resolve => setTimeout(resolve, 30));
+  assert.equal(calls, 1);
+  const other = emitter();
+  watchContext(other, () => { calls++; }, {delay: 5})();
+  other.fire('webglcontextlost');
+  await new Promise(resolve => setTimeout(resolve, 30));
+  assert.equal(calls, 1);
+});
+
+test('a demo without its own restart reloads once after a lost context, never twice in a lean tab (shell 0.6.0)', async () => {
+  const {reloadOnContextLoss} = await import('../js/shell/maplibre-guard.js');
+  const run = async lean => {
+    const on = {}, sent = [];
+    let reloads = 0;
+    const win = {document: {documentElement: {dataset: lean ? {lean} : {}}}, CustomEvent: class { constructor(type, init) { this.type = type; this.detail = init.detail; } },
+      dispatchEvent: e => { sent.push(e); win.document.documentElement.dataset.lean = 'recovered'; }, location: {reload: () => { reloads++; }}};
+    reloadOnContextLoss({on: (n, f) => { on[n] = f; }, off() {}}, win);
+    const realTimeout = globalThis.setTimeout;
+    on.webglcontextlost();
+    await new Promise(resolve => realTimeout(resolve, 450));
+    return {reloads, sent};
+  };
+  const first = await run('');
+  assert.equal(first.reloads, 1);
+  assert.deepEqual(first.sent.map(e => [e.type, e.detail.kind, e.detail.note]), [['citymeter:map-trouble', 'context-lost', 'reload']]);
+  const again = await run('recovered');
+  assert.equal(again.reloads, 0, 'a lean tab is not reloaded again');
+  assert.equal(again.sent[0].detail.note, 'again');
+});
+
+test('phone controls: the control glyphs match their font, its record and the stylesheet (0.6.0)', () => {
+  const bytes = readFileSync(new URL(`../${CONTROL_ICON_CONTRACT.file}`, import.meta.url));
+  assert.equal(bytes.length, CONTROL_ICON_CONTRACT.bytes);
+  assert.equal(sha256(bytes), CONTROL_ICON_CONTRACT.sha256);
+  const record = JSON.parse(readFileSync(new URL(`../${CONTROL_ICON_CONTRACT.manifest}`, import.meta.url), 'utf8'));
+  assert.deepEqual([record.file, record.bytes, record.sha256], ['material-controls-300.woff2', CONTROL_ICON_CONTRACT.bytes, CONTROL_ICON_CONTRACT.sha256]);
+  assert.deepEqual(record.axes, {...CONTROL_ICON_CONTRACT.axes}, 'the LDS axes of interface icons: FILL 0, wght 300');
+  assert.deepEqual(record.axes, {...NAV_ICON_CONTRACT.axes}, 'the same axes as the approved nav-7 subset');
+  const glyphs = Object.fromEntries(Object.entries(record.glyphs).map(([role, g]) => [role, String.fromCodePoint(parseInt(g.codepoint.slice(2), 16))]));
+  assert.deepEqual(glyphs, {...CONTROL_GLYPHS});
+  assert.deepEqual(Object.values(record.glyphs).map(g => g.name), ['arrow_back', 'expand_more', 'help'], 'conventional symbols only (LDS ICON-01)');
+  const css = readFileSync(new URL('../navigation.css', import.meta.url), 'utf8');
+  assert.ok(css.includes(`material-controls-300.woff2?v=${CONTROL_ICON_CONTRACT.sha256.slice(0, 8)}`), 'the stylesheet address carries the font hash');
+  assert.ok(css.includes(`material-nav-300.woff2?v=${NAV_ICON_CONTRACT.sha256.slice(0, 8)}`), 'nav-7 is unchanged');
+  // Each glyph face is the first available font of its own box (U+0020 in its range), so a glyph stands in the middle.
+  const ranges = [...css.matchAll(/unicode-range: ([^;]+);/g)].map(m => m[1].split(', '));
+  assert.equal(ranges.length, 2);
+  for (const range of ranges) assert.equal(range[0], 'U+0020');
+  assert.deepEqual(ranges[1].slice(1), Object.values(record.glyphs).map(g => g.codepoint));
+});
+
+test('phone toolbar: one row, the lowest priority leaves first, the sheet opener and 3D never (0.6.0)', () => {
+  assert.equal(TOOLBAR_PHONE_QUERY, PHONE_QUERY, 'one definition of a phone in portrait');
+  const item = (id, width, pressed = false) => ({id, width, score: keepScore({id, pressed})});
+  // The Hotel family in Thai: the five buttons fit 333 px (393 − 8 − 52), nothing leaves, no “more” button.
+  const family = [item('mobile-panel', 44), item('fit-map', 74), item('country-map', 83), item('toggle-neighborhoods', 52, true), item('toggle-3d', 44, true)];
+  assert.deepEqual(planToolbar(family, 333), []);
+  // Grocery: two jumps and help beside the same four. Help leaves first, then the jumps, the later one first.
+  const grocery = [item('mobile-panel', 44), item('fit-map', 74), item('country-map', 90), item('bangkok-map', 75), item('toggle-areas', 52, true), item('toggle-3d', 44, true), item('open-help', 52)];
+  assert.deepEqual(planToolbar(grocery, 333), ['country-map', 'bangkok-map', 'open-help']);
+  // A demo's own layer stays longer than a jump; the architect's view while it can be used stays longer than a jump too.
+  const estate = [item('mobile-panel', 44), item('fit-map', 74), item('country-map', 83), item('toggle-around', 119, true), item('toggle-3d', 44, true)];
+  assert.deepEqual(planToolbar(estate, 333), ['country-map', 'toggle-around']);
+  assert.ok(keepScore({id: 'toggle-register', pressed: true}) > keepScore({id: 'toggle-eye', pressed: true}));
+  assert.ok(keepScore({id: 'toggle-eye', pressed: true}) > keepScore({id: 'bangkok-map'}));
+  // The row that is left always holds the “more” button too.
+  const width = ids => grocery.filter(b => !ids.includes(b.id)).reduce((sum, b) => sum + b.width + 6, 0) + 44;
+  assert.ok(width(planToolbar(grocery, 333)) <= 333);
+  // The sheet opener and the 3D switch never leave, however narrow the row.
+  const left = planToolbar(family, 120);
+  assert.ok(!left.includes('mobile-panel') && !left.includes('toggle-3d'));
+  assert.deepEqual(left, ['fit-map', 'country-map', 'toggle-neighborhoods']);
+});
+
+test('controls and type: 44 px targets and a caption floor at every width, a phone toolbar that never scrolls (0.6.0, LDS CTRL-01)', () => {
+  const css = readFileSync(new URL('../navigation.css', import.meta.url), 'utf8');
+  const start = css.indexOf('/* Controls and type (citymeter-shell 0.6.0');
+  assert.ok(start > 0, 'navigation.css has the block');
+  const block = css.slice(start), phoneAt = block.indexOf(`@media ${PHONE_QUERY} {`);
+  assert.ok(phoneAt > 0, 'the phone composition is its own block');
+  const every = block.slice(0, phoneAt), phone = block.slice(phoneAt);
+  for (const target of ['.map-toolbar > button', '.insight-heading button', '.map-aha .btn', '.metric-switch button', '.sheet-links .link-button',
+    '#filter-details > summary', '#close-mobile-panel', '.tabs button', '.pagination button', '#results .row-name', '#panel .ask-link', '.crumbs button.crumb']) {
+    const rule = every.split('\n').find(line => line.includes(target) && line.includes('min-height'));
+    assert.ok(rule && rule.includes('min-height: 44px'), `${target} is a 44 px target at every width`);
+  }
+  assert.ok(every.includes('.maplibregl-ctrl-group > button { width: 44px; height: 44px; }'), 'the map library\'s own buttons too');
+  assert.ok(phone.includes('.map-toolbar > button#toggle-3d { width: 44px;'), '3D is a circle');
+  assert.ok(phone.includes('.nav-icons-ready .map-toolbar > button#mobile-panel { width: 44px;'), 'the sheet opener is a symbol in a circle once its glyph has loaded');
+  assert.ok(phone.includes('.map-toolbar[data-fit] { flex-wrap: nowrap; }') && !phone.includes('overflow-x: auto'), 'one row that never scrolls');
+  // Caption (0.75rem) is the smallest text; a control shows label size (0.8125rem); 0 hides the words of a symbol-only control.
+  for (const m of block.matchAll(/font-size: ([^;]+);/g)) assert.ok(['0', '.75rem', '.8125rem'].includes(m[1].trim()), `font-size ${m[1]}`);
+  assert.ok(!/border-left|border-inline-start/.test(css), 'no coloured side rail (LDS LAYOUT-01)');
 });

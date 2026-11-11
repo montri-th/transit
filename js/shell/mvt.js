@@ -119,7 +119,7 @@ function readFeature(r, end, keys, values) {
   return feature;
 }
 
-function readLayer(r, end) {
+function readLayer(r, end, only = null) {
   const layer = {name: '', extent: 4096, version: 1, keys: [], values: [], features: []};
   const featureSpans = [];
   r.fields(end, (field, wire) => {
@@ -131,9 +131,12 @@ function readLayer(r, end) {
     else if (field === 5) layer.extent = r.varint();
     else r.skip(wire);
   });
-  for (const [start, stop] of featureSpans) {
-    r.pos = start;
-    layer.features.push(readFeature(r, stop, layer.keys, layer.values));
+  // A layer the caller did not ask for keeps its name and extent and no features (0.6.0): its features are not read.
+  if (!only || only.includes(layer.name)) {
+    for (const [start, stop] of featureSpans) {
+      r.pos = start;
+      layer.features.push(readFeature(r, stop, layer.keys, layer.values));
+    }
   }
   r.pos = end; // features were parsed out of order; continue after the whole layer
   return layer;
@@ -143,12 +146,14 @@ function readLayer(r, end) {
  * Parse a tile. Returns {layers: {name: {name, extent, features: [{id, type, properties, rings()}]}}}
  * where `rings()` decodes the geometry lazily into [[x, y], …] arrays in tile units.
  * type: 1 point, 2 line, 3 polygon (rings closed; outer/inner by winding, see geometry.js).
+ * `only` (0.6.0): the layer names to read; the other layers come back without features. A basemap tile carries
+ * roads, water, labels and more, and the massing reads its buildings only.
  */
-export function parseVectorTile(bytes) {
+export function parseVectorTile(bytes, {only = null} = {}) {
   const r = new Reader(bytes);
   const layers = {};
   r.fields(r.buf.length, (field, wire) => {
-    if (field === 3) { const n = r.varint(); const layer = readLayer(r, r.pos + n); layers[layer.name] = layer; }
+    if (field === 3) { const n = r.varint(); const layer = readLayer(r, r.pos + n, only); layers[layer.name] = layer; }
     else r.skip(wire);
   });
   for (const layer of Object.values(layers)) {

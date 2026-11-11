@@ -22,6 +22,7 @@
  * Part of the shared CityMETER demo shell: edit it in every repository at once (js/shell/manifest.json).
  */
 import {SOURCE_ID} from './map-style.js';
+import {capTerrainPool} from './maplibre-guard.js';
 
 export const TERRAIN = Object.freeze({exaggeration: 1.5, minZoom: 12.5, offZoom: 12.2, reliefOn: 30, reliefOff: 20, probeZoom: 11, factZoom: 13, demMaxZoom: 14});
 export const DEM_TILES = 'https://s3.amazonaws.com/elevation-tiles-prod/terrarium/{z}/{x}/{y}.png';
@@ -206,9 +207,11 @@ export function siteRelief(lon, lat, {halfM = 1000} = {}) {
  * options.onLoaded() once the DEM under the view has loaded; options.site() → [lon, lat] of a building or item being
  * looked at, or null: then the relief round that point decides (siteRelief, ±1 km; owner 2026-11-01: “อยากให้เห็น
  * อาคารบนภูมิประเทศ”) — the building camera's view is too close, and its pitched bounds too far, to read the land.
+ * options.pool (shell 0.6.0): the most terrain textures the map may keep (js/shell/maplibre-guard.js#capTerrainPool);
+ * a phone gets a smaller pool than MapLibre's 30.
  * Returns {setEnabled(on3d), evaluate(), active(), retheme(colors), dispose()}.
  */
-export function installTerrain(map, {beforeId = 'water', colors = {}, onChange = null, onLoaded = null, site = null, exaggeration = TERRAIN.exaggeration} = {}) {
+export function installTerrain(map, {beforeId = 'water', colors = {}, onChange = null, onLoaded = null, site = null, exaggeration = TERRAIN.exaggeration, pool = 0} = {}) {
   let enabled = true, mode = false, token = 0, timer = 0, palette = colors;
   const hasLayer = id => Boolean(map.getLayer(id));
   function ensure() {
@@ -219,6 +222,7 @@ export function installTerrain(map, {beforeId = 'water', colors = {}, onChange =
       map.addLayer({id: HILLSHADE_LAYER, type: 'hillshade', source: TERRAIN_SOURCES.hillshade, layout: {visibility: 'none'}, paint: hillshadePaint(palette)}, map.getLayer(beforeId) ? beforeId : undefined);
     }
   }
+  const setGround = () => { map.setTerrain({source: TERRAIN_SOURCES.terrain, exaggeration}); if (pool > 0) capTerrainPool(map, pool); };
   const still = stillScheduler(map);
   const whenStill = still.run;
   function setMode(on) {
@@ -231,7 +235,7 @@ export function installTerrain(map, {beforeId = 'water', colors = {}, onChange =
     if (on) {
       ensure();
       map.setLayoutProperty(HILLSHADE_LAYER, 'visibility', 'visible');
-      map.setTerrain({source: TERRAIN_SOURCES.terrain, exaggeration});
+      setGround();
       // Symbols placed before the first DEM tile arrives can stay hidden until the terrain is set again (seen in
       // the mockup, MapLibre 5.6.2): re-apply once when the terrain source has loaded.
       const refresh = e => {
@@ -239,7 +243,7 @@ export function installTerrain(map, {beforeId = 'water', colors = {}, onChange =
         map.off('sourcedata', refresh);
         whenStill('refresh', () => {
           if (!mode) return;
-          map.setTerrain(null); map.setTerrain({source: TERRAIN_SOURCES.terrain, exaggeration});
+          map.setTerrain(null); setGround();
           // The ground under the view is known now: whatever stands on it (the building camera, the x-ray) can follow.
           onLoaded?.();
         });

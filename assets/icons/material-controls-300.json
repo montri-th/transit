@@ -1,0 +1,33 @@
+{
+  "family": "LDS Material Symbols Rounded Controls",
+  "file": "material-controls-300.woff2",
+  "bytes": 968,
+  "sha256": "a8d78ffa177e28282b416f071713a4ca1a115ce32bebb3e6ca8c5062499b527a",
+  "source": "subset of CityMETER Shopping Center assets/icons/material-pictogram-300.woff2 (scripts/build-controls-font.py); no outline redrawn or re-instanced",
+  "sourceSha256": "b37834408479d25a291186089c020d1b6e99ef98c55ae462580e601dd855df1c",
+  "upstream": "google/material-design-icons variablefont/MaterialSymbolsRounded[FILL,GRAD,opsz,wght].ttf",
+  "upstreamSha256": "7e74e36533ccee12c2b81e75bfcf3ccf123d3bb7e7e46d65d94445f23db0c97c",
+  "license": "Apache-2.0 (assets/icons/material-symbols-Apache-2.0.txt)",
+  "axes": {
+    "FILL": 0,
+    "wght": 300,
+    "GRAD": 0,
+    "opsz": 24
+  },
+  "glyphs": {
+    "back": {
+      "name": "arrow_back",
+      "codepoint": "U+E5C4"
+    },
+    "more": {
+      "name": "expand_more",
+      "codepoint": "U+E5CF"
+    },
+    "help": {
+      "name": "help",
+      "codepoint": "U+E8FD"
+    }
+  },
+  "status": "test exception to LDS nav-7, extended to every demo for phone controls (owner 2026-11-12 00:36; the three glyphs are UI roles approved for Shopping Center on 2026-10-25); nav-7 subset unchanged; not an LDS-registered asset, no approval receipt",
+  "fallback": "The control keeps its words when the font cannot load (js/shell/navigation.js: controls-unavailable)."
+}
