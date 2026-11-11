@@ -257,6 +257,11 @@ export function installMassing(map, {sourceId = 'openmaptiles', beforeId, colors
       if (now() - sliceStart > SLICE_MS) {
         await breathe();
         if (my !== token || disposed) return {features: 0, tiles: 0, stale: true};
+        // A camera move that began meanwhile has the map's frames first; shaping goes on when it ends, if still current.
+        if (typeof map.isMoving === 'function' && map.isMoving()) {
+          await new Promise(resolve => map.once('moveend', resolve));
+          if (my !== token || disposed) return {features: 0, tiles: 0, stale: true};
+        }
         sliceStart = now();
       }
     }
