@@ -17,7 +17,8 @@ import {buildBreadcrumb, renderBreadcrumb, breadcrumbText, deepestHref} from '..
 import {pageTitle, TITLE_MAX} from '../js/shell/title.js';
 import {terrainChips} from '../js/shell/terrain.js';
 import {DEMOS, GROUPS, demoUrl, demoPath, hubUrl} from '../js/shell/datasets.js';
-import {demoHref, currentDemo, pickerList, placeLevel, hubHref, languageLink} from '../js/shell/header.js';
+import {demoHref, currentDemo, pickerList, placeLevel, hubHref, languageLink, PHONE_QUERY} from '../js/shell/header.js';
+import {NAV_ICON_CONTRACT, CONTROL_GLYPHS, CONTROL_ICON_CONTRACT, keepScore, planToolbar, PHONE_QUERY as TOOLBAR_PHONE_QUERY} from '../js/shell/navigation.js';
 import {pageLanguage, languageHref, translate, translateIn, registerDictionary, registerNames, keepThai, englishDate, cutName, LANG} from '../js/shell/i18n.js';
 
 const SHELL = new URL('../js/shell/', import.meta.url);
@@ -242,6 +243,12 @@ test('header: the demo list is one entry per demo, grouped Land · Location · L
     assert.match(demoUrl(d), /^https:\/\/montri-th\.github\.io\/[a-z]+(\/[a-z]+)?\/$/);
   }
   assert.ok(DEMOS.filter(d => d.at).length >= 6, 'the six Hotel-family demos open ?at=');
+  // The groups as the registry reads on 2026-11-12 (R01_DATASETS.dataset_group): Hospital and School moved from
+  // Location to Living that day (owner; registry change CHANGE-LIVING-HEALTH-EDUCATION-20261112-01).
+  const inGroup = group => DEMOS.filter(d => d.group === group).map(d => d.path);
+  assert.deepEqual(inGroup('Land'), ['hotel', 'industrialestate', 'office', 'shoppingcenter']);
+  assert.deepEqual(inGroup('Location'), ['camera', 'factory', 'fitness', 'grocery', 'luxurybrands', 'pharmacy', 'restaurant']);
+  assert.deepEqual(inGroup('Living'), ['governmentoffice', 'hospital', 'school', 'transit']);
   // Industrial Estate lives inside the Factory repository (0.5.4): its GitHub Pages path is factory/industrialestate,
   // its path on the CityMETER Pages site industrialestate; the page is never taken for Factory.
   const estate = DEMOS.find(d => d.path === 'industrialestate');
@@ -620,4 +627,69 @@ test('a demo without its own restart reloads once after a lost context, never tw
   const again = await run('recovered');
   assert.equal(again.reloads, 0, 'a lean tab is not reloaded again');
   assert.equal(again.sent[0].detail.note, 'again');
+});
+
+test('phone controls: the control glyphs match their font, its record and the stylesheet (0.6.0)', () => {
+  const bytes = readFileSync(new URL(`../${CONTROL_ICON_CONTRACT.file}`, import.meta.url));
+  assert.equal(bytes.length, CONTROL_ICON_CONTRACT.bytes);
+  assert.equal(sha256(bytes), CONTROL_ICON_CONTRACT.sha256);
+  const record = JSON.parse(readFileSync(new URL(`../${CONTROL_ICON_CONTRACT.manifest}`, import.meta.url), 'utf8'));
+  assert.deepEqual([record.file, record.bytes, record.sha256], ['material-controls-300.woff2', CONTROL_ICON_CONTRACT.bytes, CONTROL_ICON_CONTRACT.sha256]);
+  assert.deepEqual(record.axes, {...CONTROL_ICON_CONTRACT.axes}, 'the LDS axes of interface icons: FILL 0, wght 300');
+  assert.deepEqual(record.axes, {...NAV_ICON_CONTRACT.axes}, 'the same axes as the approved nav-7 subset');
+  const glyphs = Object.fromEntries(Object.entries(record.glyphs).map(([role, g]) => [role, String.fromCodePoint(parseInt(g.codepoint.slice(2), 16))]));
+  assert.deepEqual(glyphs, {...CONTROL_GLYPHS});
+  assert.deepEqual(Object.values(record.glyphs).map(g => g.name), ['arrow_back', 'expand_more', 'help'], 'conventional symbols only (LDS ICON-01)');
+  const css = readFileSync(new URL('../navigation.css', import.meta.url), 'utf8');
+  assert.ok(css.includes(`material-controls-300.woff2?v=${CONTROL_ICON_CONTRACT.sha256.slice(0, 8)}`), 'the stylesheet address carries the font hash');
+  assert.ok(css.includes(`material-nav-300.woff2?v=${NAV_ICON_CONTRACT.sha256.slice(0, 8)}`), 'nav-7 is unchanged');
+  // Each glyph face is the first available font of its own box (U+0020 in its range), so a glyph stands in the middle.
+  const ranges = [...css.matchAll(/unicode-range: ([^;]+);/g)].map(m => m[1].split(', '));
+  assert.equal(ranges.length, 2);
+  for (const range of ranges) assert.equal(range[0], 'U+0020');
+  assert.deepEqual(ranges[1].slice(1), Object.values(record.glyphs).map(g => g.codepoint));
+});
+
+test('phone toolbar: one row, the lowest priority leaves first, the sheet opener and 3D never (0.6.0)', () => {
+  assert.equal(TOOLBAR_PHONE_QUERY, PHONE_QUERY, 'one definition of a phone in portrait');
+  const item = (id, width, pressed = false) => ({id, width, score: keepScore({id, pressed})});
+  // The Hotel family in Thai: the five buttons fit 333 px (393 − 8 − 52), nothing leaves, no “more” button.
+  const family = [item('mobile-panel', 44), item('fit-map', 74), item('country-map', 83), item('toggle-neighborhoods', 52, true), item('toggle-3d', 44, true)];
+  assert.deepEqual(planToolbar(family, 333), []);
+  // Grocery: two jumps and help beside the same four. Help leaves first, then the jumps, the later one first.
+  const grocery = [item('mobile-panel', 44), item('fit-map', 74), item('country-map', 90), item('bangkok-map', 75), item('toggle-areas', 52, true), item('toggle-3d', 44, true), item('open-help', 52)];
+  assert.deepEqual(planToolbar(grocery, 333), ['country-map', 'bangkok-map', 'open-help']);
+  // A demo's own layer stays longer than a jump; the architect's view while it can be used stays longer than a jump too.
+  const estate = [item('mobile-panel', 44), item('fit-map', 74), item('country-map', 83), item('toggle-around', 119, true), item('toggle-3d', 44, true)];
+  assert.deepEqual(planToolbar(estate, 333), ['country-map', 'toggle-around']);
+  assert.ok(keepScore({id: 'toggle-register', pressed: true}) > keepScore({id: 'toggle-eye', pressed: true}));
+  assert.ok(keepScore({id: 'toggle-eye', pressed: true}) > keepScore({id: 'bangkok-map'}));
+  // The row that is left always holds the “more” button too.
+  const width = ids => grocery.filter(b => !ids.includes(b.id)).reduce((sum, b) => sum + b.width + 6, 0) + 44;
+  assert.ok(width(planToolbar(grocery, 333)) <= 333);
+  // The sheet opener and the 3D switch never leave, however narrow the row.
+  const left = planToolbar(family, 120);
+  assert.ok(!left.includes('mobile-panel') && !left.includes('toggle-3d'));
+  assert.deepEqual(left, ['fit-map', 'country-map', 'toggle-neighborhoods']);
+});
+
+test('controls and type: 44 px targets and a caption floor at every width, a phone toolbar that never scrolls (0.6.0, LDS CTRL-01)', () => {
+  const css = readFileSync(new URL('../navigation.css', import.meta.url), 'utf8');
+  const start = css.indexOf('/* Controls and type (citymeter-shell 0.6.0');
+  assert.ok(start > 0, 'navigation.css has the block');
+  const block = css.slice(start), phoneAt = block.indexOf(`@media ${PHONE_QUERY} {`);
+  assert.ok(phoneAt > 0, 'the phone composition is its own block');
+  const every = block.slice(0, phoneAt), phone = block.slice(phoneAt);
+  for (const target of ['.map-toolbar > button', '.insight-heading button', '.map-aha .btn', '.metric-switch button', '.sheet-links .link-button',
+    '#filter-details > summary', '#close-mobile-panel', '.tabs button', '.pagination button', '#results .row-name', '#panel .ask-link', '.crumbs button.crumb']) {
+    const rule = every.split('\n').find(line => line.includes(target) && line.includes('min-height'));
+    assert.ok(rule && rule.includes('min-height: 44px'), `${target} is a 44 px target at every width`);
+  }
+  assert.ok(every.includes('.maplibregl-ctrl-group > button { width: 44px; height: 44px; }'), 'the map library\'s own buttons too');
+  assert.ok(phone.includes('.map-toolbar > button#toggle-3d { width: 44px;'), '3D is a circle');
+  assert.ok(phone.includes('.nav-icons-ready .map-toolbar > button#mobile-panel { width: 44px;'), 'the sheet opener is a symbol in a circle once its glyph has loaded');
+  assert.ok(phone.includes('.map-toolbar[data-fit] { flex-wrap: nowrap; }') && !phone.includes('overflow-x: auto'), 'one row that never scrolls');
+  // Caption (0.75rem) is the smallest text; a control shows label size (0.8125rem); 0 hides the words of a symbol-only control.
+  for (const m of block.matchAll(/font-size: ([^;]+);/g)) assert.ok(['0', '.75rem', '.8125rem'].includes(m[1].trim()), `font-size ${m[1]}`);
+  assert.ok(!/border-left|border-inline-start/.test(css), 'no coloured side rail (LDS LAYOUT-01)');
 });

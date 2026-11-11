@@ -1,9 +1,13 @@
 /**
  * citymeter-shell · the CityMETER demos, for the dataset picker in the header (js/shell/header.js).
  *
- * Group and address per the dataset registry, R01_DATASETS (`dataset_group`, `demo_web_url`), read 2026-11-08;
- * Factory's demo address was added to the registry that day. Industrial Estate (registry research.TH.industrial_estates,
- * group Land, read 2026-11-10) lives inside the Factory repository: `pages` is its path on GitHub Pages
+ * Group and address per the dataset registry, R01_DATASETS (`dataset_group`, `demo_web_url`), read 2026-11-12.
+ * Hospital and School are Living since the owner's decision of 2026-11-12 (registry change
+ * CHANGE-LIVING-HEALTH-EDUCATION-20261112-01, `group_basis` owner_2026-11-12_basic_service_access_and_coverage: access to
+ * care and to education, and how far basic services reach, read as quality of life); they were Location in the reading
+ * of 2026-11-08. The other thirteen groups read the same as on 2026-11-08 and 2026-11-10. University moved with them
+ * and has no demo. Factory's demo address was added to the registry on 2026-11-08. Industrial Estate (registry
+ * research.TH.industrial_estates, group Land) lives inside the Factory repository: `pages` is its path on GitHub Pages
  * (montri-th.github.io/factory/industrialestate/), `path` its path on the CityMETER Pages site (0.5.4). `at: true` marks a demo on citymeter-shell: it opens
  * the area of `?at=` (a production path such as BKK/D/1039 or BKK/S/103902; a demo opens the deepest level it
  * carries). The others open their own start page until they move onto the shell (since 0.4.3 every demo is on it).
@@ -29,12 +33,12 @@ export const DEMOS = Object.freeze([
   {path: 'factory', name: 'Factory', group: 'Location', at: true, en: true},
   {path: 'fitness', name: 'Fitness', group: 'Location', at: true},
   {path: 'grocery', name: 'Grocery', group: 'Location', at: true},
-  {path: 'hospital', name: 'Hospital', group: 'Location', at: true, en: true},
   {path: 'luxurybrands', name: 'Luxury Brands', group: 'Location', at: true},
   {path: 'pharmacy', name: 'Pharmacy', group: 'Location', at: true, en: true},
   {path: 'restaurant', name: 'Restaurants', group: 'Location', at: true, en: true},
-  {path: 'school', name: 'School', group: 'Location', at: true, en: true},
   {path: 'governmentoffice', name: 'Government Office', group: 'Living', at: true, en: true},
+  {path: 'hospital', name: 'Hospital', group: 'Living', at: true, en: true},
+  {path: 'school', name: 'School', group: 'Living', at: true, en: true},
   {path: 'transit', name: 'Transit', group: 'Living', at: true},
 ].map(Object.freeze));
 

@@ -305,6 +305,8 @@ export const SHELL_EN = Object.freeze({
     'รูปแบบหน้าจอและแผนที่': 'Page and map theme',
     'ข้ามไปแผงข้อมูล': 'Skip to the data panel',
     'วิธีใช้': 'How to use',
+    'เพิ่มเติม': 'More',
+    'เครื่องมือแผนที่เพิ่มเติม': 'More map tools',
     'ปิดวิธีใช้': 'Close help',
     'คีย์บอร์ด:': 'Keyboard:',
     'ภูมิประเทศ:': 'Terrain:',
