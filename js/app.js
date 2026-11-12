@@ -46,6 +46,9 @@ import {buildBreadcrumb, renderBreadcrumb, breadcrumbText} from './breadcrumb.js
 import {createCodec, createNavigator} from './shell/url.js';
 import {mapBudget, budgetPixelRatio, reloadOnContextLoss} from './shell/maplibre-guard.js';
 import {pageTitle} from './shell/title.js';
+import {createIndex} from './shell/fuzzy.js';
+import {installSearch} from './shell/search.js';
+import {SEARCH_KINDS, SEARCH_HEADS, SEARCH_HINT, searchEntries, searchNote} from './find.js';
 
 const $ = id => document.getElementById(id);
 const FIELDS = ['search', 'status', 'system', 'line', 'province'];
@@ -72,6 +75,7 @@ const state = {
   view3d: true, twoPoint: true, layers: {bus: false, stops: false, boat: false, srt: false, intercity: false, moto: false, air: false},
   pins: null, rail: null, optional: null, provinceLayers: null, provinceLabels: null, provinceModel: null, massing: null, scene: null, THREE: null,
   ray: {objects: [], cycle: 0}, pinAlias: new Map(), ready: false, ridershipGroup: '',
+  finder: null,
 };
 
 /* ---------- helpers ---------- */
@@ -179,6 +183,7 @@ function update({fit = false} = {}) {
   drawChart();
   renderTable();
   saveURL();
+  state.finder?.sync();
   announce(`พบ ${num(state.baseStations.length)} สถานี ${num(s.lines)} สาย`);
 }
 
@@ -920,6 +925,53 @@ function restoreFromHistory() {
   for (const k of MODE_LAYERS) if (shown[k] !== state.layers[k]) toggleLayer(k, state.layers[k]);
 }
 
+/**
+ * The search box (0.4.0; owner 2026-11-12 12:05, VERBATIM: “ศึกษาแนวคิดเรื่อง Fuzzy search แล้ว implement กับ demo web
+ * ให้ได้ user benefit สูงสุดตาม user intent ในขณะนั้น และตาม product statement”). A name typed is listed with what it is
+ * and where (js/shell/search.js, names from js/find.js) and opens what it names: a province its stations, a line its
+ * stations in order, a system its filter, a station its page. The map and the panel no longer change while the
+ * reader is still typing.
+ */
+/** How many stations a set of filter values keeps (the line as a filter here: '' is every line). */
+const keptBy = v => filterStations(state.data.stations, v, state.data.lines).length;
+function openFound(entry) {
+  if (entry.kind === 'province') selectProvince(entry.id);
+  // A line or a system chosen by name is shown whole: the filters that would leave it no station are lifted first —
+  // the province too, for a line runs where it runs (js/shell/search.js#makeWay).
+  else if (entry.kind === 'line') { state.finder.makeWay('line', entry.id); selectLine(entry.id); }
+  else if (entry.kind === 'system') { state.finder.makeWay('system', entry.id); $('system').value = entry.id; $('system').dispatchEvent(new Event('change', {bubbles: true})); }
+  // A station chosen by name always opens: the filters it does not pass are lifted first (selectStation widens the
+  // rest, as it always did for a station outside the filters).
+  else if (entry.kind === 'station') {
+    let changed = state.finder.makeWayFor(v => filterStations([entry.station], {...v, line: ''}, state.data.lines).length).length > 0;
+    // A line being looked at that the station is not on is left with them.
+    if ($('line').value && !(entry.station.lineIds || []).includes($('line').value)) { $('line').value = ''; state.via = ''; changed = true; }
+    if (changed) update();
+    selectStation(entry.id);
+  }
+}
+function installFinder() {
+  try {
+    state.finder = installSearch({
+      input: $('search'),
+      index: createIndex({kinds: SEARCH_KINDS, heads: SEARCH_HEADS}),
+      entries: () => searchEntries({data: state.data}),
+      note: entry => searchNote(entry, {data: state.data}),
+      // What the reader is looking at comes first among equal names.
+      scope: () => ({province: $('province').value || ''}),
+      rows: text => keptBy({...values(), line: '', search: text}),
+      unit: 'สถานี',
+      hint: SEARCH_HINT,
+      pick: openFound,
+      // A filter or words chosen from the list: the line being looked at is left; a filter that would leave the
+      // choice no station is lifted — the status back to its default, never further.
+      filters: {fields: ['system', 'province', 'status'], context: [], values, count: keptBy,
+        leave: () => { $('line').value = ''; state.via = ''; if (state.panel.mode !== 'overview') state.panel = {mode: 'overview', id: ''}; },
+        lift: f => { $(f).value = f === 'status' ? 'current' : ''; }},
+    });
+  } catch (e) { state.finder = null; console.warn('Search list unavailable', e); }
+}
+
 function wireEvents() {
   let timer;
   for (const f of FIELDS) $(f).addEventListener(f === 'search' ? 'input' : 'change', () => {
@@ -928,8 +980,10 @@ function wireEvents() {
       state.history = [];
       if (f === 'line') { if ($('line').value) { selectLine($('line').value); return; } state.via = ''; state.panel = {mode: 'overview', id: ''}; }
       else if (state.panel.mode === 'station') state.panel = $('line').value ? {mode: 'line', id: $('line').value} : {mode: 'overview', id: ''};
-      update({fit: f !== 'search'});
-    }, f === 'search' ? 180 : 0);
+      // Words applied from the search list are shown on the map. With the list they arrive whole (Enter or the list's
+      // last row); without it the box filters as it is typed in.
+      update({fit: f !== 'search' || Boolean(state.finder && $('search').value)});
+    }, f === 'search' && !state.finder ? 180 : 0);
   });
   $('filters').addEventListener('reset', () => setTimeout(() => { $('status').value = 'current'; resetToOverview(); }, 0));
   for (const id of ['panel-view', 'filter-chips', 'map-aha', 'crumbs']) $(id).addEventListener('click', onPanelAction);
@@ -1056,6 +1110,7 @@ async function init() {
     try { $('theme').value = localStorage.getItem('citymeter-transit-theme') || 'auto'; } catch {}
     applyTheme();
     wireEvents();
+    installFinder();
     update();
     if (state.panel.mode !== 'overview') openMobilePanel();
     state.ready = true;
@@ -1068,6 +1123,6 @@ async function init() {
 }
 
 // Developer hook for live tuning in a browser console (not an API; may change without notice).
-window.__citymeter = {state, get map() { return state.map; }, update, fitMap, updateSpatialLayers, applyPreset: (name, opts) => state.map && applyPreset(state.map, name, opts), selectStation, selectLine};
+window.__citymeter = {state, get map() { return state.map; }, get finder() { return state.finder; }, update, fitMap, updateSpatialLayers, applyPreset: (name, opts) => state.map && applyPreset(state.map, name, opts), selectStation, selectLine};
 
 init();

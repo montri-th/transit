@@ -246,3 +246,44 @@ html[data-i18n="pending"] #launch-status { visibility: visible; }
 @media (max-width: 760px) and (orientation: portrait) and (pointer: coarse) {
   .maplibregl-map .maplibregl-ctrl-top-right .maplibregl-ctrl-zoom-in, .maplibregl-map .maplibregl-ctrl-top-right .maplibregl-ctrl-zoom-out { display: none; }
 }
+
+/* The list under the search box (citymeter-shell 0.7.0, js/shell/search.js; owner 2026-11-12 12:05, VERBATIM: “ศึกษา
+   แนวคิดเรื่อง Fuzzy search แล้ว implement กับ demo web ให้ได้ user benefit สูงสุดตาม user intent ในขณะนั้น และตาม product
+   statement”). It stands in the flow under the box, so it is never cut by the panel or the phone sheet and nothing
+   lies under it; search.js ends it above the bottom of the screen (or the on-screen keyboard) and it scrolls inside. LDS 0.9.7: CTRL-01 — a row is a 44 px target (48 px on a phone); A11Y-01 — the option the keys are on
+   has a ring as well as a tint, and how sure a match is stands in words (a tag, a heading), never in a colour;
+   type — the name in the panel's own body size, what it is and where in the caption size (0.75rem). Radii 10 and 16 px from the
+   LDS scale. No rail or bracket marks a row. */
+.find { display: grid; gap: 4px; min-width: 0; }
+.find-status { margin: 0; padding: 2px 4px 0; font-size: .8125rem; line-height: 1.6; color: var(--text-secondary); overflow-wrap: anywhere; }
+.find-status:empty { display: none; }
+.find-status.is-quiet { position: absolute; width: 1px; height: 1px; padding: 0; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+.find-retry { min-width: 44px; min-height: 44px; padding: 0 8px; border: 0; border-radius: 10px; background: none; color: var(--text-primary); font: inherit; font-weight: 600; text-decoration: underline; text-underline-offset: 3px; cursor: pointer; }
+.find-retry:hover { background: var(--surface-alt); }
+.find-list { display: grid; gap: 2px; align-content: start; min-width: 0; padding: 4px; border: 1px solid var(--border-default); border-radius: 16px; background: var(--surface-card); overflow: auto; overscroll-behavior: contain; scrollbar-width: thin; }
+.find-list[hidden], .find-foot[hidden] { display: none; }
+.find-option { box-sizing: border-box; display: grid; align-content: center; min-width: 0; min-height: 44px; padding: 5px 10px; border-radius: 10px; color: var(--text-primary); cursor: pointer; }
+.find-option:hover { background: var(--surface-alt); }
+.find-option.is-active { background: var(--surface-alt); outline: 2px solid var(--interaction-focus-ring); outline-offset: -2px; }
+.find-name { font-weight: 600; line-height: 1.45; overflow-wrap: anywhere; }
+.find-note { display: block; font-size: .75rem; font-weight: 400; line-height: 1.5; color: var(--text-secondary); overflow-wrap: anywhere; }
+.find-also { color: var(--text-primary); }
+.find-tag { display: inline-block; padding: 0 7px; border: 1px solid var(--border-default); border-radius: 999px; white-space: nowrap; }
+.find-group { display: grid; gap: 2px; min-width: 0; margin-top: 4px; padding-top: 4px; border-top: 1px solid var(--border-hairline); }
+.find-group:first-child { margin-top: 0; padding-top: 0; border-top: 0; }
+.find-heading { padding: 4px 10px 2px; font-size: .75rem; font-weight: 600; line-height: 1.5; color: var(--text-secondary); overflow-wrap: anywhere; }
+/* The two rows that are no name — more names, and the words as a filter — stand under a hairline of their own. */
+.find-more, .find-filter { position: relative; margin-top: 9px; }
+.find-more::before, .find-filter::before { content: ""; position: absolute; left: 6px; right: 6px; top: -6px; border-top: 1px solid var(--border-hairline); }
+.find-more + .find-filter { margin-top: 0; }
+.find-more + .find-filter::before, .find-more:first-child::before, .find-filter:first-child::before { content: none; }
+.find-more:first-child, .find-filter:first-child { margin-top: 0; }
+.find-foot { margin: 0; padding: 0 4px; font-size: .8125rem; line-height: 1.6; color: var(--text-secondary); }
+@media (max-width: 760px) and (orientation: portrait) {
+  .find-option { min-height: 48px; }
+  /* While a name is typed on a phone (search.js sets find-typing while the box has the focus) a panel with one height
+     stands tall, and the box comes to its top under the sheet's own bar, so the list has room above the keyboard. A
+     sheet with heights of its own (data-sheet, is-expanded) is set by its demo (the list's onFocus). */
+  html.find-typing .panel.is-open:not([data-sheet]):not(.is-expanded) { min-height: calc(100dvh - 104px); max-height: calc(100dvh - 104px); }
+  html.find-typing #find-input { scroll-margin-top: 50px; }
+}
