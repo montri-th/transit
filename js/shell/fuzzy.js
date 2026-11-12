@@ -31,6 +31,19 @@
  * holds every word typed. A key of two letters or fewer is never guessed; three to seven letters may be one key off,
  * eight or more two. Two neighbouring letters swapped count as one.
  *
+ * As the production search does (its summary of 12 Nov 2026, “Fuzzy search: summary of work”):
+ *  - a text typed with its tone marks: a name that begins with it, has a word that does, holds it or sounds like its
+ *    beginning only once the marks are left out comes after every name that holds it as typed, and says it is spelt
+ *    another way (“ส้ม” → ส้มตำ… and แกงส้ม… before สมุทรสาคร); a whole name equal once the marks are left out stays
+ *    step 3. When no name holds the text as typed, the marks were a slip and nothing is held back (“ลานคํ่”: ลานคํา);
+ *  - a whole name equal once ะ is left out too is step 3, another spelling of the name itself (“พเยา” is พะเยา and
+ *    comes before พเยาว์…; “ปะทุมธานี” is ปทุมธานี). Only the whole name: left out of every key, ะ would make “พะยา”
+ *    begin พญาไท and keep พะเยา, one key off, from being looked for;
+ *  - a number alone is never guessed and never chosen ahead: “1234” is no “1235”, and a code it equals (a province's
+ *    number, “21” for ระยอง) stands after the names that hold it (Terminal 21).
+ * A reading on the other keyboard layout that only begins a name, or stands inside one, comes after the names one key
+ * off: “KFX” is KFC before it is any Thai name that holds “าดป”.
+ *
  * Pure: no DOM, no network, nothing stored. js/shell/search.js is the list a reader sees.
  * Part of the shared CityMETER demo shell: edit it in every repository at once (js/shell/manifest.json).
  */
@@ -53,6 +66,17 @@ const NIKHAHIT_AA = new RegExp(`${ch(0x0E4D)}([${chars([0x0E48, 0x0E4B])}]?)${ch
 /** What key1 leaves out of a Thai name: ฺ, ๆ, ็, the four tone marks, ์, ํ and ๎. */
 const THAI_SIGNS = anyOf(0x0E3A, [0x0E46, 0x0E4E]);
 const HAS_THAI = new RegExp(`[${chars([0x0E00, 0x0E7F])}]`);
+/** Does a text carry a sign key1 leaves out (a tone mark, ็ ์ ํ ๎ ฺ ๆ)? Not global: it is tested, never replaced. */
+const HAS_SIGN = new RegExp(`[${chars(0x0E3A, [0x0E46, 0x0E4E])}]`);
+/** A number alone, once cleaned (Thai digits are digits by then). */
+const DIGITS = /^[0-9 ]+$/;
+/** ะ, which production's search_norm leaves out with the tone marks. */
+const SARA_A = anyOf(0x0E30);
+const SARA_A_CHAR = ch(0x0E30);
+/** A key without ะ. */
+const flat = k => (k.includes(SARA_A_CHAR) ? k.replace(SARA_A, '') : k);
+/** A number for a text (FNV-1a): a name without its ะ is told by a comparison of numbers, not of texts. */
+const hashOf = text => { let h = 0x811c9dc5; for (let i = 0; i < text.length; i++) { h ^= text.charCodeAt(i); h = Math.imul(h, 0x01000193); } return h >>> 0; };
 const NOT_LETTER = /[^\p{L}\p{N}\p{M}]/gu;
 
 /*
@@ -285,8 +309,32 @@ const wordsOf = cleaned => cleaned.split(PLAIN.test(cleaned) ? NOT_WORD : /[^\p{
 const countSep = (text, upTo) => { let n = 0; for (let i = text.indexOf(SEP); i >= 0 && i < upTo; i = text.indexOf(SEP, i + 1)) n++; return n; };
 const makeQuery = (cleaned, minPart = 3) => {
   const q1 = exact1(cleaned), q2 = soundKey(q1);
-  return {text: cleaned, q0: exact0(cleaned), q1, q2, n1: needle(q1), n2: needle(q2), s1: SEP + q1, s2: SEP + q2, w1: ' ' + q1, minPart, latin: /^[a-z0-9]+$/.test(q1)};
+  const q0 = exact0(cleaned);
+  // marked: typed with signs key1 leaves out, so a name that holds the text as typed can be told from one that does not.
+  // f1: key1 without ะ, its number fh, and — when the text carries ะ — what finds a name written without it.
+  const f1 = flat(q1), bare = f1 !== q1 && f1.length > 0;
+  return {text: cleaned, q0, q1, q2, n0: needle(q0), n1: needle(q1), n2: needle(q2), s1: SEP + q1, s2: SEP + q2, w1: ' ' + q1, minPart,
+    f1, fh: hashOf(f1), nf1: bare ? needle(f1) : null, sf1: SEP + f1,
+    latin: /^[a-z0-9]+$/.test(q1), marked: q0.length > q1.length};
 };
+
+/**
+ * The first k of a list in the order `cmp` gives, as list.sort(cmp).slice(0, k) gives them — equal ones keep the order
+ * they came in — without sorting what is not kept: a common word in a long list of names (“บ้าน” is in 281,556 of
+ * Government Office's 441,294) took more than a second to sort. Pure.
+ */
+export function firstInOrder(list, k, cmp) {
+  if (list.length <= k * 4) return list.sort(cmp).slice(0, k);
+  const best = [];
+  for (const x of list) {
+    if (best.length === k && cmp(x, best[k - 1]) >= 0) continue;
+    let lo = 0, hi = best.length;
+    while (lo < hi) { const mid = (lo + hi) >> 1; if (cmp(best[mid], x) <= 0) lo = mid + 1; else hi = mid; }
+    best.splice(lo, 0, x);
+    if (best.length > k) best.pop();
+  }
+  return best;
+}
 
 /**
  * An index of the names a demo knows.
@@ -353,10 +401,12 @@ export function createIndex({kinds = [], heads = []} = {}) {
   function add(entry) {
     const real = [entry.name, entry.nameEn, ...(entry.aka || [])].filter(Boolean);
     const names = [...real, ...(entry.also || []).filter(Boolean)], own = real.length;
-    const keys = [], forms = [], words = new Set(), rests = [];
-    let main = 0;
+    const keys = [], forms = [], words = new Set(), rests = [], cleaned = [];
+    let main = 0, signed = false;
     names.forEach((name, i) => {
       const c = clean(name), k = exact1(c);
+      cleaned.push(c);
+      if (!signed && HAS_SIGN.test(c)) signed = true;
       if (!k || keys.includes(k) || keys.length >= NOFORM) return;
       keys.push(k); forms.push(name);
       if (i < own) main = keys.length;
@@ -376,7 +426,13 @@ export function createIndex({kinds = [], heads = []} = {}) {
     }
     const codes = (entry.codes || []).map(key0).filter(Boolean);
     if (!keys.length && !codes.length) return;
-    records.push({e: entry, a1: SEP + keys.join(SEP), a2: SEP + keys.map(soundKey).join(SEP), w1: ' ' + [...words].join(' '), main, written, forms, codes,
+    // Its names as written, signs and all, for a text typed with its tone marks — only the names that carry a sign:
+    // a name without one can never hold such a text.
+    const a0 = signed ? SEP + cleaned.filter(c => HAS_SIGN.test(c)).map(exact0).join(SEP) : undefined;
+    // The number of each name without its ะ, for the names that carry one (one number, or a list of them).
+    let fh;
+    for (const k of keys) if (k.includes(SARA_A_CHAR)) { const h = hashOf(flat(k)); fh = fh === undefined ? h : [].concat(fh, h); }
+    records.push({e: entry, a1: SEP + keys.join(SEP), a2: SEP + keys.map(soundKey).join(SEP), a0, fh, w1: ' ' + [...words].join(' '), main, written, forms, codes,
       ctx: contextOf(entry.within), ko: order.get(entry.kind) ?? order.size, level: levels.get(entry.kind) || '', weight: Number(entry.weight) || 0, len: keys[0]?.length || 0});
   }
 
@@ -401,6 +457,7 @@ export function createIndex({kinds = [], heads = []} = {}) {
       if (step > STEP.word && r.w1.includes(q.w1)) { step = STEP.word; form = NOFORM; }
       if (step > STEP.part && q1.length >= q.minPart) { step = STEP.part; form = NOFORM; }
     }
+    if (step > STEP.marks && (r.fh !== undefined || q.nf1 !== null)) { const f = withoutSaraA(r, q); if (f >= 0) { step = STEP.marks; form = f; } }
     let begun = 0;
     if (step > STEP.sound && q.q2.length >= 2 && has(r.a2, q.n2)) {
       for (let i = r.a2.indexOf(q.s2); i >= 0; i = r.a2.indexOf(q.s2, i + 1)) {
@@ -410,6 +467,25 @@ export function createIndex({kinds = [], heads = []} = {}) {
       }
     }
     return step * 100 + begun * 50 + form;
+  }
+
+  /**
+   * The number of the record's name that is the text once ะ is left out of both, or -1: “สเดา” is สะเดา, “ปะทุมธานี”
+   * ปทุมธานี (production's search_norm leaves ะ out). A name that carries ะ is told by its number first.
+   */
+  function withoutSaraA(r, q) {
+    const fh = r.fh;
+    if (fh !== undefined && (fh === q.fh || (typeof fh === 'object' && fh.includes(q.fh)))) {
+      const k1 = r.a1.split(SEP);
+      for (let j = 1; j < k1.length; j++) if (flat(k1[j]) === q.f1) return j - 1;
+    }
+    if (q.nf1 && has(r.a1, q.nf1)) {
+      for (let i = r.a1.indexOf(q.sf1); i >= 0; i = r.a1.indexOf(q.sf1, i + 1)) {
+        const end = i + q.sf1.length;
+        if (end === r.a1.length || r.a1[end] === SEP) return countSep(r.a1, i);
+      }
+    }
+    return -1;
   }
 
   /**
@@ -459,7 +535,7 @@ export function createIndex({kinds = [], heads = []} = {}) {
     const same = rest ? (sameHead.get(head.is) || []).map(h => makeQuery(h + rest, Infinity)) : [];
     // A word of one letter, or a lead abbreviation standing alone (“จ เชียงใหม่”), is not a word to look for.
     const tokens = cleaned.split(' ').map(t => { const l = leadOf(t), a = makeQuery(t), sure = LEVEL_TOKENS.has(t) || isHead.has(a.q1); return {a, b: l ? makeQuery(l.rest) : null, head: sure || headLike(a.q1), sure}; }).filter(t => t.a.q1.length >= 2);
-    return {q, lead, ql, qh, same, tokens, many: tokens.length > 1, long: q.q1.length >= 2, empty: !q.q1 && !q.q0};
+    return {q, lead, ql, qh, same, tokens, many: tokens.length > 1, long: q.q1.length >= 2, empty: !q.q1 && !q.q0, digits: DIGITS.test(cleaned)};
   }
 
   /** Steps 1–8 for records [from, to): found gets record → {step, inner, form, edits: 0}. */
@@ -469,13 +545,23 @@ export function createIndex({kinds = [], heads = []} = {}) {
     for (let n = from; n < to; n++) {
       const r = records[n];
       let hit = null;
-      if (r.codes.length && r.codes.includes(q.q0)) hit = {step: STEP.code, inner: 0, form: 0};
+      // A code a number alone equals (a province's number) stands after the names that hold the number: “21” is
+      // Terminal 21 before it is ระยอง.
+      if (r.codes.length && r.codes.includes(q.q0)) hit = {step: STEP.code, inner: 0, form: 0, late: p.digits ? 1 : 0};
       else if (long) {
-        let reached = own(r, q), rested = false;
-        if (ql && r.level === lead.level) { const x = own(r, ql); if (x < reached) reached = x; }
-        for (const qs of same) { const x = own(r, qs); if (x < reached) reached = x; }
-        if (qh && reached >= STEP.marks * 100) { const x = own(r, qh); if (Math.floor(x / 100) < Math.floor(reached / 100)) { reached = x; rested = true; } }
-        if (reached < NONE * 100) hit = {step: Math.floor(reached / 100), inner: reached % 100 >= 50 ? 1 : 0, form: reached % 50, rested, aside: rested ? 1 : 0};
+        let reached = own(r, q), rested = false, by = q;
+        if (ql && r.level === lead.level) { const x = own(r, ql); if (x < reached) { reached = x; by = ql; } }
+        for (const qs of same) { const x = own(r, qs); if (x < reached) { reached = x; by = qs; } }
+        if (qh && reached >= STEP.marks * 100) { const x = own(r, qh); if (Math.floor(x / 100) < Math.floor(reached / 100)) { reached = x; rested = true; by = qh; } }
+        if (reached < NONE * 100) {
+          const step = Math.floor(reached / 100), inner = reached % 100 >= 50 ? 1 : 0;
+          // Typed with its tone marks, a name that begins with it, has a word that does, holds it, or sounds like its
+          // beginning only once the marks are left out is “loose”: listed after every name that holds it as typed
+          // (steps 1–8), before guesses — when some name does hold it (`p.literal`); else the marks were a slip.
+          const loose = by.marked && (step === STEP.start || step === STEP.word || step === STEP.part || (step === STEP.sound && inner)) && !has(r.a0 || r.a1, by.n0) ? 1 : 0;
+          if (!loose && (step === STEP.name || step === STEP.start || step === STEP.word || step === STEP.part)) p.literal = true;
+          hit = {step, inner, form: reached % 50, rested, aside: rested ? 1 : 0, loose};
+        }
       }
       if (many && (!hit || hit.step > STEP.sound)) { const w = within(r, tokens); if (w && (!hit || w.step < hit.step)) hit = w; }
       if (hit) { hit.edits = 0; found.set(r, hit); }
@@ -588,19 +674,26 @@ export function createIndex({kinds = [], heads = []} = {}) {
    * longer name that begins with it). When the word left aside was only like a head word (“ชวนชม ลีสอร์ท”), the name
    * comes after every name that holds all that was typed by steps 1–6, in the order of its own step.
    */
-  const place = h => (!h.aside || h.step > STEP.sound ? h.step : h.aside === 1 ? h.step + 0.5 : STEP.sound + h.step / 10);
+  /** Are loose entries held back? Only when some entry holds the text as typed (set by assemble from `p.literal`). */
+  let holdLoose = true;
+  const isLoose = h => (h.loose && holdLoose ? 1 : 0);
+  const place = h => (h.late ? STEP.part + 0.9 : isLoose(h) ? STEP.part + 0.5 + h.step / 100 : h.weak ? STEP.near + 0.5
+    : !h.aside || h.step > STEP.sound ? h.step : h.aside === 1 ? h.step + 0.5 : STEP.sound + h.step / 10);
   const KEEP = 240;
+  /** The order of the list: by step, then how the name was found, then what the reader is looking at, then the name. */
+  const before = (x, y) => (place(x.h) - place(y.h)) || ((x.h.rank ?? 0) - (y.h.rank ?? 0)) || (isLoose(x.h) - isLoose(y.h)) || (x.h.inner - y.h.inner) || (x.here - y.here) || (x.r.ko - y.r.ko)
+    || (Number(x.h.form >= x.r.main) - Number(y.h.form >= y.r.main)) || (y.r.weight - x.r.weight) || (x.r.len - y.r.len) || (x.r.a1 < y.r.a1 ? -1 : x.r.a1 > y.r.a1 ? 1 : 0);
   /** The entries found, in order; the first KEEP are kept, `total` counts them all. */
-  function assemble(result, found, guesses, province, area) {
-    const list = [];
-    const push = (r, h) => list.push({r, h, here: area && r.e.area === area ? 0 : province && r.e.province === province ? 1 : 2});
+  function assemble(result, found, guesses, province, area, literal) {
+    holdLoose = literal === true;
+    const all = [];
+    const push = (r, h) => all.push({r, h, here: area && r.e.area === area ? 0 : province && r.e.province === province ? 1 : 2});
     for (const [r, h] of found) push(r, h);
     for (const [r, h] of guesses) push(r, h);
-    list.sort((x, y) => (place(x.h) - place(y.h)) || ((x.h.rank ?? 0) - (y.h.rank ?? 0)) || (x.h.inner - y.h.inner) || (x.here - y.here) || (x.r.ko - y.r.ko)
-      || (Number(x.h.form >= x.r.main) - Number(y.h.form >= y.r.main)) || (y.r.weight - x.r.weight) || (x.r.len - y.r.len) || (x.r.a1 < y.r.a1 ? -1 : x.r.a1 > y.r.a1 ? 1 : 0));
-    result.total = list.length;
+    result.total = all.length;
     result.sure = found.size;
-    result.items = list.slice(0, KEEP).map(({r, h}) => ({entry: r.e, step: h.step, inner: h.inner, show: classOf(h.step, h.inner), edits: h.edits,
+    const list = firstInOrder(all, KEEP, before);
+    result.items = list.map(({r, h}) => ({entry: r.e, step: h.step, inner: h.inner, show: isLoose(h) ? 'spelling' : classOf(h.step, h.inner), edits: h.edits,
       alt: h.form !== NOFORM && h.form >= r.main, matched: h.form < r.main ? r.forms[h.form] || '' : ''}));
     // Chosen ahead for the reader only when one place alone has the name or the code typed (the brief's decision of
     // 10 Oct 2026: “เลือกแถวให้อัตโนมัติเฉพาะเมื่อมีพื้นที่เดียวที่ชื่อตรง”). Here a place is an entry of a kind the caller
@@ -608,11 +701,13 @@ export function createIndex({kinds = [], heads = []} = {}) {
     // chosen, nor does it stop the place from being chosen (“บางรัก” is the district; its district office is the next row).
     // Nor does a place that only goes by the name once its head word is left out (“ภูเก็ต” is the province;
     // เทศบาลนครภูเก็ต is found by it and stands in the next row): the very name is a name the entry is written with.
+    // Every entry found is looked at, kept or not; which one comes first among them does not matter: it is chosen only
+    // when it is the only one.
     let one = null, more = false;
-    for (const x of list) { if (place(x.h) > STEP.name) break; if (x.h.form < x.r.written && !x.h.rested && auto.has(x.r.e.kind)) { if (one) { more = true; break; } one = x.r.e; } }
+    for (const x of all) { if (place(x.h) > STEP.name) continue; if (x.h.form < x.r.written && !x.h.rested && auto.has(x.r.e.kind)) { if (one) { more = true; break; } one = x.r.e; } }
     // The same for a name typed with its place (“หาดใหญ่ สงขลา”), when nothing has the whole text as its own name.
     if (!one && !more && list.length && list[0].h.step === STEP.within) {
-      for (const x of list) { if (x.h.step !== STEP.within || x.h.inner > STEP.name) break; if (x.h.form < x.r.written && auto.has(x.r.e.kind)) { if (one) { more = true; break; } one = x.r.e; } }
+      for (const x of all) { if (x.h.step !== STEP.within || x.h.inner > STEP.name) continue; if (x.h.form < x.r.written && auto.has(x.r.e.kind)) { if (one) { more = true; break; } one = x.r.e; } }
     }
     result.preselect = one && !more ? one : null;
     return result;
@@ -638,7 +733,7 @@ export function createIndex({kinds = [], heads = []} = {}) {
     if (!cleaned) { job.step = () => true; return job; }
     const found = new Map(), guesses = new Map(), p = prepare(cleaned);
     let phase = 'sure', at = 0, pn = null, others = [], po = null, swapped = null;
-    const publish = () => { job.result = assemble({...job.result}, found, guesses, province, area); job.version++; };
+    const publish = () => { job.result = assemble({...job.result}, found, guesses, province, area, p.literal); job.version++; };
     job.step = (ms = 8) => {
       const until = now() + ms;
       for (;;) {
@@ -649,7 +744,7 @@ export function createIndex({kinds = [], heads = []} = {}) {
             // entry that holds every word typed (steps 7 and 8 for several words).
             let strong = 0, whole = 0, placed = 0;
             for (const h of found.values()) { if (h.step <= STEP.sound) strong++; if (h.step <= STEP.marks) whole++; if (h.words) placed++; }
-            if (strong < 3 && !whole && !placed && p.q.q1.length >= 3) {
+            if (strong < 3 && !whole && !placed && p.q.q1.length >= 3 && !p.digits) {
               phase = 'near'; at = 0; pn = prepareNear(cleaned); job.result.guessed = true;
               if (found.size) publish();
             } else phase = 'done';
@@ -671,7 +766,12 @@ export function createIndex({kinds = [], heads = []} = {}) {
               if (h.step > STEP.part) continue;
               any = true;
               const g = guesses.get(r);
-              if (!g || g.step > STEP.layout) guesses.set(r, {step: STEP.layout, inner: h.step, form: h.form, edits: 0, rank: STEP.layout * 10 + h.step / 10});
+              // A reading that is not a whole name — it begins one, is a word of one, stands inside one, or sounds like
+              // its beginning, alone or with a place — is weak: after the names one key off (“KFX” is KFC before it is
+              // “สโมสร…”).
+              const weak = h.step === STEP.start || h.step === STEP.word || h.step === STEP.part || (h.step === STEP.sound && h.inner > 0)
+                || (h.step === STEP.within && h.inner >= STEP.start) ? 1 : 0;
+              if (!g || g.step > STEP.layout) guesses.set(r, {step: STEP.layout, inner: h.step, form: h.form, edits: 0, rank: STEP.layout * 10 + h.step / 10, weak});
             }
             if (any) { job.result.layout = others[0]; phase = 'done'; }
             else { others.shift(); at = 0; po = null; if (!others.length) phase = 'done'; }

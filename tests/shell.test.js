@@ -967,6 +967,79 @@ test('search guesses: made only when the sure steps find little, shown apart, ne
   assert.deepEqual(job.result.items.map(i => [i.entry.id, i.step]), index.search('เชียงหใม่').items.map(i => [i.entry.id, i.step]));
 });
 
+test('search, as the production search does: the marks typed count, ะ is another spelling, a number alone is never guessed (2026-11-12)', () => {
+  const index = createIndex({kinds: [{id: 'province', level: 'province', auto: true}, {id: 'area', level: 'district', auto: true}, {id: 'venue'}], heads: ['ร้าน']});
+  index.addAll([
+    {id: 'SKN', kind: 'province', name: 'สมุทรสาคร', nameEn: 'Samut Sakhon', codes: ['SKN', '74'], province: 'SKN'},
+    {id: 'RYG', kind: 'province', name: 'ระยอง', nameEn: 'Rayong', codes: ['RYG', '21'], province: 'RYG'},
+    {id: '5007', kind: 'area', name: 'ป่าซาง', nameEn: 'Pa Sang', province: 'LPN', area: '5007'},
+    {id: '5807', kind: 'area', name: 'ปาย', nameEn: 'Pai', province: 'MSN', area: '5807'},
+    {id: '9010', kind: 'area', name: 'สะเดา', nameEn: 'Sadao', province: 'SKA', area: '9010'},
+    {id: '7603', kind: 'area', name: 'ชะอำ', nameEn: 'Cha-am', province: 'PBI', area: '7603'},
+    {id: 'PYO', kind: 'province', name: 'พะเยา', nameEn: 'Phayao', codes: ['PYO', '56'], province: 'PYO'},
+    {id: 'PTE', kind: 'province', name: 'ปทุมธานี', nameEn: 'Pathum Thani', codes: ['PTE', '13'], province: 'PTE'},
+    {id: '1014', kind: 'area', name: 'พญาไท', nameEn: 'Phaya Thai', province: 'BKK', area: '1014'},
+    {id: 'v1', kind: 'venue', name: 'ส้มตำนัว', province: 'BKK'},
+    {id: 'v2', kind: 'venue', name: 'ร้านส้มตำป้าแดง', province: 'BKK'},
+    {id: 'v3', kind: 'venue', name: 'เทอร์มินอล 21 อโศก', nameEn: 'Terminal 21 Asok', province: 'BKK'},
+    {id: 'v4', kind: 'venue', name: 'บ้านเลขที่ 1235', province: 'BKK'},
+    {id: 'v5', kind: 'venue', name: 'KFC', province: 'BKK'},
+    {id: 'v6', kind: 'venue', name: 'ตลาดปลา', province: 'BKK'},
+    {id: 'v7', kind: 'venue', name: 'พเยาว์คาเฟ่', province: 'BKK'},
+    {id: 'v8', kind: 'venue', name: 'ลานฅนเมือง', province: 'BKK'},
+    {id: 'v9', kind: 'venue', name: 'ลานคํา', province: 'BKK'},
+  ]);
+  const ids = r => r.items.map(i => i.entry.id);
+  const show = (r, id) => r.items.find(i => i.entry.id === id)?.show;
+  // Typed with its tone marks: the names that hold it as typed first; the one that holds it only without the marks
+  // after them, and it says it is spelt another way.
+  let r = index.search('ส้ม');
+  assert.deepEqual(ids(r).slice(0, 2), ['v1', 'v2'], 'ส้มตำ… before สมุทรสาคร, though a province stands before a venue among equals');
+  assert.equal(ids(r)[2], 'SKN');
+  assert.deepEqual([show(r, 'v1'), show(r, 'SKN')], ['sure', 'spelling']);
+  r = index.search('ป่า');
+  assert.deepEqual(ids(r), ['5007', '5807']);
+  assert.deepEqual([show(r, '5007'), show(r, '5807')], ['sure', 'spelling']);
+  // Marks that no name holds were a slip: nothing is held back for them (ลานคํา, which begins so once they are left
+  // out, before ลานฅนเมือง, which only sounds like it).
+  r = index.search('ลานคํ่');
+  assert.deepEqual(ids(r).slice(0, 2), ['v9', 'v8']);
+  assert.equal(show(r, 'v9'), 'sure');
+  // Typed without marks, every name that begins so is sure, in the order of before (a lazy typist loses nothing).
+  r = index.search('ปา');
+  assert.deepEqual([show(r, '5007'), show(r, '5807')], ['sure', 'sure']);
+  // ะ written or not is the same name: another spelling of the name itself (step 3), not a guess — either way round.
+  for (const [typed, id, step] of [['สเดา', '9010', STEP.marks], ['ชอำ', '7603', STEP.marks], ['สะเดา', '9010', STEP.name], ['ปะทุมธานี', 'PTE', STEP.marks]]) {
+    r = index.search(typed);
+    assert.deepEqual([r.items[0].entry.id, r.items[0].step], [id, step], `${typed}: by the sure steps, not a guess`);
+  }
+  assert.equal(show(index.search('สเดา'), '9010'), 'spelling');
+  // So the whole name comes before a name that begins with the letters as typed, as in production (norm equal, then
+  // prefix) — and it is not chosen ahead, being written otherwise.
+  r = index.search('พเยา');
+  assert.deepEqual(ids(r).slice(0, 2), ['PYO', 'v7'], 'พะเยา before พเยาว์คาเฟ่');
+  assert.deepEqual([r.items[0].step, r.items[0].show, r.preselect], [STEP.marks, 'spelling', null]);
+  // Only the whole name: a beginning is not read without its ะ, or “พะยา” (เ left out) would begin พญาไท and พะเยา,
+  // one key off, would never be looked for.
+  r = index.search('พเย');
+  assert.deepEqual(ids(r), ['v7'], 'a beginning is read as typed: พเยาว์คาเฟ่ alone');
+  r = index.search('พะยา');
+  assert.deepEqual([r.items[0]?.entry.id, r.items[0]?.show], ['PYO', 'near'], 'พะยา: พะเยา, one key off');
+  assert.ok(!ids(r).includes('1014'), 'พญาไท is no beginning of พะยา');
+  assert.equal(show(index.search('สะเดา'), '9010'), 'sure');
+  // A number alone: never guessed, never chosen ahead; the province whose number it is comes after the names holding it.
+  r = index.search('21');
+  assert.deepEqual(ids(r), ['v3', 'RYG'], 'Terminal 21 before ระยอง');
+  assert.equal(r.preselect, null, 'a number is never chosen ahead');
+  r = index.search('1234');
+  assert.deepEqual([r.total, r.guessed], [0, false], '1234 is no 1235');
+  assert.equal(index.search('RYG').preselect?.id, 'RYG', 'a code in letters is still chosen ahead');
+  // A reading on the other keyboard layout that only stands inside a name comes after a name one key off.
+  r = index.search('kfx');
+  assert.equal(r.layout, 'าดป');
+  assert.deepEqual(ids(r), ['v5', 'v6'], 'KFC, one key off, before ตลาดปลา, which holds the Thai reading “าดป”');
+});
+
 test('the search list: the name in the page language with the name found beside it, guesses under their own heading, words with English', () => {
   const e = {name: 'นครราชสีมา', nameEn: 'Nakhon Ratchasima', aka: ['โคราช', 'Korat']};
   assert.deepEqual(rowNames(e, 'Korat', 'th'), {name: 'นครราชสีมา', thai: false, also: 'Korat'});
