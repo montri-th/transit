@@ -342,6 +342,7 @@ export const SHELL_EN = Object.freeze({
   patterns: [
     [DATE_PATTERN, m => englishDate(m[0])],
     [/^ไม่พบ “(.+)”$/, 'No match for “$1”'],
+    [/^กำลังค้นหา “(.+)”…$/, 'Searching for “$1”…'],
     [/^อ่านตามแป้นพิมพ์ไทย “(.+)”$/, 'Read on the Thai keyboard: “$1”'],
     [/^อ่านตามแป้นพิมพ์อังกฤษ “(.+)”$/, 'Read on the English keyboard: “$1”'],
     [/^([\d,]+) ชื่อ$/, (m, t) => `${m[1]} ${t.plural(m[1], 'name', 'names')}`],
