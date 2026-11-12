@@ -1065,6 +1065,9 @@ test('the search modules carry no invisible character, and a row of the list is 
   // A reader who leaves the box is not followed by its list: the search stops, and is made again on the way back.
   assert.ok(/if \(doc\.activeElement === box \|\| wrap\.contains\(doc\.activeElement\)\) return;\n(?:\s+\/\/[^\n]*\n)*\s+job = null; view\.clearTimeout\(timer\);\n\s+show\(false\);/.test(search), 'leaving the box stops the search');
   assert.ok(search.includes('if (done && asked === box.value && result && options.length) { show(true); list.hidden = false; } else onInput();'), 'back at the box: the finished list of the same text, else a new search');
+  // Tab leaves the box and closes the list: the list, a scrolling box with nothing in it that takes the focus, is no stop of its own.
+  assert.ok(/<div class="find-list" id="find-list" role="listbox" [^>]*tabindex="-1" hidden>/.test(search), 'the list is not in the Tab order');
+  assert.ok(search.includes("box.addEventListener('blur', left);") && search.includes("wrap.addEventListener('focusout', left);"), 'leaving the box, or anything of its list, closes it');
 });
 
 test('the next piece of a long job: a message when the page has channels, in the order asked; a timer when it has none', () => {
