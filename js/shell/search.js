@@ -38,7 +38,8 @@
  * before); the box a reader types in is a second input this module adds. If this module does not load, the demo's
  * input is untouched and filters as it always did.
  *
- * Keyboard (WAI-ARIA combobox with a listbox): ↓ ↑ move through the options, Enter chooses, Escape closes, Tab leaves.
+ * Keyboard (WAI-ARIA combobox with a listbox): ↓ ↑ move through the options, Enter chooses, Escape closes, Tab leaves
+ * the box and closes the list (the list is never a stop of its own).
  * Part of the shared CityMETER demo shell: edit it in every repository at once (js/shell/manifest.json).
  */
 import {LANG} from './i18n.js';
@@ -226,7 +227,7 @@ export function installSearch({input, index, entries, note, pick, scope, rows, u
   const wrap = doc.createElement('div');
   wrap.className = 'find'; wrap.id = 'find';
   wrap.innerHTML = `<p class="find-status is-quiet" id="find-status" role="status" aria-live="polite" aria-atomic="true"></p>
-<div class="find-list" id="find-list" role="listbox" aria-label="${esc(WORDS.list)}" hidden></div>
+<div class="find-list" id="find-list" role="listbox" aria-label="${esc(WORDS.list)}" tabindex="-1" hidden></div>
 <p class="find-foot" id="find-foot" hidden></p>`;
   field.after(wrap);
   const status = wrap.querySelector('.find-status'), list = wrap.querySelector('.find-list'), foot = wrap.querySelector('.find-foot');
@@ -521,7 +522,10 @@ export function installSearch({input, index, entries, note, pick, scope, rows, u
   view.visualViewport?.addEventListener('resize', fit);
   view.visualViewport?.addEventListener('scroll', fit);
   view.addEventListener('resize', fit);
-  box.addEventListener('blur', () => view.setTimeout(() => {
+  // The focus stays in the box while the list is open (aria-activedescendant names the option): the list is no stop
+  // of the Tab key — a browser makes a scrolling box one when nothing inside it takes the focus, and Tab then went
+  // into the list and left it open behind the reader (seen at 393 px, where the list scrolls).
+  const left = () => view.setTimeout(() => {
     if (doc.activeElement === box || wrap.contains(doc.activeElement)) return;
     // The reader has left the box: a search still running stops — its answer would open the list behind them — and
     // is made again on the way back.
@@ -529,7 +533,9 @@ export function installSearch({input, index, entries, note, pick, scope, rows, u
     show(false);
     if (told) say('');
     doc.documentElement.classList.remove('find-typing');
-  }, 0));
+  }, 0);
+  box.addEventListener('blur', left);
+  wrap.addEventListener('focusout', left);
   // A press on the list must not take the focus from the box (the list would close before the click).
   list.addEventListener('mousedown', e => e.preventDefault());
   list.addEventListener('click', e => { const el = e.target.closest?.('.find-option'); if (el && list.contains(el)) choose(Number(el.dataset.i)); });
