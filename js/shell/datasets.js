@@ -5,14 +5,15 @@
  * Hospital and School are Living since the owner's decision of 2026-11-12 (registry change
  * CHANGE-LIVING-HEALTH-EDUCATION-20261112-01, `group_basis` owner_2026-11-12_basic_service_access_and_coverage: access to
  * care and to education, and how far basic services reach, read as quality of life); they were Location in the reading
- * of 2026-11-08. The other thirteen groups read the same as on 2026-11-08 and 2026-11-10. University moved with them
- * and has no demo. Factory's demo address was added to the registry on 2026-11-08. Industrial Estate (registry
+ * of 2026-11-08. The other thirteen groups read the same as on 2026-11-08 and 2026-11-10. University moved with them;
+ * its demo (registry research.TH.university, montri-th/university) joined in 0.6.1, 2026-11-12. Factory's demo address
+ * was added to the registry on 2026-11-08. Industrial Estate (registry
  * research.TH.industrial_estates, group Land) lives inside the Factory repository: `pages` is its path on GitHub Pages
  * (montri-th.github.io/factory/industrialestate/), `path` its path on the CityMETER Pages site (0.5.4). `at: true` marks a demo on citymeter-shell: it opens
  * the area of `?at=` (a production path such as BKK/D/1039 or BKK/S/103902; a demo opens the deepest level it
  * carries). The others open their own start page until they move onto the shell (since 0.4.3 every demo is on it).
  * `en: true` marks a demo whose pages declare English (0.5.0: Office; 0.5.1: Hotel, Hospital; 0.5.2: School, Government
- * Office, Factory; 0.5.3: Pharmacy, Restaurants; 0.5.4: Industrial Estate): from an English page its
+ * Office, Factory; 0.5.3: Pharmacy, Restaurants; 0.5.4: Industrial Estate; 0.6.1: University): from an English page its
  * link carries lang=en.
  * Names are the English names the demos show in their header (live 2026-11-08), except Shopping Center, whose header
  * reads ศูนย์การค้า. Change this list only when the registry or a demo changes, in every
@@ -40,6 +41,7 @@ export const DEMOS = Object.freeze([
   {path: 'hospital', name: 'Hospital', group: 'Living', at: true, en: true},
   {path: 'school', name: 'School', group: 'Living', at: true, en: true},
   {path: 'transit', name: 'Transit', group: 'Living', at: true},
+  {path: 'university', name: 'University', group: 'Living', at: true, en: true},
 ].map(Object.freeze));
 
 /** The path of a demo on this origin: a demo kept inside another repository (`pages`) has its own path on GitHub Pages
