@@ -132,6 +132,36 @@ export function otherLayout(raw, {loose = false} = {}) {
   return text.split(' ').map(word => (/^[0-9]+$/.test(word) ? word : [...word].map(c => map.get(c) ?? c).join(''))).join(' ');
 }
 
+/* ----------------------------------------------------- looking for a text */
+
+/**
+ * A text that is looked for in many others. Chrome's engine finds the first letter of a text by one of its two bytes,
+ * the larger; for ก to ฎ (U+0E01–0E0E) that is the byte every Thai letter has, so each letter of the text being read
+ * has to be compared and the search is some thirteen times slower — in the 440,005 row texts of Government Office,
+ * “กรุงเทพ” took 295 ms and “ภูเก็ต” 22 ms (Node 22, 2026-11-12). So the search starts from the first letter whose
+ * own byte is the larger one, and the letters before it are compared afterwards (41 ms): always the answer of
+ * String.prototype.includes. A text of such letters alone is looked for as it is.
+ * → {text, k: the letters standing before that letter (0: look for the text as it is), tail: the text from it on}
+ */
+export function needle(text) {
+  let k = 0;
+  while (k < text.length && (text.charCodeAt(k) & 0xFF) <= (text.charCodeAt(k) >> 8)) k++;
+  if (k === text.length) k = 0;
+  return {text, k, tail: k ? text.slice(k) : text};
+}
+/** Does `hay` hold the text of a needle()? What hay.includes(n.text) answers. */
+export function has(hay, n) {
+  const k = n.k;
+  if (!k) return hay.includes(n.text);
+  const text = n.text, tail = n.tail;
+  for (let i = hay.indexOf(tail, k); i >= 0; i = hay.indexOf(tail, i + 1)) {
+    let j = 0;
+    while (j < k && hay.charCodeAt(i - k + j) === text.charCodeAt(j)) j++;
+    if (j === k) return true;
+  }
+  return false;
+}
+
 /* --------------------------------------------------------- edit distance */
 
 const FAR = 250;
@@ -255,7 +285,7 @@ const wordsOf = cleaned => cleaned.split(PLAIN.test(cleaned) ? NOT_WORD : /[^\p{
 const countSep = (text, upTo) => { let n = 0; for (let i = text.indexOf(SEP); i >= 0 && i < upTo; i = text.indexOf(SEP, i + 1)) n++; return n; };
 const makeQuery = (cleaned, minPart = 3) => {
   const q1 = exact1(cleaned), q2 = soundKey(q1);
-  return {text: cleaned, q0: exact0(cleaned), q1, q2, s1: SEP + q1, s2: SEP + q2, w1: ' ' + q1, minPart, latin: /^[a-z0-9]+$/.test(q1)};
+  return {text: cleaned, q0: exact0(cleaned), q1, q2, n1: needle(q1), n2: needle(q2), s1: SEP + q1, s2: SEP + q2, w1: ' ' + q1, minPart, latin: /^[a-z0-9]+$/.test(q1)};
 };
 
 /**
@@ -359,7 +389,7 @@ export function createIndex({kinds = [], heads = []} = {}) {
     const q1 = q.q1;
     let step = NONE, form = 0;
     // Every word of a name is a piece of its key, so a key that does not hold the text rules steps 2–5 and 8 out.
-    if (r.a1.includes(q1)) {
+    if (has(r.a1, q.n1)) {
       // A name that is whole (the next name or the end follows) beats one that only begins so; the earliest one wins.
       for (let i = r.a1.indexOf(q.s1); i >= 0; i = r.a1.indexOf(q.s1, i + 1)) {
         const end = i + 1 + q1.length, whole = end === r.a1.length || r.a1[end] === SEP;
@@ -372,7 +402,7 @@ export function createIndex({kinds = [], heads = []} = {}) {
       if (step > STEP.part && q1.length >= q.minPart) { step = STEP.part; form = NOFORM; }
     }
     let begun = 0;
-    if (step > STEP.sound && q.q2.length >= 2 && r.a2.includes(q.q2)) {
+    if (step > STEP.sound && q.q2.length >= 2 && has(r.a2, q.n2)) {
       for (let i = r.a2.indexOf(q.s2); i >= 0; i = r.a2.indexOf(q.s2, i + 1)) {
         const end = i + 1 + q.q2.length, whole = end === r.a2.length || r.a2[end] === SEP;
         if (step > STEP.sound || whole) { step = STEP.sound; form = countSep(r.a2, i); begun = whole ? 0 : 1; }
@@ -386,7 +416,7 @@ export function createIndex({kinds = [], heads = []} = {}) {
    * Does a record's name hold one word of several? A word in Latin letters must begin a word of the name (“ssi” in
    * Cassia is no word of “Bang Ssi”); Thai is written without spaces, so a Thai word may stand anywhere in it.
    */
-  const holds = (r, v) => (v.latin ? r.w1.includes(v.w1) || r.a2.includes(v.s2) : r.a1.includes(v.q1) || r.a2.includes(v.q2));
+  const holds = (r, v) => (v.latin ? r.w1.includes(v.w1) || r.a2.includes(v.s2) : has(r.a1, v.n1) || has(r.a2, v.n2));
 
   /**
    * Several words: each stands in the record's names or in the names of the places it is in, and at least one in its
@@ -400,7 +430,7 @@ export function createIndex({kinds = [], heads = []} = {}) {
       let got = 0, v = t.a;
       if (holds(r, v)) got = 1;
       else if (t.b && holds(r, t.b)) { got = 1; v = t.b; }
-      else if (r.ctx && ((t.b && (r.ctx.i1.includes(t.b.q1) || r.ctx.i2.includes(t.b.q2))) || r.ctx.i1.includes(t.a.q1) || r.ctx.i2.includes(t.a.q2))) got = 2;
+      else if (r.ctx && ((t.b && (has(r.ctx.i1, t.b.n1) || has(r.ctx.i2, t.b.n2))) || has(r.ctx.i1, t.a.n1) || has(r.ctx.i2, t.a.n2))) got = 2;
       // A head or level word (“โรงแรม”, “hotel”, “district”) the entry does not carry is left aside, not held against it.
       if (!got) { if (t.head) { asked--; if (!t.sure) weak = true; continue; } return null; }
       if (got === 1) { inName++; if (!t.head) solid++; nameText += (nameText ? ' ' : '') + v.text; if (tight && !r.w1.includes(v.w1)) tight = false; }
@@ -524,8 +554,8 @@ export function createIndex({kinds = [], heads = []} = {}) {
         // another word is in its name — off the name of its place.
         let miss = null, inName = 0, inPlace = 0, ok = true;
         for (const t of tokens) {
-          if (t.latin ? r.w1.includes(t.w1) : r.a1.includes(t.q1)) inName++;
-          else if (r.ctx && r.ctx.i1.includes(t.q1)) inPlace++;
+          if (t.latin ? r.w1.includes(t.w1) : has(r.a1, t.n1)) inName++;
+          else if (r.ctx && has(r.ctx.i1, t.n1)) inPlace++;
           else if (t.head) continue;
           else if (miss) { ok = false; break; } else miss = t;
         }

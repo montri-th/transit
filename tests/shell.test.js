@@ -20,7 +20,7 @@ import {DEMOS, GROUPS, demoUrl, demoPath, hubUrl} from '../js/shell/datasets.js'
 import {demoHref, currentDemo, pickerList, placeLevel, hubHref, languageLink, PHONE_QUERY} from '../js/shell/header.js';
 import {NAV_ICON_CONTRACT, CONTROL_GLYPHS, CONTROL_ICON_CONTRACT, keepScore, planToolbar, PHONE_QUERY as TOOLBAR_PHONE_QUERY} from '../js/shell/navigation.js';
 import {pageLanguage, languageHref, translate, translateIn, registerDictionary, registerNames, keepThai, englishDate, cutName, LANG} from '../js/shell/i18n.js';
-import {clean, key0, key1, key2, otherLayout, editDistance, allowedEdits, leadOf, createIndex, classOf, nameHolding, STEP} from '../js/shell/fuzzy.js';
+import {clean, key0, key1, key2, otherLayout, editDistance, allowedEdits, leadOf, createIndex, classOf, nameHolding, STEP, needle, has} from '../js/shell/fuzzy.js';
 import {WORDS, rowNames, planRows, filtersToLift, filtersAgainst, rowsAfterWay, hopper} from '../js/shell/search.js';
 
 const SHELL = new URL('../js/shell/', import.meta.url);
@@ -793,6 +793,33 @@ function sampleIndex() {
 }
 const first = result => result.items[0];
 const ids = result => result.items.map(i => i.entry.id);
+
+test('search: a text is looked for from a letter the engine finds quickly, and the answer is always that of includes', () => {
+  // The search starts from the first letter whose own byte is the larger of its two; ก to ฎ are not such letters.
+  assert.deepEqual(needle('กรุงเทพ'), {text: 'กรุงเทพ', k: 1, tail: 'รุงเทพ'});
+  assert.deepEqual([needle('ชลบุรี').k, needle('ขอนแก่น').k, needle('คงคา').k], [1, 1, 3]);
+  assert.deepEqual([needle('ภูเก็ต').k, needle('เชียงใหม่').k, needle('central').k, needle('7-eleven').k], [0, 0, 0, 0], 'a text that begins with such a letter is looked for as it is');
+  assert.deepEqual([needle('กก').k, needle('ก').k, needle('').k], [0, 0, 0], 'so is a text of the other letters alone, and no text');
+  // What holds it and what does not: at the start, at the end, after a false start, twice, the rest without its first letters.
+  const cases = [['กรุงเทพมหานคร', 'กรุงเทพ'], ['เขตพระนคร กรุงเทพ', 'กรุงเทพ'], ['กกรุงเทพ', 'กรุงเทพ'], ['มรุงเทพ กรุงเทพ', 'กรุงเทพ'], ['มรุงเทพ', 'กรุงเทพ'], ['รุงเทพ', 'กรุงเทพ'], ['กรุงเท', 'กรุงเทพ'],
+    ['', 'กรุงเทพ'], ['แม่น้ำโขงคงคา', 'คงคา'], ['คงา คงคา', 'คงคา'], ['งคา', 'คงคา'], ['าคงค', 'คงคา'], ['คา', 'คงคา'], ['bangkok กรุงเทพ', 'ok ก'], ['abc', ''], ['', ''], ['จังหวัดชลบุรี', 'ชลบุรี'], ['ชลบุร', 'ชลบุรี']];
+  for (const [hay, text] of cases) assert.equal(has(hay, needle(text)), hay.includes(text), `“${text}” in “${hay}”`);
+  // Made-up texts of the letters names are written with: every answer is the one includes gives.
+  const letters = [...'กขคงจฉชซญฎดตนบปมยรลวสหอะาิีุูเแโใไ ab1'];
+  let seed = 20261112;
+  const next = n => { seed = (Math.imul(seed, 1103515245) + 12345) & 0x7fffffff; return seed % n; };
+  const word = n => Array.from({length: n}, () => letters[next(letters.length)]).join('');
+  let held = 0;
+  for (let i = 0; i < 6000; i++) {
+    const hay = word(4 + next(40));
+    const at = next(hay.length), cut = hay.slice(at, at + 1 + next(6));
+    const text = i % 3 === 0 ? word(1 + next(4)) : i % 3 === 1 ? cut : cut.slice(0, -1) + letters[next(letters.length)];
+    const want = hay.includes(text);
+    if (want) held++;
+    assert.equal(has(hay, needle(text)), want, `“${text}” in “${hay}”`);
+  }
+  assert.ok(held > 1500 && held < 5000, 'both answers are tried');
+});
 
 test('search steps: a code, the name, its spelling without marks, its beginning, its sound, a piece of it — the surest first', () => {
   const index = sampleIndex();
