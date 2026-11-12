@@ -244,11 +244,12 @@ test('header: the demo list is one entry per demo, grouped Land · Location · L
   }
   assert.ok(DEMOS.filter(d => d.at).length >= 6, 'the six Hotel-family demos open ?at=');
   // The groups as the registry reads on 2026-11-12 (R01_DATASETS.dataset_group): Hospital and School moved from
-  // Location to Living that day (owner; registry change CHANGE-LIVING-HEALTH-EDUCATION-20261112-01).
+  // Location to Living that day (owner; registry change CHANGE-LIVING-HEALTH-EDUCATION-20261112-01); University
+  // (research.TH.university, Living) joined in 0.6.1.
   const inGroup = group => DEMOS.filter(d => d.group === group).map(d => d.path);
   assert.deepEqual(inGroup('Land'), ['hotel', 'industrialestate', 'office', 'shoppingcenter']);
   assert.deepEqual(inGroup('Location'), ['camera', 'factory', 'fitness', 'grocery', 'luxurybrands', 'pharmacy', 'restaurant']);
-  assert.deepEqual(inGroup('Living'), ['governmentoffice', 'hospital', 'school', 'transit']);
+  assert.deepEqual(inGroup('Living'), ['governmentoffice', 'hospital', 'school', 'transit', 'university']);
   // Industrial Estate lives inside the Factory repository (0.5.4): its GitHub Pages path is factory/industrialestate,
   // its path on the CityMETER Pages site industrialestate; the page is never taken for Factory.
   const estate = DEMOS.find(d => d.path === 'industrialestate');
@@ -415,8 +416,8 @@ test('header: the list ends with all demos on the showcase, in the page language
   assert.match(html, /<p class="dataset-hub"><a class="dataset-link" href="https:\/\/montri-th\.github\.io\/CityMETER\/demos\/\?at=BKK\/D\/1039">ดูเดโมทั้งหมด<\/a><\/p>$/);
   const office = DEMOS.find(d => d.path === 'office'), thai = DEMOS.find(d => !d.en);
   assert.equal(office.en, true, 'Office declares English (0.5.0)');
-  assert.deepEqual(DEMOS.filter(d => d.en).map(d => d.path).sort(), ['factory', 'governmentoffice', 'hospital', 'hotel', 'industrialestate', 'office', 'pharmacy', 'restaurant', 'school'],
-    'Hotel and Hospital declare English (0.5.1); School, Government Office and Factory (0.5.2); Pharmacy and Restaurants (0.5.3); Industrial Estate (0.5.4)');
+  assert.deepEqual(DEMOS.filter(d => d.en).map(d => d.path).sort(), ['factory', 'governmentoffice', 'hospital', 'hotel', 'industrialestate', 'office', 'pharmacy', 'restaurant', 'school', 'university'],
+    'Hotel and Hospital declare English (0.5.1); School, Government Office and Factory (0.5.2); Pharmacy and Restaurants (0.5.3); Industrial Estate (0.5.4); University (0.6.1)');
   assert.equal(demoHref(office, '?at=BKK/D/1039&lang=en', 'en'), 'https://montri-th.github.io/office/?at=BKK/D/1039&lang=en');
   assert.equal(demoHref(thai, '?at=BKK/D/1039&lang=en', 'en'), `https://montri-th.github.io/${thai.path}/?at=BKK/D/1039`, 'a demo without English opens in Thai');
   assert.equal(demoHref(office, '', 'en'), 'https://montri-th.github.io/office/?lang=en');
