@@ -13,9 +13,10 @@
  *   carries   the name as the page's language writes it, the name that was found when it is another one, what the
  *             entry is and where (the demo's `note`), and how sure the match is, in words: nothing for a name as
  *             typed, “สะกดต่างจากที่พิมพ์” for another spelling, the heading “ชื่อใกล้เคียง” for a guess.
- *   states    closed · preparing (the names are still being read) · results · nothing as typed, with guesses ·
- *             nothing at all (with what to try) · failed (the box still filters by its words). A state is always
- *             words; the option the keys are on has a ring as well as a tint.
+ *   states    closed · preparing (the names are still being read) · looking (a search that has nothing to show
+ *             after 0.4 s says so, with the text it is for: a long list of names, a text that is no name as typed) ·
+ *             results · nothing as typed, with guesses · nothing at all (with what to try) · failed (the box still
+ *             filters by its words). A state is always words; the option the keys are on has a ring as well as a tint.
  *   effect    choosing an entry calls `pick` and empties the box; the last row and Enter apply the words as the text
  *             filter (the demo's own input takes them and its `input` listener runs). A guess is never chosen for the
  *             reader: only an entry that alone has the very name typed is marked ahead (fuzzy.js `preselect`), and
@@ -45,6 +46,8 @@ import {mapBudget} from './maplibre-guard.js';
 import {clean, key1, nameHolding, STEP} from './fuzzy.js';
 
 const PAGE = 8, MORE = 16;
+/** A search with nothing to show after this long (ms) says it is still looking. */
+const SLOW = 400;
 const esc = text => String(text ?? '').replace(/[&<>"']/g, c => ({'&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'}[c]));
 const num = n => Number(n).toLocaleString('en-US');
 const HAS_THAI = /\p{Script=Thai}/u;
@@ -53,6 +56,7 @@ const HAS_THAI = /\p{Script=Thai}/u;
 export const WORDS = Object.freeze({
   list: 'ผลการค้นหา',
   preparing: 'กำลังเตรียมรายชื่อ…',
+  looking: text => `กำลังค้นหา “${text}”…`,
   near: 'ชื่อใกล้เคียง',
   spelling: 'สะกดต่างจากที่พิมพ์',
   none: text => `ไม่พบ “${text}”`,
@@ -148,6 +152,21 @@ export function rowsAfterWay({values, text, fields, context = [], count}) {
 }
 
 /**
+ * How the next piece of a long job is started: in a task of its own, so keys and paint come between the pieces, and
+ * at once — a timer nested this deep waits 4 ms each time, half as long again for a search made in 8 ms pieces. A
+ * message does not wait; a page without channels keeps the timer.
+ *   view  the window (MessageChannel, setTimeout).
+ * → fn => run fn next, in the order asked.
+ */
+export function hopper(view) {
+  const Channel = view.MessageChannel;
+  if (typeof Channel !== 'function') return fn => { view.setTimeout(fn, 0); };
+  const queue = [], {port1, port2} = new Channel();
+  port1.onmessage = () => { const fn = queue.shift(); if (fn) fn(); };
+  return fn => { queue.push(fn); port2.postMessage(0); };
+}
+
+/**
  * Which filters keep an item out, so that an item chosen by name always opens. Pure.
  *   values  the filter values now; fields: every filter that may hide an item (its place filters too);
  *   passes  values → truthy when the item passes them.
@@ -190,6 +209,7 @@ export function installSearch({input, index, entries, note, pick, scope, rows, u
   const doc = input.ownerDocument, view = doc.defaultView;
   const field = input.closest('label') || input.parentElement;
   const now = () => (view.performance ? view.performance.now() : Date.now());
+  const hop = hopper(view);
 
   /* The box a reader types in. The demo's own input keeps the applied filter. */
   const box = doc.createElement('input');
@@ -241,6 +261,8 @@ export function installSearch({input, index, entries, note, pick, scope, rows, u
     } catch { return 0; }
   };
   let options = [], active = -1, moved = false, open = false, applied = input.value, wordsLifted = false;
+  /** The status says a search is still running (any other word of the status ends that). */
+  let told = false;
 
   /* ---- the names, read in pieces ---- */
   function read() {
@@ -257,7 +279,7 @@ export function installSearch({input, index, entries, note, pick, scope, rows, u
     } catch (e) { fail(e); return; }
     if (ready) { if (clean(box.value) && doc.activeElement === box) run(); } else later();
   }
-  function later() { if (!busy) { busy = true; view.setTimeout(read, urgent ? 0 : 12); } }
+  function later() { if (!busy) { busy = true; if (urgent) hop(read); else view.setTimeout(read, 12); } }
   function prepare(now_ = false) {
     if (ready || failed) return;
     if (now_) urgent = true;
@@ -271,7 +293,8 @@ export function installSearch({input, index, entries, note, pick, scope, rows, u
   }
 
   /* ---- what the list says ---- */
-  function say(text, {visible = false, retry = false} = {}) {
+  function say(text, {visible = false, retry = false, running = false} = {}) {
+    told = running;
     status.classList.toggle('is-quiet', !visible);
     status.textContent = text;
     if (retry) {
@@ -377,14 +400,16 @@ export function installSearch({input, index, entries, note, pick, scope, rows, u
     if (!clean(raw)) return;
     let where = {};
     try { where = scope?.() || {}; } catch { where = {}; }
-    const mine = job = index.begin(raw, where);
+    const mine = job = index.begin(raw, where), began = now();
     shown = -1; done = false; kept = null; asked = raw;
     const pump = () => {
       if (job !== mine) return;
       const finished = mine.step(8);
       if (finished) { done = true; kept = count(raw.trim()); }
       if (finished || mine.version !== shown) { shown = mine.version; result = mine.result; shownFor = raw; draw(); }
-      if (!finished) view.setTimeout(pump, 0);
+      // Nothing to show yet and it is taking long: the list says it is still looking, and for which text.
+      if (!finished && !told && !mine.result.total && now() - began >= SLOW) say(WORDS.looking(raw.trim()), {visible: true, running: true});
+      if (!finished) hop(pump);
     };
     pump();
   }
@@ -417,6 +442,8 @@ export function installSearch({input, index, entries, note, pick, scope, rows, u
     }
     if (failed) { say(WORDS.failed, {visible: true, retry: true}); return; }
     if (!ready) { prepare(true); say(WORDS.preparing, {visible: true}); return; }
+    // A status that says the list is still looking is for the text in the box now.
+    if (told) say(WORDS.looking(box.value.trim()), {visible: true, running: true});
     timer = view.setTimeout(run, 40);
   }
 
@@ -487,7 +514,8 @@ export function installSearch({input, index, entries, note, pick, scope, rows, u
     // list has room above the keyboard.
     doc.documentElement.classList.add('find-typing');
     try { onFocus?.(); } catch { /* the list works without it */ }
-    if (clean(box.value) && box.value.trim() !== applied) { if (result && options.length) { show(true); list.hidden = false; } else onInput(); }
+    // Back at the box: the list it left, when that is the finished answer for the text still in it; else it looks again.
+    if (clean(box.value) && box.value.trim() !== applied) { if (done && asked === box.value && result && options.length) { show(true); list.hidden = false; } else onInput(); }
     view.requestAnimationFrame?.(() => { if (phone()) box.scrollIntoView?.({block: 'start'}); fit(); });
   });
   view.visualViewport?.addEventListener('resize', fit);
@@ -495,7 +523,11 @@ export function installSearch({input, index, entries, note, pick, scope, rows, u
   view.addEventListener('resize', fit);
   box.addEventListener('blur', () => view.setTimeout(() => {
     if (doc.activeElement === box || wrap.contains(doc.activeElement)) return;
+    // The reader has left the box: a search still running stops — its answer would open the list behind them — and
+    // is made again on the way back.
+    job = null; view.clearTimeout(timer);
     show(false);
+    if (told) say('');
     doc.documentElement.classList.remove('find-typing');
   }, 0));
   // A press on the list must not take the focus from the box (the list would close before the click).

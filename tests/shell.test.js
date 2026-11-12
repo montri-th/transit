@@ -21,7 +21,7 @@ import {demoHref, currentDemo, pickerList, placeLevel, hubHref, languageLink, PH
 import {NAV_ICON_CONTRACT, CONTROL_GLYPHS, CONTROL_ICON_CONTRACT, keepScore, planToolbar, PHONE_QUERY as TOOLBAR_PHONE_QUERY} from '../js/shell/navigation.js';
 import {pageLanguage, languageHref, translate, translateIn, registerDictionary, registerNames, keepThai, englishDate, cutName, LANG} from '../js/shell/i18n.js';
 import {clean, key0, key1, key2, otherLayout, editDistance, allowedEdits, leadOf, createIndex, classOf, nameHolding, STEP} from '../js/shell/fuzzy.js';
-import {WORDS, rowNames, planRows, filtersToLift, filtersAgainst, rowsAfterWay} from '../js/shell/search.js';
+import {WORDS, rowNames, planRows, filtersToLift, filtersAgainst, rowsAfterWay, hopper} from '../js/shell/search.js';
 
 const SHELL = new URL('../js/shell/', import.meta.url);
 const sha256 = buf => createHash('sha256').update(buf).digest('hex');
@@ -960,9 +960,10 @@ test('the search list: the name in the page language with the name found beside 
   assert.deepEqual(layoutFirst.groups.map(g => g.kind), ['layout', 'near'], 'two kinds of guess stand in the order of their best entry');
   // Every word of the list has English in the shell's own dictionary, and what was typed passes through as typed.
   const words = [WORDS.list, WORDS.preparing, WORDS.near, WORDS.spelling, WORDS.more, WORDS.narrow, WORDS.hint, WORDS.failed, WORDS.retry, WORDS.helpTitle, WORDS.help,
-    WORDS.none('abc'), WORDS.layout('abc', true), WORDS.layout('abc', false), WORDS.count(1), WORDS.count(1204), WORDS.left(12), WORDS.filter('abc')];
+    WORDS.none('abc'), WORDS.looking('abc'), WORDS.layout('abc', true), WORDS.layout('abc', false), WORDS.count(1), WORDS.count(1204), WORDS.left(12), WORDS.filter('abc')];
   for (const th of words) { const en = translate(th); assert.ok(en && !/[ก-๛]/.test(en), `${th} → ${en}`); }
   assert.equal(translate(WORDS.none('โนโวเทว')), 'No match for “โนโวเทว”');
+  assert.equal(translate(WORDS.looking('เชียงหใม่')), 'Searching for “เชียงหใม่”…');
   assert.equal(translate(WORDS.count(1)), '1 name');
   assert.equal(translate(WORDS.count(1204)), '1,204 names');
   assert.equal(translate(WORDS.layout('เชียงใหม่', true)), 'Read on the Thai keyboard: “เชียงใหม่”');
@@ -1028,4 +1029,36 @@ test('the search modules carry no invisible character, and a row of the list is 
   // row and what it applies — name the text its rows are for.
   assert.ok(/function onInput\(\) \{\n\s+view\.clearTimeout\(timer\);\n(?:\s+\/\/[^\n]*\n)*\s+job = null;/.test(search), 'a superseded search stops');
   assert.ok(search.includes("options.push({type: 'filter', text: typed})") && search.includes('filter(o.text)') && search.includes('const typed = shownFor.trim()'), 'the last row applies the words it names');
+  // A search with nothing to show after a moment says so, for the text it is for; any other word of the status ends that.
+  assert.ok(search.includes('if (!finished && !told && !mine.result.total && now() - began >= SLOW) say(WORDS.looking(raw.trim()), {visible: true, running: true});'), 'a long search says it is still looking');
+  assert.ok(/function say\(text, \{visible = false, retry = false, running = false\} = \{\}\) \{\n\s+told = running;/.test(search), 'the next word of the status ends “still looking”');
+  assert.ok(search.includes('if (told) say(WORDS.looking(box.value.trim()), {visible: true, running: true});'), 'while it says so, the status names the text now in the box');
+  // The pieces of a search follow one another without the wait of a nested timer.
+  assert.ok(search.includes('if (!finished) hop(pump);') && !search.includes('setTimeout(pump'), 'the next piece is a task of its own, started at once');
+  // A reader who leaves the box is not followed by its list: the search stops, and is made again on the way back.
+  assert.ok(/if \(doc\.activeElement === box \|\| wrap\.contains\(doc\.activeElement\)\) return;\n(?:\s+\/\/[^\n]*\n)*\s+job = null; view\.clearTimeout\(timer\);\n\s+show\(false\);/.test(search), 'leaving the box stops the search');
+  assert.ok(search.includes('if (done && asked === box.value && result && options.length) { show(true); list.hidden = false; } else onInput();'), 'back at the box: the finished list of the same text, else a new search');
+});
+
+test('the next piece of a long job: a message when the page has channels, in the order asked; a timer when it has none', () => {
+  // A page with channels: every call posts one message, and each message runs the oldest function waiting.
+  const posted = [];
+  class Channel { constructor() { const port1 = {onmessage: null}; this.port1 = port1; this.port2 = {postMessage: data => posted.push(() => port1.onmessage({data}))}; } }
+  const timers = [], ran = [];
+  let hop = hopper({MessageChannel: Channel, setTimeout: fn => timers.push(fn)});
+  hop(() => ran.push('a')); hop(() => ran.push('b'));
+  assert.deepEqual([posted.length, timers.length, ran.length], [2, 0, 0], 'nothing runs in the task that asked');
+  posted.shift()(); assert.deepEqual(ran, ['a']);
+  // A function that asks for the next piece is behind the ones already waiting.
+  hop(() => { ran.push('c'); hop(() => ran.push('d')); });
+  while (posted.length) posted.shift()();
+  assert.deepEqual(ran, ['a', 'b', 'c', 'd']);
+  // A message with nothing waiting does nothing.
+  new Channel().port1.onmessage?.({});
+  // A page without channels keeps the timer.
+  const waits = [];
+  hop = hopper({setTimeout: (fn, ms) => waits.push([fn, ms])});
+  hop(() => ran.push('e'));
+  assert.deepEqual([waits.length, waits[0][1], posted.length], [1, 0, 0]);
+  waits[0][0](); assert.equal(ran.at(-1), 'e');
 });
