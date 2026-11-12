@@ -20,6 +20,8 @@ import {DEMOS, GROUPS, demoUrl, demoPath, hubUrl} from '../js/shell/datasets.js'
 import {demoHref, currentDemo, pickerList, placeLevel, hubHref, languageLink, PHONE_QUERY} from '../js/shell/header.js';
 import {NAV_ICON_CONTRACT, CONTROL_GLYPHS, CONTROL_ICON_CONTRACT, keepScore, planToolbar, PHONE_QUERY as TOOLBAR_PHONE_QUERY} from '../js/shell/navigation.js';
 import {pageLanguage, languageHref, translate, translateIn, registerDictionary, registerNames, keepThai, englishDate, cutName, LANG} from '../js/shell/i18n.js';
+import {clean, key0, key1, key2, otherLayout, editDistance, allowedEdits, leadOf, createIndex, classOf, nameHolding, STEP, needle, has} from '../js/shell/fuzzy.js';
+import {WORDS, rowNames, planRows, filtersToLift, filtersAgainst, rowsAfterWay, hopper} from '../js/shell/search.js';
 
 const SHELL = new URL('../js/shell/', import.meta.url);
 const sha256 = buf => createHash('sha256').update(buf).digest('hex');
@@ -244,11 +246,12 @@ test('header: the demo list is one entry per demo, grouped Land · Location · L
   }
   assert.ok(DEMOS.filter(d => d.at).length >= 6, 'the six Hotel-family demos open ?at=');
   // The groups as the registry reads on 2026-11-12 (R01_DATASETS.dataset_group): Hospital and School moved from
-  // Location to Living that day (owner; registry change CHANGE-LIVING-HEALTH-EDUCATION-20261112-01).
+  // Location to Living that day (owner; registry change CHANGE-LIVING-HEALTH-EDUCATION-20261112-01); University
+  // (research.TH.university, Living) joined in 0.6.1.
   const inGroup = group => DEMOS.filter(d => d.group === group).map(d => d.path);
   assert.deepEqual(inGroup('Land'), ['hotel', 'industrialestate', 'office', 'shoppingcenter']);
   assert.deepEqual(inGroup('Location'), ['camera', 'factory', 'fitness', 'grocery', 'luxurybrands', 'pharmacy', 'restaurant']);
-  assert.deepEqual(inGroup('Living'), ['governmentoffice', 'hospital', 'school', 'transit']);
+  assert.deepEqual(inGroup('Living'), ['governmentoffice', 'hospital', 'school', 'transit', 'university']);
   // Industrial Estate lives inside the Factory repository (0.5.4): its GitHub Pages path is factory/industrialestate,
   // its path on the CityMETER Pages site industrialestate; the page is never taken for Factory.
   const estate = DEMOS.find(d => d.path === 'industrialestate');
@@ -415,8 +418,8 @@ test('header: the list ends with all demos on the showcase, in the page language
   assert.match(html, /<p class="dataset-hub"><a class="dataset-link" href="https:\/\/montri-th\.github\.io\/CityMETER\/demos\/\?at=BKK\/D\/1039">ดูเดโมทั้งหมด<\/a><\/p>$/);
   const office = DEMOS.find(d => d.path === 'office'), thai = DEMOS.find(d => !d.en);
   assert.equal(office.en, true, 'Office declares English (0.5.0)');
-  assert.deepEqual(DEMOS.filter(d => d.en).map(d => d.path).sort(), ['factory', 'governmentoffice', 'hospital', 'hotel', 'industrialestate', 'office', 'pharmacy', 'restaurant', 'school'],
-    'Hotel and Hospital declare English (0.5.1); School, Government Office and Factory (0.5.2); Pharmacy and Restaurants (0.5.3); Industrial Estate (0.5.4)');
+  assert.deepEqual(DEMOS.filter(d => d.en).map(d => d.path).sort(), ['factory', 'governmentoffice', 'hospital', 'hotel', 'industrialestate', 'office', 'pharmacy', 'restaurant', 'school', 'university'],
+    'Hotel and Hospital declare English (0.5.1); School, Government Office and Factory (0.5.2); Pharmacy and Restaurants (0.5.3); Industrial Estate (0.5.4); University (0.6.1)');
   assert.equal(demoHref(office, '?at=BKK/D/1039&lang=en', 'en'), 'https://montri-th.github.io/office/?at=BKK/D/1039&lang=en');
   assert.equal(demoHref(thai, '?at=BKK/D/1039&lang=en', 'en'), `https://montri-th.github.io/${thai.path}/?at=BKK/D/1039`, 'a demo without English opens in Thai');
   assert.equal(demoHref(office, '', 'en'), 'https://montri-th.github.io/office/?lang=en');
@@ -692,4 +695,473 @@ test('controls and type: 44 px targets and a caption floor at every width, a pho
   // Caption (0.75rem) is the smallest text; a control shows label size (0.8125rem); 0 hides the words of a symbol-only control.
   for (const m of block.matchAll(/font-size: ([^;]+);/g)) assert.ok(['0', '.75rem', '.8125rem'].includes(m[1].trim()), `font-size ${m[1]}`);
   assert.ok(!/border-left|border-inline-start/.test(css), 'no coloured side rail (LDS LAYOUT-01)');
+});
+
+/* ---- names found the way people type them (citymeter-shell 0.7.0: js/shell/fuzzy.js, js/shell/search.js) ---- */
+
+test('search keys: what never changes a name is cleaned away, key1 drops tone marks, key2 reads letters that sound alike as one', () => {
+  assert.equal(key1('แม่ฮ่องสอน'), 'แมฮองสอน');
+  assert.equal(key1('Chiang-Mai'), 'chiangmai');
+  assert.equal(key1('เชียงใหม'), key1('เชียงใหม่'));
+  assert.notEqual(key0('เชียงใหม'), key0('เชียงใหม่'), 'letter for letter they differ');
+  assert.equal(clean('กรุงเทพฯ'), 'กรุงเทพ');
+  assert.equal(clean('  ราม   ๖๑ '), 'ราม 61', 'spaces and Thai digits');
+  assert.equal(clean('เเม่ริม'), 'แม่ริม', 'two เ typed for แ');
+  assert.equal(clean('Café'), 'cafe');
+  assert.equal(key2('ชมภู'), key2('ชมพู'));
+  assert.equal(key2('เชียงไหม่'), key2('เชียงใหม่'));
+  assert.equal(key2('บุรีรัมย์'), key2('บุรีลัมย์'));
+  assert.equal(key2('Phuket'), key2('Puket'));
+  assert.equal(key2('Koh Samui'), key2('Ko Samui'));
+  // Pairs that are different names stay apart: ข/ค, ถ/ท, ผ/พ, ส/ซ.
+  for (const [a, b] of [['ขอนแก่น', 'คอนแก่น'], ['ถาวร', 'ทาวร'], ['ผา', 'พา'], ['สาย', 'ซาย']]) assert.notEqual(key2(a), key2(b), `${a} / ${b}`);
+});
+
+test('search keys: plain names take a short way through the same rules (the answers are those of the long way)', () => {
+  // A character outside Thai and ASCII sends a text the long way: a zero-width space, which clean() drops, and a
+  // typographic apostrophe, which the keys drop. With them the answers must be the same as without.
+  const hidden = String.fromCharCode(0x200B), apostrophe = String.fromCharCode(0x2019);
+  const c = (...codes) => String.fromCharCode(...codes);
+  const samples = ['กรุงเทพฯ', 'เเม่ริม', '  ราม   61 ', 'A.B.C. Co., Ltd.', 'ร.ร.วัดบางพระ', 'อบต.บางพระ', 'x,y', 'tab\there', '100 ปี (2513)', 'บริษัท คิวเอ็มบี จำกัด', 'Siam @ Siam', 'เซ็นทรัล-ลาดพร้าว',
+    // marks typed out of order (a tone mark before the vowel below), ํ + า for ำ, ๆ and ฺ
+    `ผ${c(0x0E49, 0x0E39)}`, `น${c(0x0E4D, 0x0E49, 0x0E32)}`, `ก${c(0x0E38, 0x0E3A)}`, `ต่าง${c(0x0E46)}`, `พ${c(0x0E3A)}ล`, `${c(0x0E3F)}100`];
+  for (const x of samples) {
+    assert.equal(clean(x), clean(`${hidden}${x}${hidden}`), `clean ${JSON.stringify(x)}`);
+    assert.equal(key0(x), key0(`${x}${apostrophe}`), `key0 ${JSON.stringify(x)}`);
+    assert.equal(key1(x), key1(`${x}${apostrophe}`), `key1 ${JSON.stringify(x)}`);
+    assert.equal(key2(x), key2(`${apostrophe}${x}`), `key2 ${JSON.stringify(x)}`);
+  }
+  assert.equal(clean(`ผ${c(0x0E49, 0x0E39)}`), `ผ${c(0x0E39, 0x0E49)}`, 'marks are put in their order');
+  assert.equal(key1(`น${c(0x0E4D, 0x0E49, 0x0E32)}`), key1('น้ำ'));
+  // The words of a name are the same either way: two entries, one sent the long way, are found alike.
+  const index = createIndex({kinds: [{id: 'v'}]});
+  index.addAll([{id: 'a', kind: 'v', name: 'เซ็นทรัล-ลาดพร้าว (Central Ladprao)'}, {id: 'b', kind: 'v', name: `เซ็นทรัล-ลาดพร้าว (Central Ladprao)${apostrophe}`}]);
+  for (const typed of ['ลาดพร้าว', 'ladprao', 'central', 'เซ็นทรัลลาดพร้าว', 'ลาดพร้าว central']) {
+    const r = index.search(typed);
+    assert.deepEqual(r.items.map(i => [i.entry.id, i.step]).sort(), [['a', r.items[0].step], ['b', r.items[0].step]], typed);
+  }
+});
+
+test('search guesses: an edit distance where a swap of two neighbours is one, allowed by the length typed', () => {
+  assert.equal(editDistance('เชียงหใม', 'เชียงใหม', 2), 1, 'two neighbours swapped');
+  assert.equal(editDistance('novtel', 'novotel', 2), 1, 'one dropped');
+  assert.equal(editDistance('novootel', 'novotel', 2), 1, 'one too many');
+  assert.equal(editDistance('nobotel', 'novotel', 2), 1, 'the key beside');
+  assert.equal(editDistance('nvootle', 'novotel', 2), 2);
+  assert.equal(editDistance('abcdef', 'uvwxyz', 2), 3, 'more than the limit is the limit + 1');
+  assert.equal(editDistance('same', 'same', 2), 0);
+  assert.deepEqual([1, 2, 3, 7, 8, 20].map(allowedEdits), [0, 0, 1, 1, 2, 2]);
+});
+
+test('search: the other keyboard layout, and the words that say which level a name is', () => {
+  assert.equal(otherLayout("g=up'.s,j"), 'เชียงใหม่');
+  assert.equal(otherLayout('ืนอนะำส'), 'novotel');
+  assert.equal(otherLayout('abc กขค'), '', 'a text in both scripts is not read again');
+  assert.equal(otherLayout('12345'), '', 'nor a number');
+  assert.equal(otherLayout('ik, 61'), 'ราม 61', 'a word of digits stays a number');
+  assert.deepEqual(leadOf(clean('จ.เชียงใหม่')), {level: 'province', rest: 'เชียงใหม่'});
+  assert.deepEqual(leadOf(clean('จังหวัดเชียงใหม่')), {level: 'province', rest: 'เชียงใหม่'});
+  assert.deepEqual(leadOf(clean('อ.หาดใหญ่')), {level: 'district', rest: 'หาดใหญ่'});
+  assert.deepEqual(leadOf(clean('เขตบางรัก')), {level: 'district', rest: 'บางรัก'});
+  assert.deepEqual(leadOf(clean('Chiang Mai province')), {level: 'province', rest: 'chiang mai'});
+  assert.equal(leadOf(clean('เชียงใหม่')), null);
+  assert.equal(leadOf(clean('จอมทอง')), null, 'a name that begins with the letter of an abbreviation');
+});
+
+/** A small index: provinces, districts and venues, with the names a demo's data carries. */
+function sampleIndex() {
+  const index = createIndex({kinds: [{id: 'province', level: 'province', auto: true}, {id: 'area', level: 'district', auto: true}, {id: 'venue'}], heads: ['โรงแรม', 'รีสอร์ท', 'hotel', 'resort']});
+  const cm = ['เชียงใหม่', 'Chiang Mai'], ska = ['สงขลา', 'Songkhla'], bkk = ['กรุงเทพมหานคร', 'Bangkok'], pkt = ['ภูเก็ต', 'Phuket'];
+  index.addAll([
+    {id: 'CMI', kind: 'province', name: 'เชียงใหม่', nameEn: 'Chiang Mai', codes: ['CMI', '50'], province: 'CMI'},
+    {id: 'CRI', kind: 'province', name: 'เชียงราย', nameEn: 'Chiang Rai', codes: ['CRI', '57'], province: 'CRI'},
+    {id: 'NMA', kind: 'province', name: 'นครราชสีมา', nameEn: 'Nakhon Ratchasima', aka: ['โคราช', 'Korat'], codes: ['NMA', '30'], province: 'NMA'},
+    {id: 'SKA', kind: 'province', name: 'สงขลา', nameEn: 'Songkhla', codes: ['SKA', '90'], province: 'SKA'},
+    {id: 'KKN', kind: 'province', name: 'ขอนแก่น', nameEn: 'Khon Kaen', codes: ['KKN', '40'], province: 'KKN'},
+    {id: '5001', kind: 'area', name: 'เมืองเชียงใหม่', nameEn: 'Mueang Chiang Mai', also: ['เชียงใหม่'], within: cm, province: 'CMI', area: '5001'},
+    {id: '9011', kind: 'area', name: 'หาดใหญ่', nameEn: 'Hat Yai', within: ska, province: 'SKA', area: '9011'},
+    {id: '1004', kind: 'area', name: 'บางรัก', nameEn: 'Bang Rak', within: bkk, province: 'BKK', area: '1004'},
+    {id: 'v1', kind: 'venue', name: 'แมนดาริน', within: bkk, province: 'BKK', area: '1004', weight: 300},
+    {id: 'v2', kind: 'venue', name: 'โนโวเทล กรุงเทพ สยามสแควร์', nameEn: 'Novotel Bangkok on Siam Square', within: bkk, province: 'BKK', weight: 400},
+    {id: 'v3', kind: 'venue', name: 'Holiday Inn Resort Phuket Karon Beach', aka: ['Novotel Phuket Karon Beach Resort and Spa'], within: pkt, province: 'PKT', weight: 200},
+    {id: 'v4', kind: 'venue', name: 'ชวนชม', within: cm, province: 'CMI', weight: 900},
+    {id: 'v5', kind: 'venue', name: 'ชวนชม รีสอร์ท', within: ska, province: 'SKA', weight: 20},
+    {id: 'v6', kind: 'venue', name: 'เรือนไทย', within: cm, province: 'CMI', weight: 10},
+    {id: 'v7', kind: 'venue', name: 'เรือนไทย', within: ska, province: 'SKA', weight: 50},
+  ]);
+  return index;
+}
+const first = result => result.items[0];
+const ids = result => result.items.map(i => i.entry.id);
+
+test('search: a text is looked for from a letter the engine finds quickly, and the answer is always that of includes', () => {
+  // The search starts from the first letter whose own byte is the larger of its two; ก to ฎ are not such letters.
+  assert.deepEqual(needle('กรุงเทพ'), {text: 'กรุงเทพ', k: 1, tail: 'รุงเทพ'});
+  assert.deepEqual([needle('ชลบุรี').k, needle('ขอนแก่น').k, needle('คงคา').k], [1, 1, 3]);
+  assert.deepEqual([needle('ภูเก็ต').k, needle('เชียงใหม่').k, needle('central').k, needle('7-eleven').k], [0, 0, 0, 0], 'a text that begins with such a letter is looked for as it is');
+  assert.deepEqual([needle('กก').k, needle('ก').k, needle('').k], [0, 0, 0], 'so is a text of the other letters alone, and no text');
+  // What holds it and what does not: at the start, at the end, after a false start, twice, the rest without its first letters.
+  const cases = [['กรุงเทพมหานคร', 'กรุงเทพ'], ['เขตพระนคร กรุงเทพ', 'กรุงเทพ'], ['กกรุงเทพ', 'กรุงเทพ'], ['มรุงเทพ กรุงเทพ', 'กรุงเทพ'], ['มรุงเทพ', 'กรุงเทพ'], ['รุงเทพ', 'กรุงเทพ'], ['กรุงเท', 'กรุงเทพ'],
+    ['', 'กรุงเทพ'], ['แม่น้ำโขงคงคา', 'คงคา'], ['คงา คงคา', 'คงคา'], ['งคา', 'คงคา'], ['าคงค', 'คงคา'], ['คา', 'คงคา'], ['bangkok กรุงเทพ', 'ok ก'], ['abc', ''], ['', ''], ['จังหวัดชลบุรี', 'ชลบุรี'], ['ชลบุร', 'ชลบุรี']];
+  for (const [hay, text] of cases) assert.equal(has(hay, needle(text)), hay.includes(text), `“${text}” in “${hay}”`);
+  // Made-up texts of the letters names are written with: every answer is the one includes gives.
+  const letters = [...'กขคงจฉชซญฎดตนบปมยรลวสหอะาิีุูเแโใไ ab1'];
+  let seed = 20261112;
+  const next = n => { seed = (Math.imul(seed, 1103515245) + 12345) & 0x7fffffff; return seed % n; };
+  const word = n => Array.from({length: n}, () => letters[next(letters.length)]).join('');
+  let held = 0;
+  for (let i = 0; i < 6000; i++) {
+    const hay = word(4 + next(40));
+    const at = next(hay.length), cut = hay.slice(at, at + 1 + next(6));
+    const text = i % 3 === 0 ? word(1 + next(4)) : i % 3 === 1 ? cut : cut.slice(0, -1) + letters[next(letters.length)];
+    const want = hay.includes(text);
+    if (want) held++;
+    assert.equal(has(hay, needle(text)), want, `“${text}” in “${hay}”`);
+  }
+  assert.ok(held > 1500 && held < 5000, 'both answers are tried');
+});
+
+test('search steps: a code, the name, its spelling without marks, its beginning, its sound, a piece of it — the surest first', () => {
+  const index = sampleIndex();
+  assert.equal(index.size, 15);
+  let r = index.search('เชียงใหม่');
+  assert.deepEqual([first(r).entry.id, first(r).step, first(r).show], ['CMI', STEP.name, 'sure']);
+  assert.equal(r.preselect?.id, 'CMI', 'one entry alone has the very name: the district only goes by it');
+  assert.ok(ids(r).includes('5001') && r.items.find(i => i.entry.id === '5001').alt, 'the district is found by its looser form');
+  assert.equal(r.guessed, false);
+  for (const code of ['CMI', 'cmi', '50']) assert.deepEqual([first(index.search(code)).entry.id, first(index.search(code)).step], ['CMI', STEP.code]);
+  r = index.search('เชียงใหม');
+  assert.deepEqual([first(r).entry.id, first(r).step, first(r).show], ['CMI', STEP.marks, 'spelling']);
+  assert.equal(r.preselect, null, 'another spelling is never chosen ahead');
+  r = index.search('เชียง');
+  assert.deepEqual(ids(r).slice(0, 2).sort(), ['CMI', 'CRI']);
+  assert.ok(r.items.slice(0, 2).every(i => i.step === STEP.start) && r.preselect === null && !r.guessed);
+  r = index.search('เชียงไหม่');
+  assert.deepEqual([first(r).entry.id, first(r).step, first(r).show], ['CMI', STEP.sound, 'spelling']);
+  r = index.search('ราชสีมา');
+  assert.deepEqual([first(r).entry.id, first(r).step, first(r).show], ['NMA', STEP.part, 'sure']);
+  r = index.search('chiang mai');
+  assert.deepEqual([first(r).entry.id, first(r).step, first(r).matched], ['CMI', STEP.name, 'Chiang Mai']);
+  r = index.search('siam');
+  assert.deepEqual([first(r).entry.id, first(r).step], ['v2', STEP.word], 'a word of the name begins with it');
+  assert.equal(index.search('ข').total, 0, 'one letter finds nothing');
+  assert.deepEqual(['sure', 'spelling', 'sure', 'sure', 'spelling', 'sure', 'near', 'near', 'near', 'near'], [STEP.name, STEP.marks, STEP.start, STEP.word, STEP.sound, STEP.part, STEP.nearIn, STEP.layout, STEP.near, STEP.nearStart].map(s => classOf(s)));
+  assert.equal(classOf(STEP.within, STEP.sound), 'spelling', 'a name with its place is shown as its name part is');
+});
+
+test('search: lead words, other names, a name with its place, and a head word people add or leave out', () => {
+  const index = sampleIndex();
+  let r = index.search('จ.เชียงใหม่');
+  assert.deepEqual(ids(r), ['CMI'], 'the level the lead word names, and no piece of another name');
+  assert.equal(r.preselect?.id, 'CMI');
+  assert.equal(first(index.search('อ.เมืองเชียงใหม่')).entry.id, '5001');
+  for (const [typed, name] of [['โคราช', 'โคราช'], ['korat', 'Korat']]) {
+    r = index.search(typed);
+    assert.deepEqual([first(r).entry.id, first(r).step, first(r).matched], ['NMA', STEP.name, name]);
+  }
+  r = index.search('หาดใหญ่ สงขลา');
+  assert.deepEqual([first(r).entry.id, first(r).step, first(r).inner, first(r).show], ['9011', STEP.within, STEP.name, 'sure']);
+  assert.equal(r.preselect?.id, '9011', 'the only entry with that very name in that place');
+  assert.equal(first(index.search('hat yai songkhla')).entry.id, '9011');
+  r = index.search('โรงแรมแมนดาริน');
+  assert.deepEqual([first(r).entry.id, first(r).step], ['v1', STEP.name], 'the head word is left aside');
+  assert.equal(r.preselect, null, 'a venue is never chosen ahead, nor a name found with a word left aside');
+  assert.equal(first(index.search('mandarin hotel')), undefined, 'a name the data does not carry in that language is not made up');
+  r = index.search('ชวนชม ลีสอร์ท');
+  assert.deepEqual(ids(r), ['v5', 'v4'], 'the name that holds every word typed comes before the one found with a word left aside');
+  r = index.search('novotel karon');
+  assert.equal(first(r).entry.id, 'v3', 'found by the name it was recorded under');
+  assert.equal(nameHolding(first(r).entry, 'novotel karon'), 'Novotel Phuket Karon Beach Resort and Spa');
+  assert.equal(nameHolding({name: 'เชียงใหม่', nameEn: 'Chiang Mai'}, 'เชียงใหม่'), 'เชียงใหม่');
+  assert.equal(nameHolding({name: 'เชียงใหม่', nameEn: 'Chiang Mai'}, 'chiang'), 'Chiang Mai');
+  assert.equal(nameHolding({name: 'เชียงใหม่'}, 'zzz'), '');
+  // What the reader is looking at comes first among equals; without it, the larger.
+  assert.deepEqual(ids(index.search('เรือนไทย')), ['v7', 'v6']);
+  assert.deepEqual(ids(index.search('เรือนไทย', {province: 'CMI'})), ['v6', 'v7']);
+});
+
+test('search: a name that begins with a head word also goes by the rest; only a place or a filter is chosen ahead', () => {
+  const index = createIndex({kinds: [{id: 'area', level: 'district', auto: true}, {id: 'venue'}, {id: 'station', level: 'station'}],
+    heads: [['โรงพยาบาล', 'รพ.'], ['องค์การบริหารส่วนตำบล', 'อบต.'], ['เทศบาลตำบล', 'ทต.'], 'สำนักงานเขต', 'the']});
+  index.addAll([
+    {id: 's1', kind: 'station', name: 'ศิริราช'},
+    {id: '1004', kind: 'area', name: 'บางรัก'},
+    {id: 'v5', kind: 'venue', name: 'สำนักงานเขตบางรัก'},
+    {id: 'v6', kind: 'venue', name: 'เทศบาลตำบลบางพระ', weight: 900},
+    {id: 'v7', kind: 'venue', name: 'องค์การบริหารส่วนตำบลบางพระ', weight: 10},
+    {id: 'v1', kind: 'venue', name: 'โรงพยาบาลศิริราช'},
+    {id: 'v2', kind: 'venue', name: 'คลินิกศิริราชการแพทย์'},
+    {id: 'v3', kind: 'venue', name: 'Theatre Residence'},
+    {id: 'v4', kind: 'venue', name: 'The Sukosol'},
+  ]);
+  let r = index.search('ศิริราช');
+  assert.deepEqual(r.items.map(i => [i.entry.id, i.step, i.show]), [['v1', STEP.name, 'sure'], ['s1', STEP.name, 'sure'], ['v2', STEP.part, 'sure']]);
+  assert.equal(r.items[0].matched, '', 'the rest is found as a name and never shown as one');
+  assert.equal(r.preselect, null, 'a venue and a station the caller does not let the list choose: the reader says which');
+  r = index.search('บางรัก');
+  assert.deepEqual([ids(r), r.preselect?.id], [['1004', 'v5'], '1004'], 'the district is chosen ahead; its office goes by the name too and is the next row');
+  for (const typed of ['รพ.ศิริราช', 'รพ ศิริราช', 'โรงพยาบาลศิริราช']) assert.equal(index.search(typed).items.find(i => i.entry.kind === 'venue').entry.id, 'v1', typed);
+  // A word and its abbreviation are one word: the name that has it comes before the names that go by the rest alone.
+  assert.deepEqual(ids(index.search('อบต.บางพระ')), ['v7', 'v6']);
+  assert.deepEqual(ids(index.search('ทต. บางพระ')), ['v6', 'v7']);
+  assert.deepEqual(ids(index.search('บางพระ')), ['v6', 'v7'], 'without it, the larger first');
+  assert.deepEqual([first(index.search('sukosol')).entry.id, first(index.search('sukosol')).step], ['v4', STEP.name]);
+  assert.deepEqual([first(index.search('atre residence')).entry.id, first(index.search('atre residence')).step], ['v3', STEP.part], 'a head in Latin letters is a word of its own');
+});
+
+test('search: chosen ahead is the one place written with the very name typed — not one that goes by it without its head word', () => {
+  const index = createIndex({kinds: [{id: 'province', level: 'province', auto: true}, {id: 'district', level: 'district', auto: true}, {id: 'subdistrict', level: 'subdistrict', auto: true}, {id: 'unit', auto: true}],
+    heads: [['เทศบาลนคร', 'ทน.'], ['เทศบาลตำบล', 'ทต.'], ['องค์การบริหารส่วนตำบล', 'อบต.']]});
+  index.addAll([
+    {id: 'PKT', kind: 'province', name: 'ภูเก็ต', nameEn: 'Phuket'},
+    {id: '8301', kind: 'district', name: 'เมืองภูเก็ต', also: ['ภูเก็ต'], within: ['ภูเก็ต', 'Phuket']},
+    {id: 'u1', kind: 'unit', name: 'ทน.ภูเก็ต', within: ['เมืองภูเก็ต', 'ภูเก็ต', 'Phuket']},
+    {id: '1039', kind: 'district', name: 'วัฒนา', within: ['กรุงเทพมหานคร', 'Bangkok']},
+    {id: 'u2', kind: 'unit', name: 'ทต.วัฒนา', within: ['ส่องดาว', 'สกลนคร', 'Sakon Nakhon']},
+    {id: '1004', kind: 'district', name: 'บางรัก', within: ['กรุงเทพมหานคร', 'Bangkok']},
+    {id: '100404', kind: 'subdistrict', name: 'บางรัก', within: ['บางรัก', 'กรุงเทพมหานคร', 'Bangkok']},
+    {id: 'u4', kind: 'unit', name: 'อบต.บ้านเก่า', within: ['พานทอง', 'ชลบุรี']},
+    {id: 'u5', kind: 'unit', name: 'อบต.บ้านเก่า', within: ['ด่านขุนทด', 'นครราชสีมา']},
+    {id: 'u6', kind: 'unit', name: 'ทน.แหลมฉบัง', within: ['ศรีราชา', 'ชลบุรี']},
+  ]);
+  let r = index.search('ภูเก็ต');
+  assert.deepEqual([ids(r).slice(0, 3), r.preselect?.id], [['PKT', '8301', 'u1'], 'PKT'], 'the province; the city that goes by the name is a row below');
+  r = index.search('วัฒนา');
+  assert.deepEqual([ids(r), r.preselect?.id], [['1039', 'u2'], '1039']);
+  for (const typed of ['ทน.ภูเก็ต', 'เทศบาลนครภูเก็ต']) assert.equal(index.search(typed).preselect?.id, 'u1', `${typed}: typed with its word, the city alone is written so`);
+  // Two places written with the name: the reader says which (the brief's decision of 10 Oct 2026), a เขต and its แขวง too.
+  r = index.search('บางรัก');
+  assert.deepEqual([ids(r), r.preselect], [['1004', '100404'], null]);
+  assert.equal(index.search('บ้านเก่า').preselect, null);
+  // Found by the name without its word, and alone: still listed first, never chosen ahead.
+  r = index.search('แหลมฉบัง');
+  assert.deepEqual([ids(r), r.items[0].step, r.preselect], [['u6'], STEP.name, null]);
+  assert.equal(index.search('แหลมฉบัง ชลบุรี').preselect, null);
+});
+
+test('search guesses: made only when the sure steps find little, shown apart, never chosen ahead', () => {
+  const index = sampleIndex();
+  let r = index.search('เชียงหใม่');
+  assert.equal(r.guessed, true);
+  assert.deepEqual([first(r).entry.id, first(r).step, first(r).show, first(r).edits], ['CMI', STEP.near, 'near', 1]);
+  assert.equal(r.sure, 0);
+  assert.equal(r.preselect, null);
+  r = index.search('ขนอแก่');
+  assert.deepEqual([first(r).entry.id, first(r).step, first(r).show], ['KKN', STEP.nearStart, 'near'], 'the beginning of a name, one key off');
+  r = index.search('บางรัค กรุงเทพ');
+  assert.deepEqual([first(r).entry.id, first(r).step, first(r).show], ['1004', STEP.nearIn, 'near'], 'a name one key off, and its place');
+  r = index.search("g=up'.s,j");
+  assert.equal(r.layout, 'เชียงใหม่');
+  assert.deepEqual([first(r).entry.id, first(r).step, first(r).show], ['CMI', STEP.layout, 'near']);
+  assert.equal(r.preselect, null, 'a text read on the other layout is a guess too');
+  assert.equal(index.search('ืนอนะำส').layout, 'novotel');
+  // No guess for a key of two letters, nor when the name typed is there.
+  assert.deepEqual([index.search('ขค').total, index.search('ขค').guessed], [0, false]);
+  assert.equal(index.search('สงขลา').guessed, false);
+  assert.equal(index.search('qqqqzzzz').total, 0, 'a text that is no name finds nothing');
+  // In pieces (the page never waits on a long list) the answer is the same.
+  const job = index.begin('เชียงหใม่');
+  let rounds = 0;
+  while (!job.step(0)) rounds++;
+  assert.ok(rounds >= 1 && job.pending === false);
+  assert.deepEqual(job.result.items.map(i => [i.entry.id, i.step]), index.search('เชียงหใม่').items.map(i => [i.entry.id, i.step]));
+});
+
+test('search, as the production search does: the marks typed count, ะ is another spelling, a number alone is never guessed (2026-11-12)', () => {
+  const index = createIndex({kinds: [{id: 'province', level: 'province', auto: true}, {id: 'area', level: 'district', auto: true}, {id: 'venue'}], heads: ['ร้าน']});
+  index.addAll([
+    {id: 'SKN', kind: 'province', name: 'สมุทรสาคร', nameEn: 'Samut Sakhon', codes: ['SKN', '74'], province: 'SKN'},
+    {id: 'RYG', kind: 'province', name: 'ระยอง', nameEn: 'Rayong', codes: ['RYG', '21'], province: 'RYG'},
+    {id: '5007', kind: 'area', name: 'ป่าซาง', nameEn: 'Pa Sang', province: 'LPN', area: '5007'},
+    {id: '5807', kind: 'area', name: 'ปาย', nameEn: 'Pai', province: 'MSN', area: '5807'},
+    {id: '9010', kind: 'area', name: 'สะเดา', nameEn: 'Sadao', province: 'SKA', area: '9010'},
+    {id: '7603', kind: 'area', name: 'ชะอำ', nameEn: 'Cha-am', province: 'PBI', area: '7603'},
+    {id: 'PYO', kind: 'province', name: 'พะเยา', nameEn: 'Phayao', codes: ['PYO', '56'], province: 'PYO'},
+    {id: 'PTE', kind: 'province', name: 'ปทุมธานี', nameEn: 'Pathum Thani', codes: ['PTE', '13'], province: 'PTE'},
+    {id: '1014', kind: 'area', name: 'พญาไท', nameEn: 'Phaya Thai', province: 'BKK', area: '1014'},
+    {id: 'v1', kind: 'venue', name: 'ส้มตำนัว', province: 'BKK'},
+    {id: 'v2', kind: 'venue', name: 'ร้านส้มตำป้าแดง', province: 'BKK'},
+    {id: 'v3', kind: 'venue', name: 'เทอร์มินอล 21 อโศก', nameEn: 'Terminal 21 Asok', province: 'BKK'},
+    {id: 'v4', kind: 'venue', name: 'บ้านเลขที่ 1235', province: 'BKK'},
+    {id: 'v5', kind: 'venue', name: 'KFC', province: 'BKK'},
+    {id: 'v6', kind: 'venue', name: 'ตลาดปลา', province: 'BKK'},
+    {id: 'v7', kind: 'venue', name: 'พเยาว์คาเฟ่', province: 'BKK'},
+    {id: 'v8', kind: 'venue', name: 'ลานฅนเมือง', province: 'BKK'},
+    {id: 'v9', kind: 'venue', name: 'ลานคํา', province: 'BKK'},
+  ]);
+  const ids = r => r.items.map(i => i.entry.id);
+  const show = (r, id) => r.items.find(i => i.entry.id === id)?.show;
+  // Typed with its tone marks: the names that hold it as typed first; the one that holds it only without the marks
+  // after them, and it says it is spelt another way.
+  let r = index.search('ส้ม');
+  assert.deepEqual(ids(r).slice(0, 2), ['v1', 'v2'], 'ส้มตำ… before สมุทรสาคร, though a province stands before a venue among equals');
+  assert.equal(ids(r)[2], 'SKN');
+  assert.deepEqual([show(r, 'v1'), show(r, 'SKN')], ['sure', 'spelling']);
+  r = index.search('ป่า');
+  assert.deepEqual(ids(r), ['5007', '5807']);
+  assert.deepEqual([show(r, '5007'), show(r, '5807')], ['sure', 'spelling']);
+  // Marks that no name holds were a slip: nothing is held back for them (ลานคํา, which begins so once they are left
+  // out, before ลานฅนเมือง, which only sounds like it).
+  r = index.search('ลานคํ่');
+  assert.deepEqual(ids(r).slice(0, 2), ['v9', 'v8']);
+  assert.equal(show(r, 'v9'), 'sure');
+  // Typed without marks, every name that begins so is sure, in the order of before (a lazy typist loses nothing).
+  r = index.search('ปา');
+  assert.deepEqual([show(r, '5007'), show(r, '5807')], ['sure', 'sure']);
+  // ะ written or not is the same name: another spelling of the name itself (step 3), not a guess — either way round.
+  for (const [typed, id, step] of [['สเดา', '9010', STEP.marks], ['ชอำ', '7603', STEP.marks], ['สะเดา', '9010', STEP.name], ['ปะทุมธานี', 'PTE', STEP.marks]]) {
+    r = index.search(typed);
+    assert.deepEqual([r.items[0].entry.id, r.items[0].step], [id, step], `${typed}: by the sure steps, not a guess`);
+  }
+  assert.equal(show(index.search('สเดา'), '9010'), 'spelling');
+  // So the whole name comes before a name that begins with the letters as typed, as in production (norm equal, then
+  // prefix) — and it is not chosen ahead, being written otherwise.
+  r = index.search('พเยา');
+  assert.deepEqual(ids(r).slice(0, 2), ['PYO', 'v7'], 'พะเยา before พเยาว์คาเฟ่');
+  assert.deepEqual([r.items[0].step, r.items[0].show, r.preselect], [STEP.marks, 'spelling', null]);
+  // Only the whole name: a beginning is not read without its ะ, or “พะยา” (เ left out) would begin พญาไท and พะเยา,
+  // one key off, would never be looked for.
+  r = index.search('พเย');
+  assert.deepEqual(ids(r), ['v7'], 'a beginning is read as typed: พเยาว์คาเฟ่ alone');
+  r = index.search('พะยา');
+  assert.deepEqual([r.items[0]?.entry.id, r.items[0]?.show], ['PYO', 'near'], 'พะยา: พะเยา, one key off');
+  assert.ok(!ids(r).includes('1014'), 'พญาไท is no beginning of พะยา');
+  assert.equal(show(index.search('สะเดา'), '9010'), 'sure');
+  // A number alone: never guessed, never chosen ahead; the province whose number it is comes after the names holding it.
+  r = index.search('21');
+  assert.deepEqual(ids(r), ['v3', 'RYG'], 'Terminal 21 before ระยอง');
+  assert.equal(r.preselect, null, 'a number is never chosen ahead');
+  r = index.search('1234');
+  assert.deepEqual([r.total, r.guessed], [0, false], '1234 is no 1235');
+  assert.equal(index.search('RYG').preselect?.id, 'RYG', 'a code in letters is still chosen ahead');
+  // A reading on the other keyboard layout that only stands inside a name comes after a name one key off.
+  r = index.search('kfx');
+  assert.equal(r.layout, 'าดป');
+  assert.deepEqual(ids(r), ['v5', 'v6'], 'KFC, one key off, before ตลาดปลา, which holds the Thai reading “าดป”');
+});
+
+test('the search list: the name in the page language with the name found beside it, guesses under their own heading, words with English', () => {
+  const e = {name: 'นครราชสีมา', nameEn: 'Nakhon Ratchasima', aka: ['โคราช', 'Korat']};
+  assert.deepEqual(rowNames(e, 'Korat', 'th'), {name: 'นครราชสีมา', thai: false, also: 'Korat'});
+  assert.deepEqual(rowNames(e, 'นครราชสีมา', 'th'), {name: 'นครราชสีมา', thai: false, also: ''});
+  assert.deepEqual(rowNames(e, 'นครราชสีมา', 'en'), {name: 'Nakhon Ratchasima', thai: false, also: 'นครราชสีมา'});
+  assert.deepEqual(rowNames({name: 'บางขุนนนท์'}, '', 'en'), {name: 'บางขุนนนท์', thai: true, also: ''}, 'a name without English stays Thai and says so');
+  assert.equal(rowNames({name: '', label: 'ผู้ประกอบการบุคคลธรรมดา'}, '', 'th').name, 'ผู้ประกอบการบุคคลธรรมดา', 'an entry found by its code, kept without a name, is headed by its label');
+  assert.equal(rowNames({name: 'บริษัท คิวเอ็มบี จำกัด', aka: ['คิวเอ็มบี']}, 'คิวเอ็มบี', 'th').also, '', 'a short name that stands inside the heading is not said again');
+  const item = (id, show, step) => ({entry: {id}, show, step});
+  const result = {items: [item('a', 'sure', STEP.name), item('b', 'spelling', STEP.sound), item('c', 'near', STEP.nearIn), item('d', 'near', STEP.layout), item('e', 'near', STEP.near)], total: 5, sure: 2};
+  let plan = planRows(result, {limit: 8, rows: 12});
+  assert.deepEqual(plan.groups.map(g => [g.kind, g.items.map(i => i.entry.id).join('')]), [['sure', 'ab'], ['near', 'ce'], ['layout', 'd']]);
+  assert.deepEqual([plan.more, plan.capped, plan.filter], [0, false, 12]);
+  plan = planRows(result, {limit: 2});
+  assert.deepEqual([plan.groups.length, plan.more, plan.filter], [1, 3, 0]);
+  assert.equal(planRows({items: result.items, total: 900, sure: 2}, {limit: 5}).capped, true, 'more names than the result keeps: the list says to type on');
+  const layoutFirst = planRows({items: [item('d', 'near', STEP.layout), item('e', 'near', STEP.near)], total: 2, sure: 0});
+  assert.deepEqual(layoutFirst.groups.map(g => g.kind), ['layout', 'near'], 'two kinds of guess stand in the order of their best entry');
+  // Every word of the list has English in the shell's own dictionary, and what was typed passes through as typed.
+  const words = [WORDS.list, WORDS.preparing, WORDS.near, WORDS.spelling, WORDS.more, WORDS.narrow, WORDS.hint, WORDS.failed, WORDS.retry, WORDS.helpTitle, WORDS.help,
+    WORDS.none('abc'), WORDS.looking('abc'), WORDS.layout('abc', true), WORDS.layout('abc', false), WORDS.count(1), WORDS.count(1204), WORDS.left(12), WORDS.filter('abc')];
+  for (const th of words) { const en = translate(th); assert.ok(en && !/[ก-๛]/.test(en), `${th} → ${en}`); }
+  assert.equal(translate(WORDS.none('โนโวเทว')), 'No match for “โนโวเทว”');
+  assert.equal(translate(WORDS.looking('เชียงหใม่')), 'Searching for “เชียงหใม่”…');
+  assert.equal(translate(WORDS.count(1)), '1 name');
+  assert.equal(translate(WORDS.count(1204)), '1,204 names');
+  assert.equal(translate(WORDS.layout('เชียงใหม่', true)), 'Read on the Thai keyboard: “เชียงใหม่”');
+});
+
+test('a filter chosen by name shows what it names: the filters that would leave it no row are lifted, the place stays', () => {
+  // Rows of a small page: a brand is of one type and stands in some provinces; a closed row is counted apart.
+  const rows = [{brand: 'jetts', type: 'gym', province: 'BKK'}, {brand: 'jetts', type: 'gym', province: 'PKT'}, {brand: 'alyn', type: 'pilates', province: 'BKK'},
+    {brand: 'lab', type: 'pilates', province: 'PKT', status: 'closed'}, {brand: 'flow', type: 'yoga', size: 'large', province: 'BKK'}];
+  const count = v => rows.filter(r => (!v.brand || r.brand === v.brand) && (!v.type || r.type === v.type) && (!v.size || r.size === v.size) && (!v.province || r.province === v.province)
+    && (r.status || '') === (v.status || '')).length;
+  const lift = (values, field, id) => filtersToLift({values: {brand: '', type: '', size: '', province: '', status: '', ...values}, field, id, fields: ['type', 'size', 'brand'], context: ['province'], count});
+  assert.deepEqual(lift({province: 'PKT'}, 'brand', 'jetts'), [], 'a row passes both: nothing to lift');
+  assert.deepEqual(lift({brand: 'jetts'}, 'type', 'pilates'), ['brand'], 'the brand chosen before is of another type');
+  assert.deepEqual(lift({type: 'pilates', province: 'PKT'}, 'brand', 'jetts'), ['type'], 'only what stands in the way');
+  assert.deepEqual(lift({type: 'yoga', size: 'large'}, 'brand', 'jetts'), ['type', 'size'], 'no one filter is enough: both go');
+  assert.deepEqual(lift({brand: 'alyn', province: 'BKK'}, 'brand', 'jetts'), [], 'the chosen filter takes the place of its own value');
+  // A place is never lifted: a brand the province has none of is a reading of the province …
+  assert.deepEqual(lift({province: 'PKT'}, 'brand', 'alyn'), []);
+  // … and a filter that goes with the choice nowhere is still lifted there (the one pilates row of PKT is closed).
+  assert.deepEqual(lift({brand: 'jetts', province: 'PKT'}, 'type', 'pilates'), ['brand']);
+  assert.deepEqual(lift({type: 'gym', province: 'PKT'}, 'brand', 'alyn'), ['type']);
+  assert.deepEqual(lift({type: 'gym'}, 'brand', 'lab'), [], 'a choice that keeps no row even alone lifts nothing (the counting unit is no filter to lift)');
+  // The words of the text filter are a filter like the others.
+  const texts = v => rows.filter(r => (!v.search || r.brand.includes(v.search)) && (!v.type || r.type === v.type)).length;
+  assert.deepEqual(filtersToLift({values: {search: '', type: 'gym'}, field: 'search', id: 'alyn', fields: ['type'], count: texts}), ['type']);
+  // The list's last row counts the words the way choosing them shows them: with the filters that are on, else with
+  // the fewest lifted; words that keep no row anywhere have no such row.
+  assert.deepEqual(rowsAfterWay({values: {search: '', type: 'pilates'}, text: 'alyn', fields: ['type'], count: texts}), {n: 1, lifted: []});
+  assert.deepEqual(rowsAfterWay({values: {search: '', type: 'gym'}, text: 'alyn', fields: ['type'], count: texts}), {n: 1, lifted: ['type']});
+  assert.deepEqual(rowsAfterWay({values: {search: '', type: 'gym'}, text: 'none', fields: ['type'], count: texts}), {n: 0, lifted: []});
+  // A place is never lifted for words either: a province without them has no such row.
+  const placed = v => rows.filter(r => (!v.search || r.brand.includes(v.search)) && (!v.type || r.type === v.type) && (!v.province || r.province === v.province)).length;
+  assert.deepEqual(rowsAfterWay({values: {search: '', type: '', province: 'PKT'}, text: 'alyn', fields: ['type'], context: ['province'], count: placed}), {n: 0, lifted: []});
+  assert.deepEqual(rowsAfterWay({values: {search: '', type: 'yoga', province: 'PKT'}, text: 'jetts', fields: ['type'], context: ['province'], count: placed}), {n: 1, lifted: ['type']});
+  // An item chosen by name always opens: the filters it does not pass are lifted, each judged alone, the place too.
+  const item = rows[0], passes = v => (!v.brand || item.brand === v.brand) && (!v.type || item.type === v.type) && (!v.province || item.province === v.province) && (item.status || '') === (v.status || '');
+  const against = values => filtersAgainst({values: {brand: '', type: '', province: '', status: '', ...values}, fields: ['type', 'brand', 'province'], passes});
+  assert.deepEqual(against({type: 'gym', province: 'BKK'}), []);
+  assert.deepEqual(against({type: 'pilates', brand: 'jetts', province: 'PKT'}), ['type', 'province']);
+  assert.deepEqual(against({type: 'pilates', status: 'closed'}), [], 'out by the counting unit: nothing here would let it in');
+});
+
+test('the search modules carry no invisible character, and a row of the list is a 44 px target with a ring on the option the keys are on', () => {
+  for (const file of ['fuzzy.js', 'search.js']) {
+    const source = readFileSync(new URL(file, SHELL), 'utf8');
+    const odd = [...source].filter(c => /\p{Cf}|\p{Co}|\p{Cn}/u.test(c) || (/\p{Zs}/u.test(c) && c !== ' ') || (/\p{Cc}/u.test(c) && c !== '\n'));
+    assert.deepEqual(odd.map(c => c.codePointAt(0).toString(16)), [], `${file}: characters are built from their numbers, never typed`);
+  }
+  const css = readFileSync(new URL('../navigation.css', import.meta.url), 'utf8');
+  const rule = selector => css.split('\n').find(line => line.startsWith(`${selector} {`)) || '';
+  assert.ok(rule('.find-option').includes('min-height: 44px'), 'CTRL-01');
+  assert.ok(rule('.find-option.is-active').includes('outline: 2px solid var(--interaction-focus-ring)'), 'the active option is not a tint alone');
+  assert.ok(rule('.find-note').includes('font-size: .75rem') && rule('.find-heading').includes('font-size: .75rem'), 'the caption size, no smaller');
+  assert.ok(css.includes('.find-option { min-height: 48px; }'), 'taller on a phone');
+  // While a name is typed on a phone a one-height panel stands tall; a sheet with heights of its own is left to its demo.
+  assert.ok(css.includes('html.find-typing .panel.is-open:not([data-sheet]):not(.is-expanded) { min-height: calc(100dvh - 104px); max-height: calc(100dvh - 104px); }'));
+  const search = readFileSync(new URL('search.js', SHELL), 'utf8');
+  assert.ok(search.includes("classList.add('find-typing')") && search.includes("classList.remove('find-typing')"), 'the mark is set on focus and taken away on blur');
+  // Enter opens a row only when it is marked: with no row for the words it marks the first name found as typed.
+  assert.ok(/if \(done && asked === box\.value && first >= 0\) \{[^\n]*setActive\(first\); \}/.test(search) && !search.includes('choose(first)'), 'Enter never opens an unmarked row');
+  // The list is of one text: a search for an older text stops when the box changes, and the list's words — the last
+  // row and what it applies — name the text its rows are for.
+  assert.ok(/function onInput\(\) \{\n\s+view\.clearTimeout\(timer\);\n(?:\s+\/\/[^\n]*\n)*\s+job = null;/.test(search), 'a superseded search stops');
+  assert.ok(search.includes("options.push({type: 'filter', text: typed})") && search.includes('filter(o.text)') && search.includes('const typed = shownFor.trim()'), 'the last row applies the words it names');
+  // A search with nothing to show after a moment says so, for the text it is for; any other word of the status ends that.
+  assert.ok(search.includes('if (!finished && !told && !mine.result.total && now() - began >= SLOW) say(WORDS.looking(raw.trim()), {visible: true, running: true});'), 'a long search says it is still looking');
+  assert.ok(/function say\(text, \{visible = false, retry = false, running = false\} = \{\}\) \{\n\s+told = running;/.test(search), 'the next word of the status ends “still looking”');
+  assert.ok(search.includes('if (told) say(WORDS.looking(box.value.trim()), {visible: true, running: true});'), 'while it says so, the status names the text now in the box');
+  // The pieces of a search follow one another without the wait of a nested timer.
+  assert.ok(search.includes('if (!finished) hop(pump);') && !search.includes('setTimeout(pump'), 'the next piece is a task of its own, started at once');
+  // A reader who leaves the box is not followed by its list: the search stops, and is made again on the way back.
+  assert.ok(/if \(doc\.activeElement === box \|\| wrap\.contains\(doc\.activeElement\)\) return;\n(?:\s+\/\/[^\n]*\n)*\s+job = null; view\.clearTimeout\(timer\);\n\s+show\(false\);/.test(search), 'leaving the box stops the search');
+  assert.ok(search.includes('if (done && asked === box.value && result && options.length) { show(true); list.hidden = false; } else onInput();'), 'back at the box: the finished list of the same text, else a new search');
+  // Tab leaves the box and closes the list: the list, a scrolling box with nothing in it that takes the focus, is no stop of its own.
+  assert.ok(/<div class="find-list" id="find-list" role="listbox" [^>]*tabindex="-1" hidden>/.test(search), 'the list is not in the Tab order');
+  assert.ok(search.includes("box.addEventListener('blur', left);") && search.includes("wrap.addEventListener('focusout', left);"), 'leaving the box, or anything of its list, closes it');
+});
+
+test('the next piece of a long job: a message when the page has channels, in the order asked; a timer when it has none', () => {
+  // A page with channels: every call posts one message, and each message runs the oldest function waiting.
+  const posted = [];
+  class Channel { constructor() { const port1 = {onmessage: null}; this.port1 = port1; this.port2 = {postMessage: data => posted.push(() => port1.onmessage({data}))}; } }
+  const timers = [], ran = [];
+  let hop = hopper({MessageChannel: Channel, setTimeout: fn => timers.push(fn)});
+  hop(() => ran.push('a')); hop(() => ran.push('b'));
+  assert.deepEqual([posted.length, timers.length, ran.length], [2, 0, 0], 'nothing runs in the task that asked');
+  posted.shift()(); assert.deepEqual(ran, ['a']);
+  // A function that asks for the next piece is behind the ones already waiting.
+  hop(() => { ran.push('c'); hop(() => ran.push('d')); });
+  while (posted.length) posted.shift()();
+  assert.deepEqual(ran, ['a', 'b', 'c', 'd']);
+  // A message with nothing waiting does nothing.
+  new Channel().port1.onmessage?.({});
+  // A page without channels keeps the timer.
+  const waits = [];
+  hop = hopper({setTimeout: (fn, ms) => waits.push([fn, ms])});
+  hop(() => ran.push('e'));
+  assert.deepEqual([waits.length, waits[0][1], posted.length], [1, 0, 0]);
+  waits[0][0](); assert.equal(ran.at(-1), 'e');
 });
