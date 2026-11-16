@@ -6,15 +6,18 @@
  * CHANGE-LIVING-HEALTH-EDUCATION-20261112-01, `group_basis` owner_2026-11-12_basic_service_access_and_coverage: access to
  * care and to education, and how far basic services reach, read as quality of life); they were Location in the reading
  * of 2026-11-08. The other thirteen groups read the same as on 2026-11-08 and 2026-11-10. University moved with them;
- * its demo (registry research.TH.university, montri-th/university) joined in 0.6.1, 2026-11-12. Factory's demo address
+ * its demo (registry research.TH.university, montri-th/university) joined in 0.6.1, 2026-11-12. Commercial District
+ * (the central neighbourhood registry against the 16 demos, montri-th/commercialdistrict) joined in 0.6.2, 2026-11-16,
+ * in Location by the owner's request of that day (“publish เป็นส่วนต่อเนื่องกับ https://citymeter.pages.dev/ ในหมวด
+ * Location”); the dataset registry has no row for it yet. Factory's demo address
  * was added to the registry on 2026-11-08. Industrial Estate (registry
  * research.TH.industrial_estates, group Land) lives inside the Factory repository: `pages` is its path on GitHub Pages
  * (montri-th.github.io/factory/industrialestate/), `path` its path on the CityMETER Pages site (0.5.4). `at: true` marks a demo on citymeter-shell: it opens
  * the area of `?at=` (a production path such as BKK/D/1039 or BKK/S/103902; a demo opens the deepest level it
  * carries). The others open their own start page until they move onto the shell (since 0.4.3 every demo is on it).
  * `en: true` marks a demo whose pages declare English (0.5.0: Office; 0.5.1: Hotel, Hospital; 0.5.2: School, Government
- * Office, Factory; 0.5.3: Pharmacy, Restaurants; 0.5.4: Industrial Estate; 0.6.1: University): from an English page its
- * link carries lang=en.
+ * Office, Factory; 0.5.3: Pharmacy, Restaurants; 0.5.4: Industrial Estate; 0.6.1: University; 0.6.2: Commercial
+ * District): from an English page its link carries lang=en.
  * Names are the English names the demos show in their header (live 2026-11-08), except Shopping Center, whose header
  * reads ศูนย์การค้า. Change this list only when the registry or a demo changes, in every
  * repository at once.
@@ -31,6 +34,7 @@ export const DEMOS = Object.freeze([
   {path: 'office', name: 'Office', group: 'Land', at: true, en: true},
   {path: 'shoppingcenter', name: 'Shopping Center', group: 'Land', at: true},
   {path: 'camera', name: 'Camera Shops', group: 'Location', at: true},
+  {path: 'commercialdistrict', name: 'Commercial District', group: 'Location', at: true, en: true},
   {path: 'factory', name: 'Factory', group: 'Location', at: true, en: true},
   {path: 'fitness', name: 'Fitness', group: 'Location', at: true},
   {path: 'grocery', name: 'Grocery', group: 'Location', at: true},
