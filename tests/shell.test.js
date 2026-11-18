@@ -418,8 +418,8 @@ test('header: the list ends with all demos on the showcase, in the page language
   assert.match(html, /<p class="dataset-hub"><a class="dataset-link" href="https:\/\/montri-th\.github\.io\/CityMETER\/demos\/\?at=BKK\/D\/1039">ดูเดโมทั้งหมด<\/a><\/p>$/);
   const office = DEMOS.find(d => d.path === 'office'), thai = DEMOS.find(d => !d.en);
   assert.equal(office.en, true, 'Office declares English (0.5.0)');
-  assert.deepEqual(DEMOS.filter(d => d.en).map(d => d.path).sort(), ['commercialdistrict', 'factory', 'governmentoffice', 'hospital', 'hotel', 'housingestate', 'industrialestate', 'office', 'pharmacy', 'restaurant', 'school', 'university'],
-    'Hotel and Hospital declare English (0.5.1); School, Government Office and Factory (0.5.2); Pharmacy and Restaurants (0.5.3); Industrial Estate (0.5.4); University (0.6.1); Commercial District (0.6.2); Housing Estate (0.6.3)');
+  assert.deepEqual(DEMOS.filter(d => d.en).map(d => d.path).sort(), ['commercialdistrict', 'factory', 'governmentoffice', 'hospital', 'hotel', 'housingestate', 'industrialestate', 'office', 'pharmacy', 'restaurant', 'school', 'shoppingcenter', 'university'],
+    'Hotel and Hospital declare English (0.5.1); School, Government Office and Factory (0.5.2); Pharmacy and Restaurants (0.5.3); Industrial Estate (0.5.4); University (0.6.1); Commercial District (0.6.2); Housing Estate (0.6.3); Shopping Center (0.6.4)');
   assert.equal(demoHref(office, '?at=BKK/D/1039&lang=en', 'en'), 'https://montri-th.github.io/office/?at=BKK/D/1039&lang=en');
   assert.equal(demoHref(thai, '?at=BKK/D/1039&lang=en', 'en'), `https://montri-th.github.io/${thai.path}/?at=BKK/D/1039`, 'a demo without English opens in Thai');
   assert.equal(demoHref(office, '', 'en'), 'https://montri-th.github.io/office/?lang=en');
