@@ -19,9 +19,9 @@
  * carries). The others open their own start page until they move onto the shell (since 0.4.3 every demo is on it).
  * `en: true` marks a demo whose pages declare English (0.5.0: Office; 0.5.1: Hotel, Hospital; 0.5.2: School, Government
  * Office, Factory; 0.5.3: Pharmacy, Restaurants; 0.5.4: Industrial Estate; 0.6.1: University; 0.6.2: Commercial
- * District; 0.6.3: Housing Estate): from an English page its link carries lang=en.
+ * District; 0.6.3: Housing Estate; 0.6.4: Shopping Center): from an English page its link carries lang=en.
  * Names are the English names the demos show in their header (live 2026-11-08), except Shopping Center, whose header
- * reads ศูนย์การค้า. Change this list only when the registry or a demo changes, in every
+ * reads ศูนย์การค้า (“Shopping centers” in English since its 0.7.0). Change this list only when the registry or a demo changes, in every
  * repository at once.
  *
  * Part of the shared CityMETER demo shell: edit it in every repository at once (js/shell/manifest.json).
@@ -35,7 +35,7 @@ export const DEMOS = Object.freeze([
   {path: 'housingestate', name: 'Housing Estate', group: 'Land', at: true, en: true},
   {path: 'industrialestate', pages: 'factory/industrialestate', name: 'Industrial Estate', group: 'Land', at: true, en: true},
   {path: 'office', name: 'Office', group: 'Land', at: true, en: true},
-  {path: 'shoppingcenter', name: 'Shopping Center', group: 'Land', at: true},
+  {path: 'shoppingcenter', name: 'Shopping Center', group: 'Land', at: true, en: true},
   {path: 'camera', name: 'Camera Shops', group: 'Location', at: true},
   {path: 'commercialdistrict', name: 'Commercial District', group: 'Location', at: true, en: true},
   {path: 'factory', name: 'Factory', group: 'Location', at: true, en: true},
