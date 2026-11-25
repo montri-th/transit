@@ -1,0 +1,135 @@
+{
+ "meta": {
+  "schemaVersion": 1,
+  "checkedOn": "2026-11-26",
+  "source": "CityMETER Transit Thailand — Research Master, transit logo library (priority review 2026-11-09)",
+  "manifestSha256": "d26183d304d8ccc008ecf1e13fda7e1e306ff1a984ea8b0b8b8f6cd43af89b61",
+  "libraryCheckedOn": "2026-11-09",
+  "counts": {
+   "mappings": 11,
+   "collected": 11,
+   "outsideDemo": 6,
+   "used": 5,
+   "derived": 2
+  },
+  "agenciesInDemo": [
+   "BEM",
+   "BTSC",
+   "MRTA",
+   "SRTET"
+  ],
+  "agenciesWithLogo": [
+   "BEM",
+   "BTSC",
+   "MRTA",
+   "SRTET"
+  ],
+  "rule": "collected brand_primary mappings whose file bytes equal the manifest SHA-256; the GTFS agency the research team wrote; only agencies of the demo systems",
+  "display": "SVG ≤ 64 KB and rasters ≤ 512 px and ≤ 64 KB keep their bytes; larger files are drawn once and scaled to 384 px (WebP), original SHA-256 kept",
+  "rights": "เครื่องหมายเป็นของเจ้าของแต่ละราย การแสดงเพื่อระบุผู้ให้บริการไม่ใช่ใบอนุญาตเครื่องหมายการค้า"
+ },
+ "logos": {
+  "OL-2a81a2f327a970f5": {
+   "file": "assets/operator-logos/2a81a2f327a970f53882.webp",
+   "sha256": "2a81a2f327a970f538822ad458c14a65b69738bcf240236e84caf7dd7a5febdc",
+   "mime": "image/webp",
+   "bytes": 13834,
+   "width": 384,
+   "height": 74,
+   "plate": "#FFFFFF",
+   "surface": "light",
+   "label": "SRT Electrified Train Company and SRT Red Lines",
+   "role": "brand_primary",
+   "sourcePage": "https://www.srtet.co.th/en/home",
+   "transformation": "Chromium render of the SVG, then uniform scale to 384 px longest side, WebP",
+   "original": {
+    "sha256": "a531befc69e7dc8ba7ab4d01fe9872bdbb1587422de9c760d43d313c31cda870",
+    "mime": "image/svg+xml",
+    "bytes": 1723409,
+    "width": 621,
+    "height": 119
+   }
+  },
+  "OL-76f20526c63d363b": {
+   "file": "assets/operator-logos/76f20526c63d363bcb2c.svg",
+   "sha256": "76f20526c63d363bcb2c3a8e0aae8bd5cc9b0eca29222d26c62c5a3728fc3d1c",
+   "mime": "image/svg+xml",
+   "bytes": 7506,
+   "width": 170,
+   "height": 50,
+   "plate": "#FFFFFF",
+   "surface": "light",
+   "label": "BEM",
+   "role": "operator",
+   "sourcePage": "https://www.bemplc.co.th/",
+   "transformation": "none",
+   "original": null
+  },
+  "OL-831076a31f326fe9": {
+   "file": "assets/operator-logos/831076a31f326fe921eb.jpg",
+   "sha256": "831076a31f326fe921ebe307c9ad6eaad005cfa3f126198e2dbc7461fba3a733",
+   "mime": "image/jpeg",
+   "bytes": 33383,
+   "width": 363,
+   "height": 363,
+   "plate": "#FFFFFF",
+   "surface": "light_or_dark",
+   "label": "BTS Skytrain",
+   "role": "service_system",
+   "sourcePage": "https://www.bts.co.th/eng/",
+   "transformation": "none",
+   "original": null
+  },
+  "OL-a87d763f61eab881": {
+   "file": "assets/operator-logos/a87d763f61eab881252e.png",
+   "sha256": "a87d763f61eab881252ed85eb34107856c0afb937e31f8386dd0de5aa9826602",
+   "mime": "image/png",
+   "bytes": 1422,
+   "width": 80,
+   "height": 80,
+   "plate": "#FFFFFF",
+   "surface": "light_or_dark",
+   "label": "MRT",
+   "role": "service_system",
+   "sourcePage": "https://www.bemplc.co.th/",
+   "transformation": "none",
+   "original": null
+  },
+  "OL-c293ac78e2900a24": {
+   "file": "assets/operator-logos/c293ac78e2900a24e32c.webp",
+   "sha256": "c293ac78e2900a24e32c43e1a71fe4c7f9268e057cca0a0ad7c0d06f2ede42f1",
+   "mime": "image/webp",
+   "bytes": 20868,
+   "width": 384,
+   "height": 228,
+   "plate": "#FFFFFF",
+   "surface": "light",
+   "label": "MRTA",
+   "role": "authority",
+   "sourcePage": "https://www.mrta.co.th/th",
+   "transformation": "uniform scale to 384 px longest side, WebP",
+   "original": {
+    "sha256": "652071e3ec0c3128dc9ed36f65e7436b4e8dbe72ab08d3fc86c7cbd52dbd282a",
+    "mime": "image/png",
+    "bytes": 44547,
+    "width": 768,
+    "height": 455
+   }
+  }
+ },
+ "agencies": {
+  "BEM": {
+   "operator": "OL-76f20526c63d363b",
+   "system": "OL-a87d763f61eab881"
+  },
+  "BTSC": {
+   "system": "OL-831076a31f326fe9"
+  },
+  "MRTA": {
+   "operator": "OL-c293ac78e2900a24"
+  },
+  "SRTET": {
+   "operator": "OL-2a81a2f327a970f5"
+  }
+ }
+}

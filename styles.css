@@ -230,6 +230,12 @@ input[type="search"]::-webkit-search-cancel-button { -webkit-appearance: none; }
 .line-chip { display: inline-flex; align-items: center; gap: 7px; min-height: 34px; padding: 3px 12px 3px 8px; font-size: 12px; border-radius: 999px; background: var(--surface-raised); white-space: normal; text-align: left; }
 .line-chip:hover { background: var(--surface-alt); }
 .line-chip[aria-pressed="true"] { border-color: var(--map-selected-stroke); background: var(--surface-alt); }
+/* Rail agencies' logos (0.4.0): each on its library plate (data/operator-logos.json `plate`), the same on both themes; never recoloured. */
+.logo-plate { display: inline-flex; flex: none; align-items: center; justify-content: center; padding: 3px 6px; border-radius: 6px; border: 1px solid var(--border-hairline); line-height: 0; }
+.logo-plate img { display: block; width: auto; max-width: 112px; object-fit: contain; }
+.logo-plate.is-inline { padding: 2px 4px; margin-right: 6px; vertical-align: middle; }
+.line-title { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
+.operator-name { display: inline-flex; align-items: center; gap: 8px; flex-wrap: wrap; }
 .progress { display: grid; grid-template-columns: minmax(0, 1fr) 52px; align-items: center; gap: 8px; }
 .progress-track { height: 10px; background: var(--surface-soft); border: 1px solid var(--border-hairline); border-radius: 3px; overflow: hidden; }
 .progress-fill { display: block; height: 100%; background: var(--text-secondary); }

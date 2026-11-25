@@ -14,6 +14,7 @@
  * zero; a value is shown with its unit, period and source or not at all.
  */
 import {STATUS, ELEVATION_LABEL, hasPoint, provinceByCode} from './model.js';
+import {logoPlate} from './operator-logos.js';
 
 const NUMBER = new Intl.NumberFormat('th-TH', {maximumFractionDigits: 0});
 const DECIMAL = new Intl.NumberFormat('th-TH', {maximumFractionDigits: 1});
@@ -58,7 +59,7 @@ export function metricTile(value, label, kind = 'plain') {
  * focusMode: 'auto' (default — the top hubs carry the detail, the rest is quiet),
  * 'explicit' (a chosen line) or 'none' (everything in detail).
  */
-export function renderOverview({insight, summary, lineRanking = [], provinces = [], focusMode = 'auto', asOf = '', provinceName = ''}) {
+export function renderOverview({insight, summary, lineRanking = [], provinces = [], focusMode = 'auto', asOf = '', provinceName = '', logoFor = () => null}) {
   let aha;
   if (!summary.stations) {
     aha = `<section class="aha" aria-label="ข้อค้นพบ"><p class="eyebrow">ข้อค้นพบแรก</p><h2>ไม่พบสถานีตามตัวกรองนี้</h2>
@@ -90,7 +91,7 @@ export function renderOverview({insight, summary, lineRanking = [], provinces = 
     <div class="section-heading"><h3 id="line-rank-title">สายเรียงตามจำนวนสถานี</h3><span class="hint">${num(lineRanking.length)} สาย</span></div>
     <ol class="rank-list">${lineRanking.slice(0, 14).map((l, i) => `<li><button type="button" class="rank-row" data-action="select-line" data-id="${esc(l.id)}" aria-label="อันดับ ${i + 1} ${esc(l.name)} ${num(l.stations)} สถานี">
         <span class="rank-index data-number" aria-hidden="true">${i + 1}</span>
-        <span class="rank-name">${swatch(l, {construction: l.status === 'construction'})} ${esc(l.name)}<small>${esc(l.systemName || '')}${l.construction ? ` · กำลังก่อสร้าง ${num(l.construction)}` : ''}</small></span>
+        <span class="rank-name">${swatch(l, {construction: l.status === 'construction'})} ${esc(l.name)}<small>${logoPlate(logoFor(l.id), {height: 16, cls: 'is-inline'})}${esc(l.systemName || '')}${l.construction ? ` · กำลังก่อสร้าง ${num(l.construction)}` : ''}</small></span>
         <span class="rank-track" aria-hidden="true"><span class="rank-fill" style="width:${Math.max(3, Math.round((l.stations / max) * 100))}%;background:${esc(l.fill || 'var(--scale-count-3)')}"></span></span>
         <span class="rank-value data-number" aria-hidden="true">${num(l.stations)}</span></button></li>`).join('')}</ol>
     ${lineRanking.length > 14 ? `<p class="hint">+ อีก ${num(lineRanking.length - 14)} สายในกราฟ</p>` : ''}
@@ -104,7 +105,7 @@ export function renderOverview({insight, summary, lineRanking = [], provinces = 
 
 /* ---------- Line profile ---------- */
 
-export function renderLine(p) {
+export function renderLine(p, {logos = {}} = {}) {
   if (!p) return '';
   const l = p.line;
   const construction = l.status === 'construction';
@@ -118,7 +119,7 @@ export function renderLine(p) {
         <div class="progress" role="img" aria-label="${esc(m.metric)} ${dec(m.value)} เปอร์เซ็นต์"><span class="progress-track"><span class="progress-fill" style="width:${Math.max(1, Math.min(100, m.value))}%"></span></span><span class="progress-value">${dec(m.value)}%</span></div></div>`).join('')}
     </section>` : '';
   const facts = [
-    l.operator ? `<dt>ผู้ให้บริการ</dt><dd>${esc(l.operator)}<br><span class="hint">ตาม GTFS ของ สนข.</span></dd>` : '',
+    l.operator ? `<dt>ผู้ให้บริการ</dt><dd>${logos.operator ? `<span class="operator-name">${logoPlate(logos.operator, {height: 20})}<span>${esc(l.operator)}</span></span>` : esc(l.operator)}<br><span class="hint">ตาม GTFS ของ สนข.</span></dd>` : '',
     construction && p.stage ? `<dt>ขั้นงาน</dt><dd>${esc(p.stage)}</dd>` : '',
     construction && p.target ? `<dt>เป้าหมาย</dt><dd>${esc(p.target)}<br><span class="hint">${esc(p.targetNote || 'เป้าหมายตามแหล่ง ไม่ใช่วันเปิดจริง')}</span></dd>` : '',
     Number.isFinite(p.lengthKm) ? `<dt>แนวเส้น</dt><dd><span class="data-number">${dec(p.lengthKm)}</span> กม.<br><span class="hint">${esc(p.lengthSource || '')}</span></dd>` : '',
@@ -127,7 +128,7 @@ export function renderLine(p) {
   return `<section class="detail-head line">
       <button type="button" class="btn quiet back" data-action="back">กลับ</button>
       <p class="eyebrow">สาย${p.systemName ? ` · ${esc(p.systemName)}` : ''}</p>
-      <h2>${swatch(l, {construction})} ${esc(l.name)}</h2>
+      ${logos.system ? `<div class="line-title">${logoPlate(logos.system, {height: 32})}<h2>${swatch(l, {construction})} ${esc(l.name)}</h2></div>` : `<h2>${swatch(l, {construction})} ${esc(l.name)}</h2>`}
       <p class="subtle">${esc(l.nameEn || '')}</p>
       <p class="store-status">${statusPill(construction ? 'construction' : 'operating')}${l.elevation ? ` <span class="status-pill tone-neutral">${esc(ELEVATION_LABEL[l.elevation] || l.elevation)}</span>` : ''}</p>
       <div class="metrics compact">${construction ? metricTile(p.construction, 'สถานีใหม่', 'construction') : metricTile(p.operating, 'สถานี', 'station')}${construction ? metricTile(p.connections, 'เชื่อมสายอื่นในอนาคต', 'interchange') : metricTile(p.interchanges, 'จุดเปลี่ยนสาย', 'interchange')}${metricTile(p.provinces, 'จังหวัด', 'province')}</div>
@@ -143,14 +144,14 @@ export function renderLine(p) {
 
 const SCOPE_PILL = {current: 'เชื่อมตามผัง', branch: 'เปลี่ยนขบวน', future: 'อนาคต'};
 
-export function renderStation(d, {lineById}) {
+export function renderStation(d, {lineById, logoFor = () => null}) {
   if (!d) return '';
   const s = d.station;
   const coords = hasPoint(s) ? `${s.lat.toFixed(6)}, ${s.lng.toFixed(6)}` : 'ยังไม่มีพิกัด';
   const province = provinceByCode(s.provinceCode);
   const lines = (s.lineIds || []).map(id => lineById.get(id)).filter(Boolean);
   const complexLines = (d.complex?.lineIds || []).map(id => lineById.get(id)).filter(l => l && !lines.includes(l));
-  const lineChips = [...lines, ...complexLines].map(l => `<li><button type="button" class="line-chip" data-action="select-line" data-id="${esc(l.id)}">${swatch(l, {construction: l.status === 'construction'})}<span>${esc(l.name)}${s.codes?.length && lines.includes(l) ? ` <small class="data-number">${esc(s.codes.join(' / '))}</small>` : ''}</span></button></li>`).join('');
+  const lineChips = [...lines, ...complexLines].map(l => `<li><button type="button" class="line-chip" data-action="select-line" data-id="${esc(l.id)}">${swatch(l, {construction: l.status === 'construction'})}${logoPlate(logoFor(l.id), {height: 18})}<span>${esc(l.name)}${s.codes?.length && lines.includes(l) ? ` <small class="data-number">${esc(s.codes.join(' / '))}</small>` : ''}</span></button></li>`).join('');
   const ridership = (d.ridership || []).map(r => `<dd><strong class="data-number">${num(r.value)}</strong> ${esc(r.unit)}<br><span class="hint">${esc(r.label)} · ${esc(r.period)}${r.source ? ` · ${link(r.source, r.dataset ? 'แหล่ง' : 'แหล่ง')}` : ''}</span></dd>`).join('');
   const c = d.construction;
   const work = c ? `<dt>ก่อสร้าง</dt><dd>${esc(c.stage || '')}${c.projectStage ? `<br><span class="hint">โครงการ: ${esc(c.projectStage)}</span>` : ''}${Number.isFinite(c.percent) ? `<br><span class="progress" role="img" aria-label="ความคืบหน้า${esc(c.percentScope || '')} ${dec(c.percent)} เปอร์เซ็นต์"><span class="progress-track"><span class="progress-fill" style="width:${Math.max(1, Math.min(100, c.percent))}%"></span></span><span class="progress-value">${dec(c.percent)}%</span></span><span class="hint">${esc(c.percentScope || '')}${c.period ? ` ณ ${esc(thaiDate(c.period))}` : ''}</span>` : ''}${!Number.isFinite(c.percent) && c.period ? `<br><span class="hint">หลักฐานล่าสุด ${esc(thaiDate(c.period))}</span>` : ''}</dd>
