@@ -135,3 +135,24 @@ npm test
 ```
 
 ผลลัพธ์: `data/transit.json`, `data/rail-lines.geojson`, `data/station-buildings.geojson`, `data/bus.json`, `data/boat.json`, `data/layer-{moto,intercity,srt,air}.json` และ `data/build-report.json` (จำนวน การพัก และ sha256 ของแต่ละไฟล์) build ใช้ Python มาตรฐานเท่านั้นและให้ผลเหมือนเดิมเมื่ออินพุตเดิม
+
+## 12. โลโก้ผู้ให้บริการราง (รุ่น 0.4.0, 26 พ.ย. 2569)
+
+เจ้าของ 26 พ.ย. 2569 06:14 คำต่อคำ: “เช็คหน่อยว่า โลโก้ขึ้นหรือยัง ใน web demo ทุกๆ dataset รวม transit ด้วย … แก้จุดที่แก้ง่ายก่อน”
+
+- แหล่ง: คลังโลโก้ของทีมวิจัย Transit (priority review 9 พ.ย. 2569) — manifest และไฟล์อยู่นอก repo เผยแพร่เฉพาะ SHA-256 ของ manifest (`data/operator-logos.json` → `meta.manifestSha256`) และ URL หน้าเว็บสาธารณะของเจ้าของเครื่องหมาย
+- ใช้เฉพาะ mapping ที่ `result = collected` และ `logo_role = brand_primary` ที่ไฟล์มี SHA-256 ตรง manifest (หาไฟล์ด้วย SHA-256 ไม่ใช่ชื่อไฟล์) — ได้ 11 จาก 11 แต่เก็บ 5 ไฟล์ของ 4 หน่วยงานที่ระบบในเดโมอ้าง (`systems[].operatorId`: BTSC, BEM, MRTA, SRTET) อีก 6 (ขสมก., ไทยสมายล์บัส, นครชัยแอร์, บขส., ร.ฟ.ท., เรือไทยสมายล์) ยังไม่มีที่แสดง เพราะชั้นขนส่งอื่นไม่มีรหัสผู้ให้บริการ
+- จับคู่ด้วยรหัส GTFS agency ที่ทีมวิจัยเขียนไว้ใน mapping ไม่ใช่ชื่อ: บทบาท `service_system` (BTS Skytrain, MRT) เป็นแบรนด์ของสาย แสดงข้างชื่อสาย · บทบาท `operator` / `authority` / `brand_primary` (BEM, รฟม., รฟฟท.) เป็นหน่วยงาน แสดงข้าง “ผู้ให้บริการ” · ชิปและรายการสายใช้แบรนด์ก่อน ไม่มีจึงใช้หน่วยงาน
+- เฉพาะสายที่เปิดให้บริการและ GTFS ระบุผู้ให้บริการ (`line.operator`) สายที่กำลังก่อสร้างไม่มีโลโก้แม้ระบบมีรหัสหน่วยงาน (เช่น สายสีม่วงใต้) เพราะผู้เดินรถในอนาคตไม่อยู่ในข้อมูล
+- การแสดง: SVG ≤ 64 KB และ raster ≤ 512 px และ ≤ 64 KB ใช้ bytes เดิม ไฟล์ใหญ่กว่านั้นวาดครั้งเดียว (SVG ด้วย Chromium) แล้วย่อสัดส่วนเดิมเป็น 384 px ด้านยาว (WebP) เก็บ SHA-256 ของต้นฉบับไว้ใน `original` — รฟม. (PNG 768 × 455, 44.5 KB) และ รฟฟท. (SVG 1.7 MB ที่ฝังภาพ raster) · ไม่เปลี่ยนสี ไม่ครอป ไม่ trace
+- พื้นรอง: ตาม `recommended_surface` ของคลัง dark → `#182327` อื่น ๆ → `#FFFFFF` เหมือนกันทั้งสองธีม · ภาพเป็นภาพประกอบ (`alt=""`) เพราะชื่ออยู่ข้างกันแล้ว
+- ไฟล์ไม่จำเป็นต่อหน้าเว็บ: โหลดไม่ได้ = แจ้ง `citymeter:partial` (“โลโก้ผู้ให้บริการ”) และทุกสายอ่านด้วยชื่อ
+- สิทธิ์: เครื่องหมายเป็นของเจ้าของแต่ละราย การแสดงเพื่อระบุผู้ให้บริการไม่ใช่ใบอนุญาตเครื่องหมายการค้า
+
+ทำซ้ำ:
+
+```sh
+node <render_svg.cjs> <ไฟล์ SVG ของ SRTET> <renders>/<sha256 20 ตัวแรก>.png 768   # Chromium, พื้นโปร่ง
+python3 -I scripts/add-operator-logos.py --manifest <transit-priority-logo-review-2026-11-09.json> --files <โฟลเดอร์ไฟล์ของคลัง> --render <renders> --checked-on 2026-11-26
+node --test tests/operator-logos.test.js
+```

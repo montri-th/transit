@@ -50,6 +50,8 @@ npm run verify:live   # เทียบไฟล์บนเว็บจริ�
 
 ## Assets and verification
 
+โลโก้ผู้ให้บริการราง (รุ่น 0.4.0): 5 ไฟล์ของ BTSC, BEM, รฟม. และ รฟฟท. จากคลังโลโก้ของทีมวิจัย ตรวจ SHA-256 ทุกไฟล์ — [data/operator-logos.json](data/operator-logos.json) และ [DATA_METHOD.md §12](DATA_METHOD.md) เครื่องหมายเป็นของเจ้าของแต่ละราย การแสดงไม่ใช่ใบอนุญาตเครื่องหมายการค้า
+
 ใช้ LDS **0.9.7 / v0.9.7-owner.1** (standalone-0.9.7-r1, color-srgb-10): foundation pairs, map/data-state roles, categorical series 1–10 ใน [assets/theme.css](assets/theme.css) และ LUT 41 ค่าของ `count` และ `activity` ใน [js/scales.js](js/scales.js) ค่าเดียวกันทั้งสองธีม ฟอนต์ LDS อยู่ใน `assets/lds/build-kit/`
 
 คง attribution ของ OpenFreeMap / OpenMapTiles / OpenStreetMap (ODbL) และ GTFS ของ สนข. (CC BY 4.0) แหล่งอื่นหลายแหล่งไม่ระบุสิทธิ์การเผยแพร่ซ้ำ — หน้านี้อ้างอิงและลิงก์กลับเท่านั้น เป็น research/demo snapshot ที่ยังต้องจัดกระบวนการอัปเดต สิทธิ์ข้อมูล และการตรวจภาคสนามก่อนยกระดับเป็น production ผล local ไม่ใช่หลักฐานแทนเว็บจริง: ตรวจด้วย `npm run verify:live` และดูหน้าจอจริงทั้งไทย/อังกฤษ จอแคบ/desktop สว่าง/มืด

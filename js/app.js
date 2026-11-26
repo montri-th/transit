@@ -46,6 +46,7 @@ import {buildBreadcrumb, renderBreadcrumb, breadcrumbText} from './breadcrumb.js
 import {createCodec, createNavigator} from './shell/url.js';
 import {mapBudget, budgetPixelRatio, reloadOnContextLoss} from './shell/maplibre-guard.js';
 import {pageTitle} from './shell/title.js';
+import {decodeOperatorLogos, lineLogos, lineMark} from './operator-logos.js';
 
 const $ = id => document.getElementById(id);
 const FIELDS = ['search', 'status', 'system', 'line', 'province'];
@@ -71,7 +72,7 @@ const state = {
   map: null, loaded: false, mapTheme: '', initialCameraDone: false, tileTemplate: '', lastPreset: '',
   view3d: true, twoPoint: true, layers: {bus: false, stops: false, boat: false, srt: false, intercity: false, moto: false, air: false},
   pins: null, rail: null, optional: null, provinceLayers: null, provinceLabels: null, provinceModel: null, massing: null, scene: null, THREE: null,
-  ray: {objects: [], cycle: 0}, pinAlias: new Map(), ready: false, ridershipGroup: '',
+  ray: {objects: [], cycle: 0}, pinAlias: new Map(), ready: false, ridershipGroup: '', operatorLogos: null,
 };
 
 /* ---------- helpers ---------- */
@@ -233,24 +234,27 @@ function renderCrumbs() {
 }
 
 /* ---------- panel ---------- */
+/** The one mark of a line (service brand, else agency) for a row or a chip; null without the logo file. */
+const lineLogoFor = id => lineMark(state.lineById.get(id), state.systemById, state.operatorLogos);
+
 function renderPanel() {
   const view = $('panel-view');
   const mode = state.panel.mode;
   renderCrumbs();
   syncEyeToggle();
   let html = '';
-  if (mode === 'line') html = renderLine(buildLineProfile(selectedLine(), state.scopeStations, {stationById: state.stationById, lineById: state.lineById, complexById: state.complexById, systems: state.data.systems}));
+  if (mode === 'line') html = renderLine(buildLineProfile(selectedLine(), state.scopeStations, {stationById: state.stationById, lineById: state.lineById, complexById: state.complexById, systems: state.data.systems}), {logos: lineLogos(selectedLine(), state.systemById, state.operatorLogos)});
   else if (mode === 'station') {
     const st = currentStation(), detail = buildStationDetail(st, {stationById: state.stationById, lineById: state.lineById, interchanges: state.data.interchanges || [], complexById: state.complexById, buildingsByStation: state.buildingsByStation, sourcesById: state.sourcesById});
     const drawn = displayPoint(st), off = drawn && hasPoint(st) ? metresBetween({lng: drawn[0], lat: drawn[1]}, st) : 0;
     if (detail && off >= 20) detail.displayNote = `บนแผนที่วางสถานีที่อาคารสถานีจาก OpenStreetMap ห่างจุดอ้างอิงนี้ ${num(Math.round(off / 10) * 10)} ม.`;
-    html = renderStation(detail, {lineById: state.lineById});
+    html = renderStation(detail, {lineById: state.lineById, logoFor: lineLogoFor});
   }
   if (!html) {
     const insight = computeInsight(state.scopeStations, state.data.complexes || []);
     const ranking = rankLines(state.scopeStations, state.data.lines, state.data.systems).rows;
     const provinces = $('province').value ? [] : (state.provinceModel?.provinces || buildProvinceModelSafe()).filter(p => p.stations > 0).sort((a, b) => b.stations - a.stations || b.lines - a.lines);
-    html = renderOverview({insight, summary: summarize(state.scopeStations, state.data.lines, state.data.complexes), lineRanking: ranking, provinces, focusMode: state.focusMode, asOf: state.data.meta?.asOf || '', provinceName: provinceByCode($('province').value)?.th || ''});
+    html = renderOverview({insight, summary: summarize(state.scopeStations, state.data.lines, state.data.complexes), lineRanking: ranking, provinces, logoFor: lineLogoFor, focusMode: state.focusMode, asOf: state.data.meta?.asOf || '', provinceName: provinceByCode($('province').value)?.th || ''});
     renderMapAha(insight);
   } else {
     $('map-aha').hidden = true;
@@ -1028,6 +1032,7 @@ const PARTIAL = {
   'basemap': ['แผนที่ฐาน', 'ถนน แหล่งน้ำ และอาคารพื้นหลังอาจไม่แสดง ข้อมูลในแผงและตารางยังใช้ได้', 'Basemap', 'Roads, water and background buildings may be missing; the panel and the table still work'],
   'data/rail-lines.geojson': ['แนวเส้นทางรถไฟฟ้า', 'แผนที่ไม่แสดงแนวเส้นทาง', 'Rail lines', 'The map shows no rail lines'],
   'data/station-buildings.geojson': ['อาคารสถานี', 'สถานีไม่แสดงเป็นอาคารบนแผนที่', 'Station buildings', 'Stations are not drawn as buildings on the map'],
+  'data/operator-logos.json': ['โลโก้ผู้ให้บริการ', 'สายแสดงด้วยชื่ออย่างเดียว ไม่มีโลโก้', 'Operator logos', 'Lines are shown by name only, without logos'],
 };
 function partial(key) {
   const words = PARTIAL[key];
@@ -1037,7 +1042,7 @@ function partial(key) {
 
 async function init() {
   try {
-    const resources = ['data/transit.json', 'data/rail-lines.geojson', 'data/station-buildings.geojson', 'data/provinces.geojson'];
+    const resources = ['data/transit.json', 'data/rail-lines.geojson', 'data/station-buildings.geojson', 'data/provinces.geojson', 'data/operator-logos.json'];
     const results = await Promise.allSettled(resources.map(fetchJSON));
     if (results[0].status === 'rejected') throw results[0].reason;
     state.data = results[0].value;
@@ -1047,6 +1052,8 @@ async function init() {
     state.railGeo = fc(results[1], 'rail-lines');
     state.buildingGeo = fc(results[2], 'station-buildings');
     state.provinces = fc(results[3], 'provinces');
+    // Rail agencies' logos (0.4.0): optional; without them every line reads by its name alone.
+    state.operatorLogos = results[4].status === 'fulfilled' ? decodeOperatorLogos(results[4].value) : null;
     indexData();
     fillOptions();
     restoreFromURL();

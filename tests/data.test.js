@@ -15,7 +15,7 @@ const data = read('transit.json');
 const FORBIDDEN = /docs\.google\.com|drive\.google\.com|googleusercontent|script\.google\.com|\/Users\/|chatgpt-projects|file:\/\//i;
 
 test('published files carry no private links or local paths', () => {
-  for (const name of ['transit.json', 'rail-lines.geojson', 'station-buildings.geojson', 'bus.json', 'boat.json', 'build-report.json', 'layer-moto.json', 'layer-intercity.json', 'layer-air.json', 'layer-srt.json']) {
+  for (const name of ['transit.json', 'rail-lines.geojson', 'station-buildings.geojson', 'bus.json', 'boat.json', 'build-report.json', 'layer-moto.json', 'layer-intercity.json', 'layer-air.json', 'layer-srt.json', 'operator-logos.json']) {
     assert.ok(!FORBIDDEN.test(readFileSync(new URL(`../data/${name}`, import.meta.url), 'utf8')), name);
   }
 });
