@@ -11,7 +11,9 @@
  * (the central neighbourhood registry against the 16 demos, montri-th/commercialdistrict) joined in 0.6.2, 2026-11-16,
  * in Location by the owner's request of that day (“publish เป็นส่วนต่อเนื่องกับ https://citymeter.pages.dev/ ในหมวด
  * Location”); the registry carries it since as research.TH.commercialdistrict, Location (read 2026-11-18). Housing Estate (registry research.TH.housing_estate, group Land;
- * montri-th/housingestate) joined in 0.6.3, 2026-11-18. Factory's demo address
+ * montri-th/housingestate) joined in 0.6.3, 2026-11-18. Tourism (registry research.TH.tourism_supply, group Location by
+ * the owner's confirmation of 2026-11-27; montri-th/tourism: attractions, activities and communities) joined in 0.6.6,
+ * 2026-11-27. Factory's demo address
  * was added to the registry on 2026-11-08. Industrial Estate (registry
  * research.TH.industrial_estates, group Land) lives inside the Factory repository: `pages` is its path on GitHub Pages
  * (montri-th.github.io/factory/industrialestate/), `path` its path on the CityMETER Pages site (0.5.4). `at: true` marks a demo on citymeter-shell: it opens
@@ -19,7 +21,7 @@
  * carries). The others open their own start page until they move onto the shell (since 0.4.3 every demo is on it).
  * `en: true` marks a demo whose pages declare English (0.5.0: Office; 0.5.1: Hotel, Hospital; 0.5.2: School, Government
  * Office, Factory; 0.5.3: Pharmacy, Restaurants; 0.5.4: Industrial Estate; 0.6.1: University; 0.6.2: Commercial
- * District; 0.6.3: Housing Estate; 0.6.4: Shopping Center): from an English page its link carries lang=en.
+ * District; 0.6.3: Housing Estate; 0.6.4: Shopping Center; 0.6.6: Tourism): from an English page its link carries lang=en.
  * Names are the English names the demos show in their header (live 2026-11-08), except Shopping Center, whose header
  * reads ศูนย์การค้า (“Shopping centers” in English since its 0.7.0). Change this list only when the registry or a demo changes, in every
  * repository at once.
@@ -44,6 +46,7 @@ export const DEMOS = Object.freeze([
   {path: 'luxurybrands', name: 'Luxury Brands', group: 'Location', at: true},
   {path: 'pharmacy', name: 'Pharmacy', group: 'Location', at: true, en: true},
   {path: 'restaurant', name: 'Restaurants', group: 'Location', at: true, en: true},
+  {path: 'tourism', name: 'Tourism', group: 'Location', at: true, en: true},
   {path: 'governmentoffice', name: 'Government Office', group: 'Living', at: true, en: true},
   {path: 'hospital', name: 'Hospital', group: 'Living', at: true, en: true},
   {path: 'school', name: 'School', group: 'Living', at: true, en: true},
