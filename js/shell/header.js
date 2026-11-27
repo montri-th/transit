@@ -78,6 +78,33 @@ export function languageLink(pathname = '/', search = '', lang = 'th') {
     title: other === 'en' ? 'Read in English (draft translation)' : 'อ่านเป็นภาษาไทย'};
 }
 
+/**
+ * Bring the language link up to date, writing only what changed; returns the number of writes (0.6.5). The link is
+ * refreshed as the pointer reaches it and as it is pressed, so that it follows every change of the address; Safari
+ * replaces a text node even when its text stays the same, and a click whose press landed on a text node that is gone by
+ * the release is never delivered (WebKit bug 252810), so EN could not be clicked in Safari (owner 2026-11-27 08:23,
+ * VERBATIM “EN บนเวบผมคลิกไม่ได้”; 08:47 “citymeter.pages.dev ใน Safari”). The words are written once, when they change.
+ */
+export function updateLanguageLink(el, link) {
+  if (!el || !link) return 0;
+  let writes = 0;
+  const set = (name, value) => {
+    if (el.getAttribute(name) === value) return;
+    el.setAttribute(name, value);
+    writes += 1;
+  };
+  set('href', link.href);
+  set('lang', link.lang);
+  set('hreflang', link.lang);
+  set('title', link.title);
+  set('translate', 'no');
+  if (el.textContent !== link.label) {
+    el.textContent = link.label;
+    writes += 1;
+  }
+  return writes;
+}
+
 /** Turn `.topbar .product-name` into the picker. Returns {open, close, button, menu} or null (no header). */
 export function installHeader({doc = document, win = window} = {}) {
   const name = doc.querySelector('.topbar .product-name');
@@ -141,16 +168,7 @@ export function installHeader({doc = document, win = window} = {}) {
     langLink.remove();
     langLink = null;
   }
-  const refreshLanguage = () => {
-    if (!langLink) return;
-    const link = languageLink(win.location.pathname, win.location.search, LANG);
-    langLink.href = link.href;
-    langLink.lang = link.lang;
-    langLink.hreflang = link.lang;
-    langLink.title = link.title;
-    langLink.setAttribute('translate', 'no');
-    langLink.textContent = link.label;
-  };
+  const refreshLanguage = () => updateLanguageLink(langLink, languageLink(win.location.pathname, win.location.search, LANG));
   refreshLanguage();
   for (const type of ['pointerenter', 'focus', 'pointerdown', 'click']) langLink?.addEventListener(type, refreshLanguage);
   const home = actions;
