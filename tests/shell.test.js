@@ -17,7 +17,7 @@ import {buildBreadcrumb, renderBreadcrumb, breadcrumbText, deepestHref} from '..
 import {pageTitle, TITLE_MAX} from '../js/shell/title.js';
 import {terrainChips} from '../js/shell/terrain.js';
 import {DEMOS, GROUPS, demoUrl, demoPath, hubUrl} from '../js/shell/datasets.js';
-import {demoHref, currentDemo, pickerList, placeLevel, hubHref, languageLink, PHONE_QUERY} from '../js/shell/header.js';
+import {demoHref, currentDemo, pickerList, placeLevel, hubHref, languageLink, updateLanguageLink, PHONE_QUERY} from '../js/shell/header.js';
 import {NAV_ICON_CONTRACT, CONTROL_GLYPHS, CONTROL_ICON_CONTRACT, keepScore, planToolbar, PHONE_QUERY as TOOLBAR_PHONE_QUERY} from '../js/shell/navigation.js';
 import {pageLanguage, languageHref, translate, translateIn, registerDictionary, registerNames, keepThai, englishDate, cutName, LANG} from '../js/shell/i18n.js';
 
@@ -379,6 +379,36 @@ test('language: ?lang=en as production writes it; Thai otherwise; the link keeps
   assert.deepEqual([th.label, th.lang, th.href], ['EN', 'en', '/office/?at=BKK&lang=en']);
   assert.match(th.title, /draft/);
   assert.deepEqual([en.label, en.lang, en.href], ['ไทย', 'th', '/office/?at=BKK']);
+});
+
+test('the language link is refreshed without replacing its words, so Safari keeps the click (0.6.5)', () => {
+  // A stand-in link: attributes in a map; every write to the words replaces them (as Safari does even for the same text).
+  const link = () => {
+    const attrs = new Map();
+    let text = '', replaced = 0;
+    return {
+      getAttribute: k => (attrs.has(k) ? attrs.get(k) : null), setAttribute: (k, v) => attrs.set(k, String(v)),
+      get textContent() { return text; }, set textContent(v) { text = String(v); replaced += 1; },
+      attrs, replaced: () => replaced,
+    };
+  };
+  const el = link();
+  const first = languageLink('/office/', '?at=BKK', 'th');
+  assert.equal(updateLanguageLink(el, first), 6, 'a new link gets its address, languages, title, translate="no" and words');
+  assert.deepEqual([el.getAttribute('href'), el.getAttribute('lang'), el.getAttribute('hreflang'), el.getAttribute('translate'), el.textContent],
+    ['/office/?at=BKK&lang=en', 'en', 'en', 'no', 'EN']);
+  // the pointer reaches the link and presses it: nothing changed, nothing written, the words are never replaced
+  for (let i = 0; i < 3; i++) assert.equal(updateLanguageLink(el, languageLink('/office/', '?at=BKK', 'th')), 0);
+  assert.equal(el.replaced(), 1);
+  // the address moved on: only the address is written
+  assert.equal(updateLanguageLink(el, languageLink('/office/', '?at=BKK/D/1039', 'th')), 1);
+  assert.equal(el.getAttribute('href'), '/office/?at=BKK/D/1039&lang=en');
+  assert.equal(el.replaced(), 1);
+  assert.equal(updateLanguageLink(null, first), 0, 'no link on a page without English');
+  // header.js refreshes the link through updateLanguageLink only, and writes no words of its own to it
+  const header = readFileSync(new URL('header.js', SHELL), 'utf8');
+  assert.match(header, /const refreshLanguage = \(\) => updateLanguageLink\(langLink, /);
+  assert.doesNotMatch(header, /langLink\.textContent\s*=/);
 });
 
 test('language: dictionaries by the Thai text — exact, patterns, parts between separators; names never translated by hand (0.5.0)', () => {
